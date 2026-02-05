@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { organizationApi } from '@/lib/api';
 
 const sidebarLinks = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -36,6 +37,14 @@ const sidebarLinks = [
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
+const onboardingStepRoutes: Record<number, string> = {
+  1: '/onboarding/identity',
+  2: '/onboarding/branches',
+  3: '/onboarding/finances',
+  4: '/onboarding/subscription',
+  5: '/onboarding/review',
+};
+
 export default function DashboardLayout({
   children,
 }: {
@@ -46,6 +55,7 @@ export default function DashboardLayout({
   const { user, isAuthenticated, isLoading, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +63,35 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      if (!isAuthenticated || isLoading) return;
+
+      try {
+        const orgData = await organizationApi.getMyOrganization();
+        
+        if (!orgData.organization.onboardingComplete) {
+          // Redirect to appropriate onboarding step
+          const step = orgData.organization.onboardingStep || 1;
+          const route = onboardingStepRoutes[step] || '/onboarding/identity';
+          router.push(route);
+        } else {
+          setCheckingOnboarding(false);
+        }
+      } catch (error) {
+        // No organization found - redirect to start onboarding
+        if (user?.role === 'member') {
+          router.push('/onboarding/identity');
+        } else {
+          setCheckingOnboarding(false);
+        }
+      }
+    };
+
+    checkOnboarding();
+  }, [isAuthenticated, isLoading, user, router]);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -70,7 +109,7 @@ export default function DashboardLayout({
     router.push('/login');
   };
 
-  if (isLoading) {
+  if (isLoading || checkingOnboarding) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
