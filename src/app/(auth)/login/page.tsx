@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import Head from 'next/head';
 import toast from 'react-hot-toast';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button, Input, Checkbox, Card } from '@/components/ui';
@@ -111,7 +112,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-140px)] flex items-center justify-center py-12 px-4">
+    <>
+      <Head>
+        <title>Login - Sanctuary Connect | Church Management Platform</title>
+        <meta name="description" content="Sign in to your Sanctuary Connect account to manage your church, members, events, and donations. Secure access for church administrators and staff." />
+        <meta name="keywords" content="church login, sanctuary connect, church management system, church admin login, church software" />
+        <meta name="robots" content="noindex, nofollow" />
+        <link rel="canonical" href="https://www.sanctuaryconnect.org/login" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Login - Sanctuary Connect" />
+        <meta property="og:description" content="Sign in to manage your church with Sanctuary Connect - the all-in-one church management platform." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.sanctuaryconnect.org/login" />
+        <meta property="og:image" content="https://www.sanctuaryconnect.org/og-login.jpg" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Login - Sanctuary Connect" />
+        <meta name="twitter:description" content="Sign in to manage your church with Sanctuary Connect - the all-in-one church management platform." />
+        <meta name="twitter:image" content="https://www.sanctuaryconnect.org/og-login.jpg" />
+      </Head>
+
+      <div className="min-h-[calc(100vh-140px)] flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md animate-slideUp">
         {/* Title */}
         <div className="text-center mb-8">
@@ -230,6 +253,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
