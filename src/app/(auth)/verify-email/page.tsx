@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -17,10 +17,11 @@ export default function VerifyEmailPage() {
   const [error, setError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+  const isNavigatingRef = useRef(false); // Track if we're navigating after successful verification
 
-  // Redirect if no pending email
+  // Redirect if no pending email (but not if we just verified and are navigating)
   useEffect(() => {
-    if (!pendingEmail) {
+    if (!pendingEmail && !isNavigatingRef.current) {
       router.push('/login');
     }
   }, [pendingEmail, router]);
@@ -53,9 +54,14 @@ export default function VerifyEmailPage() {
 
       // Update auth store
       setUser(response.user, response.token);
-      clearPendingEmail();
 
       toast.success('Email verified successfully!');
+
+      // Mark that we're navigating to prevent the useEffect redirect
+      isNavigatingRef.current = true;
+
+      // Clear pending email and navigate
+      clearPendingEmail();
       router.push('/onboarding/identity');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
