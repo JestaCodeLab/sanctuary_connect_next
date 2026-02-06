@@ -94,7 +94,8 @@ export default function EventsPage() {
     reset,
     formState: { errors },
   } = useForm<EventFormData>({
-    resolver: zodResolver(eventSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(eventSchema) as any,
   });
 
   const onSubmit = (data: EventFormData) => {

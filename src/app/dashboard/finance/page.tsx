@@ -73,7 +73,8 @@ export default function FinancePage() {
     reset,
     formState: { errors },
   } = useForm<DonationFormData>({
-    resolver: zodResolver(donationSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(donationSchema) as any,
     defaultValues: {
       amount: undefined,
       donationType: '',

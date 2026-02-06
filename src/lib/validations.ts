@@ -115,14 +115,20 @@ export const eventSchema = z.object({
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
   location: z.string().optional(),
-  maxCapacity: z.number().min(1).optional(),
+  maxCapacity: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(1).optional()
+  ),
 });
 
 export type EventFormData = z.infer<typeof eventSchema>;
 
 // Donation schema
 export const donationSchema = z.object({
-  amount: z.number().min(0.01, 'Amount must be greater than 0'),
+  amount: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0.01, 'Amount must be greater than 0')
+  ),
   donationType: z.string().optional(),
   donationDate: z.string().min(1, 'Date is required'),
   paymentMethod: z.string().optional(),
