@@ -69,7 +69,8 @@ export const branchSchema = z.object({
   name: z.string().min(1, 'Branch name is required').max(100, 'Branch name is too long'),
   address: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional(),
+  suburb: z.string().optional(),
+  region: z.string().optional(),
   zipCode: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -99,9 +100,12 @@ export const memberSchema = z.object({
   maritalStatus: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional(),
+  suburb: z.string().optional(),
+  region: z.string().optional(),
   zipCode: z.string().optional(),
   country: z.string().optional(),
+  baptismDate: z.string().optional(),
+  membershipDate: z.string().optional(),
   memberStatus: z.enum(['active', 'inactive', 'visiting', 'transferred']).optional(),
 });
 

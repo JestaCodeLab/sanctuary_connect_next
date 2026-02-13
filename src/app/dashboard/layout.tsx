@@ -29,11 +29,11 @@ const sidebarLinks = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Branches', href: '/dashboard/branches', icon: Building2 },
   { label: 'Members', href: '/dashboard/members', icon: Users },
+  { label: 'Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck },
   { label: 'Finance', href: '/dashboard/finance', icon: DollarSign },
   { label: 'Communication', href: '/dashboard/communication', icon: MessageSquare },
   { label: 'Prayer Wall', href: '/dashboard/prayer-wall', icon: HandHeart },
-  { label: 'Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -133,7 +133,7 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:z-auto ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

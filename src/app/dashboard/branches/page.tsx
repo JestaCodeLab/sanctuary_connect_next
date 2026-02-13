@@ -12,9 +12,11 @@ import { PageHeader, Modal, StatsGrid, Badge, EmptyState } from '@/components/da
 import { Button, Input, Card, Checkbox } from '@/components/ui';
 import { organizationApi } from '@/lib/api';
 import { branchSchema, type BranchFormData } from '@/lib/validations';
+import type { Branch } from '@/types';
 
 export default function BranchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const queryClient = useQueryClient();
 
   const { data: orgData, isLoading } = useQuery({
@@ -36,7 +38,8 @@ export default function BranchesPage() {
       name: '',
       address: '',
       city: '',
-      state: '',
+      suburb: '',
+      region: '',
       zipCode: '',
       radius: 200,
       isHeadOffice: false,
@@ -51,8 +54,7 @@ export default function BranchesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
       toast.success('Branch created successfully');
-      reset();
-      setIsModalOpen(false);
+      handleCloseModal();
     },
     onError: (error: any) => {
       const message =
@@ -63,16 +65,73 @@ export default function BranchesPage() {
     },
   });
 
+  const updateBranchMutation = useMutation({
+    mutationFn: (data: BranchFormData) => {
+      if (!organization?._id || !editingBranch?._id) throw new Error('Organization or branch not found');
+      return organizationApi.updateBranch(organization._id, editingBranch._id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      toast.success('Branch updated successfully');
+      handleCloseModal();
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        'Failed to update branch';
+      toast.error(message);
+    },
+  });
+
   const onSubmit = (data: BranchFormData) => {
-    createBranchMutation.mutate(data);
+    if (editingBranch) {
+      updateBranchMutation.mutate(data);
+    } else {
+      createBranchMutation.mutate(data);
+    }
   };
 
   const handleOpenModal = () => {
-    reset();
+    setEditingBranch(null);
+    reset({
+      name: '',
+      address: '',
+      city: '',
+      suburb: '',
+      region: '',
+      zipCode: '',
+      radius: 200,
+      isHeadOffice: false,
+    });
     setIsModalOpen(true);
   };
 
+  const handleEditBranch = (branch: Branch) => {
+    setEditingBranch(branch);
+    reset({
+      name: branch.name,
+      address: branch.address || '',
+      city: branch.city || '',
+      suburb: branch.suburb || '',
+      region: branch.region || '',
+      zipCode: branch.zipCode || '',
+      radius: branch.geofenceRadius || 200,
+      isHeadOffice: branch.isHeadOffice || false,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingBranch(null);
+    reset();
+  };
+
   const headOffice = branches.find((b) => b.isHeadOffice);
+
+  const isEditing = !!editingBranch;
+  const isMutating = createBranchMutation.isPending || updateBranchMutation.isPending || isSubmitting;
 
   const stats = [
     {
@@ -140,20 +199,18 @@ export default function BranchesPage() {
                   variant="ghost"
                   size="sm"
                   className="p-1.5"
-                  onClick={() => {
-                    // Edit functionality placeholder
-                  }}
+                  onClick={() => handleEditBranch(branch)}
                 >
                   <Edit2 className="w-4 h-4" />
                 </Button>
               </div>
 
               <div className="space-y-2 mt-4">
-                {(branch.address || branch.city || branch.state) && (
+                {(branch.address || branch.city || branch.suburb || branch.region) && (
                   <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-muted mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-muted">
-                      {[branch.address, branch.city, branch.state, branch.zipCode]
+                      {[branch.address, branch.suburb, branch.city, branch.region, branch.zipCode]
                         .filter(Boolean)
                         .join(', ')}
                     </p>
@@ -174,12 +231,12 @@ export default function BranchesPage() {
         </div>
       )}
 
-      {/* Add Branch Modal */}
+      {/* Add / Edit Branch Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add Branch"
-        description="Create a new church branch location"
+        onClose={handleCloseModal}
+        title={isEditing ? 'Edit Branch' : 'Add Branch'}
+        description={isEditing ? 'Update branch details' : 'Create a new church branch location'}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
@@ -204,12 +261,19 @@ export default function BranchesPage() {
               {...register('city')}
             />
             <Input
-              label="State"
-              placeholder="State"
-              error={errors.state?.message}
-              {...register('state')}
+              label="Suburb"
+              placeholder="Suburb"
+              error={errors.suburb?.message}
+              {...register('suburb')}
             />
           </div>
+
+          <Input
+            label="Region"
+            placeholder="Region"
+            error={errors.region?.message}
+            {...register('region')}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -236,15 +300,15 @@ export default function BranchesPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setIsModalOpen(false)}
+              onClick={handleCloseModal}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              isLoading={createBranchMutation.isPending || isSubmitting}
+              isLoading={isMutating}
             >
-              Create Branch
+              {isEditing ? 'Save Changes' : 'Create Branch'}
             </Button>
           </div>
         </form>

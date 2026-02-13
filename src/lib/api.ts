@@ -20,6 +20,7 @@ import type {
   ApiError,
   Member,
   CreateMemberRequest,
+  UpdateMemberRequest,
   ChurchEvent,
   CreateEventRequest,
   UpdateEventRequest,
@@ -163,6 +164,11 @@ export const organizationApi = {
     return response.data;
   },
 
+  updateBranch: async (organizationId: string, branchId: string, data: Partial<Omit<CreateBranchRequest, 'organizationId'>>): Promise<Branch> => {
+    const response = await api.put<Branch>(`/api/organizations/${organizationId}/branches/${branchId}`, data);
+    return response.data;
+  },
+
   // Fund Buckets
   createFundBucket: async (organizationId: string, data: Omit<CreateFundBucketRequest, 'organizationId'>): Promise<FundBucket> => {
     const response = await api.post<FundBucket>(`/api/organizations/${organizationId}/fund-buckets`, {
@@ -271,7 +277,7 @@ export const membersApi = {
     const response = await api.post<Member>('/api/members', data);
     return response.data;
   },
-  update: async (id: string, data: Partial<CreateMemberRequest>): Promise<Member> => {
+  update: async (id: string, data: UpdateMemberRequest): Promise<Member> => {
     const response = await api.put<Member>(`/api/members/${id}`, data);
     return response.data;
   },

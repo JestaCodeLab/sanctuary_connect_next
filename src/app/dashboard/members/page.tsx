@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Users, UserPlus, Search, Trash2, Edit2 } from 'lucide-react';
@@ -27,6 +28,7 @@ function formatDate(dateString: string): string {
 }
 
 export default function MembersPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -48,7 +50,7 @@ export default function MembersPage() {
 
   // Client-side search and filter
   const filteredMembers = members.filter((member: Member) => {
-    const fullName = `${member.userId.firstName} ${member.userId.lastName}`.toLowerCase();
+    const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const matchesSearch = fullName.includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
@@ -84,9 +86,7 @@ export default function MembersPage() {
         description="Manage your church members"
         actionLabel="Add Member"
         actionIcon={UserPlus}
-        onAction={() => {
-          /* TODO: open add member form */
-        }}
+        onAction={() => router.push('/dashboard/members/new')}
       />
 
       <StatsGrid stats={stats} />
@@ -138,9 +138,7 @@ export default function MembersPage() {
             actionLabel={!search && statusFilter === 'All' ? 'Add Member' : undefined}
             onAction={
               !search && statusFilter === 'All'
-                ? () => {
-                    /* TODO: open add member form */
-                  }
+                ? () => router.push('/dashboard/members/new')
                 : undefined
             }
           />
@@ -179,24 +177,24 @@ export default function MembersPage() {
                         <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                           <span className="text-xs font-medium text-white">
                             {getInitials(
-                              member.userId.firstName,
-                              member.userId.lastName
+                              member.firstName,
+                              member.lastName
                             )}
                           </span>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">
-                            {member.userId.firstName} {member.userId.lastName}
+                            {member.firstName} {member.lastName}
                           </p>
                           <p className="text-xs text-muted">
-                            {member.userId.email}
+                            {member.email}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-foreground">
-                        {member.userId.phone || '\u2014'}
+                        {member.phone || '\u2014'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -221,10 +219,8 @@ export default function MembersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            /* TODO: open edit member form */
-                          }}
-                          aria-label={`Edit ${member.userId.firstName} ${member.userId.lastName}`}
+                          onClick={() => router.push(`/dashboard/members/${member._id}/edit`)}
+                          aria-label={`Edit ${member.firstName} ${member.lastName}`}
                         >
                           <Edit2 className="w-4 h-4" />
                         </Button>
@@ -232,7 +228,7 @@ export default function MembersPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeleteId(member._id)}
-                          aria-label={`Delete ${member.userId.firstName} ${member.userId.lastName}`}
+                          aria-label={`Delete ${member.firstName} ${member.lastName}`}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
@@ -259,7 +255,7 @@ export default function MembersPage() {
             Are you sure you want to remove{' '}
             <span className="font-semibold text-foreground">
               {memberToDelete
-                ? `${memberToDelete.userId.firstName} ${memberToDelete.userId.lastName}`
+                ? `${memberToDelete.firstName} ${memberToDelete.lastName}`
                 : 'this member'}
             </span>{' '}
             from the directory?

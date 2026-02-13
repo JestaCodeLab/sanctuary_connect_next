@@ -113,7 +113,8 @@ export interface Branch {
   name: string;
   address?: string;
   city?: string;
-  state?: string;
+  suburb?: string;
+  region?: string;
   zipCode?: string;
   latitude?: number;
   longitude?: number;
@@ -128,7 +129,8 @@ export interface CreateBranchRequest {
   name: string;
   address?: string;
   city?: string;
-  state?: string;
+  suburb?: string;
+  region?: string;
   zipCode?: string;
   latitude?: number;
   longitude?: number;
@@ -183,19 +185,18 @@ export interface SubscriptionState {
 // Member types
 export interface Member {
   _id: string;
-  userId: {
-    _id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-  };
+  userId?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
   dateOfBirth?: string;
   gender?: string;
   maritalStatus?: string;
   address?: string;
   city?: string;
-  state?: string;
+  suburb?: string;
+  region?: string;
   zipCode?: string;
   country?: string;
   baptismDate?: string;
@@ -206,17 +207,41 @@ export interface Member {
 }
 
 export interface CreateMemberRequest {
-  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
   dateOfBirth?: string;
   gender?: string;
   maritalStatus?: string;
   address?: string;
   city?: string;
-  state?: string;
+  suburb?: string;
+  region?: string;
   zipCode?: string;
   country?: string;
   baptismDate?: string;
   membershipDate?: string;
+  memberStatus?: string;
+}
+
+export interface UpdateMemberRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  maritalStatus?: string;
+  address?: string;
+  city?: string;
+  suburb?: string;
+  region?: string;
+  zipCode?: string;
+  country?: string;
+  baptismDate?: string;
+  membershipDate?: string;
+  memberStatus?: string;
 }
 
 // Event types (named ChurchEvent to avoid DOM Event collision)
