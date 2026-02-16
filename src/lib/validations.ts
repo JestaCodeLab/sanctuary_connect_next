@@ -163,6 +163,23 @@ export const messageSchema = z.object({
 
 export type MessageFormData = z.infer<typeof messageSchema>;
 
+// Attendance schema
+export const attendanceSchema = z.object({
+  eventId: z.string().min(1, 'Event is required'),
+  date: z.string().min(1, 'Date is required'),
+  totalPresent: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0, 'Must be 0 or greater')
+  ),
+  totalAbsent: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0, 'Must be 0 or greater')
+  ),
+  notes: z.string().optional(),
+});
+
+export type AttendanceFormData = z.infer<typeof attendanceSchema>;
+
 // Password strength checker
 export const getPasswordStrength = (password: string): {
   score: number;

@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { HandHeart, Heart, Plus, Info, CheckCircle } from 'lucide-react';
-import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
-import { Card, Button } from '@/components/ui';
+import { HandHeart, Heart, Plus, CheckCircle, Trash2 } from 'lucide-react';
+import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { Card, Button, Input, Select } from '@/components/ui';
+import { prayerRequestsApi } from '@/lib/api';
+import { prayerRequestSchema } from '@/lib/validations';
+import type { PrayerRequestFormData } from '@/lib/validations';
 import type { PrayerRequest } from '@/types';
 
 type StatusFilter = 'all' | 'active' | 'answered';
@@ -16,15 +22,6 @@ const categoryBadgeVariant: Record<PrayerRequest['category'], 'error' | 'warning
   spiritual: 'success',
   other: 'muted',
 };
-
-const initialPrayers: PrayerRequest[] = [
-  { _id: '1', title: 'Healing for Sister Mary', description: 'Please pray for Sister Mary who is recovering from surgery. She needs strength and comfort during this time.', category: 'health', status: 'active', isAnonymous: false, authorName: 'John D.', prayerCount: 24, createdAt: '2026-01-30' },
-  { _id: '2', title: 'Guidance for Career Change', description: 'Seeking God\'s direction as I consider a major career transition. Pray for clarity and peace in this decision.', category: 'spiritual', status: 'active', isAnonymous: true, prayerCount: 18, createdAt: '2026-01-28' },
-  { _id: '3', title: 'Family Restoration', description: 'Please pray for reconciliation and healing in my family. We are going through a difficult season.', category: 'family', status: 'active', isAnonymous: false, authorName: 'Sarah M.', prayerCount: 31, createdAt: '2026-01-25' },
-  { _id: '4', title: 'Financial Breakthrough', description: 'Trusting God for provision during this challenging financial period. Pray for open doors and wisdom.', category: 'financial', status: 'active', isAnonymous: true, prayerCount: 15, createdAt: '2026-01-22' },
-  { _id: '5', title: 'Safe Pregnancy', description: 'Thank God! Baby was born healthy last week. Prayers answered!', category: 'health', status: 'answered', isAnonymous: false, authorName: 'David K.', prayerCount: 45, createdAt: '2026-01-15' },
-  { _id: '6', title: 'New Job Opportunity', description: 'God opened an amazing door! Got the job offer yesterday. Thank you all for your prayers!', category: 'financial', status: 'answered', isAnonymous: false, authorName: 'Grace O.', prayerCount: 28, createdAt: '2026-01-10' },
-];
 
 function getTimeAgo(dateString: string): string {
   const now = new Date();
@@ -44,14 +41,91 @@ function getTimeAgo(dateString: string): string {
 }
 
 export default function PrayerWallPage() {
-  const [prayers, setPrayers] = useState<PrayerRequest[]>(initialPrayers);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [prayedSet, setPrayedSet] = useState<Set<string>>(new Set());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: prayers = [], isLoading } = useQuery({
+    queryKey: ['prayer-requests'],
+    queryFn: prayerRequestsApi.getAll,
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<PrayerRequestFormData>({
+    resolver: zodResolver(prayerRequestSchema) as any,
+    defaultValues: {
+      category: 'other',
+      isAnonymous: false,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: prayerRequestsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prayer-requests'] });
+      toast.success('Prayer request submitted');
+      setIsModalOpen(false);
+      reset();
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.error || 'Failed to submit prayer request';
+      toast.error(message);
+    },
+  });
+
+  const prayMutation = useMutation({
+    mutationFn: prayerRequestsApi.pray,
+    onSuccess: (_data, prayerId) => {
+      queryClient.invalidateQueries({ queryKey: ['prayer-requests'] });
+      setPrayedSet((prev) => {
+        const next = new Set(prev);
+        next.add(prayerId);
+        return next;
+      });
+      toast.success('Prayer added');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.error || 'Failed to record prayer';
+      toast.error(message);
+    },
+  });
+
+  const markAnsweredMutation = useMutation({
+    mutationFn: prayerRequestsApi.markAsAnswered,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prayer-requests'] });
+      toast.success('Marked as answered');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: prayerRequestsApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prayer-requests'] });
+      toast.success('Prayer request deleted');
+      setDeleteId(null);
+    },
+  });
+
+  const onSubmit = (data: PrayerRequestFormData) => {
+    createMutation.mutate({
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      isAnonymous: data.isAnonymous,
+    });
+  };
 
   // Computed stats
-  const activeCount = prayers.filter((p) => p.status === 'active').length;
-  const answeredCount = prayers.filter((p) => p.status === 'answered').length;
-  const totalPrayersOffered = prayers.reduce((sum, p) => sum + p.prayerCount, 0);
+  const activeCount = prayers.filter((p: PrayerRequest) => p.status === 'active').length;
+  const answeredCount = prayers.filter((p: PrayerRequest) => p.status === 'answered').length;
+  const totalPrayersOffered = prayers.reduce((sum: number, p: PrayerRequest) => sum + p.prayerCount, 0);
 
   const stats = [
     { label: 'Active Requests', value: activeCount, icon: HandHeart },
@@ -60,7 +134,7 @@ export default function PrayerWallPage() {
   ];
 
   // Client-side filtering
-  const filteredPrayers = prayers.filter((prayer) => {
+  const filteredPrayers = prayers.filter((prayer: PrayerRequest) => {
     if (statusFilter === 'all') return true;
     return prayer.status === statusFilter;
   });
@@ -71,19 +145,9 @@ export default function PrayerWallPage() {
     { label: 'Answered', value: 'answered' },
   ];
 
-  const handlePray = (prayerId: string) => {
-    setPrayers((prev) =>
-      prev.map((p) =>
-        p._id === prayerId ? { ...p, prayerCount: p.prayerCount + 1 } : p
-      )
-    );
-    setPrayedSet((prev) => {
-      const next = new Set(prev);
-      next.add(prayerId);
-      return next;
-    });
-    toast.success('Prayer added');
-  };
+  const prayerToDelete = deleteId
+    ? prayers.find((p: PrayerRequest) => p._id === deleteId)
+    : null;
 
   return (
     <div>
@@ -92,16 +156,8 @@ export default function PrayerWallPage() {
         description="Share and support prayer requests"
         actionLabel="Submit Request"
         actionIcon={Plus}
-        onAction={() => toast('Backend integration coming soon')}
+        onAction={() => setIsModalOpen(true)}
       />
-
-      {/* Info Banner */}
-      <div className="flex items-center gap-3 bg-primary-light text-primary rounded-xl px-4 py-3 mb-6">
-        <Info className="w-5 h-5 flex-shrink-0" />
-        <p className="text-sm">
-          Prayer wall backend is coming soon. The data shown below is for preview purposes.
-        </p>
-      </div>
 
       <StatsGrid stats={stats} />
 
@@ -123,33 +179,67 @@ export default function PrayerWallPage() {
       </div>
 
       {/* Prayer Request Cards */}
-      {filteredPrayers.length === 0 ? (
+      {isLoading ? (
+        <Card padding="lg">
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        </Card>
+      ) : filteredPrayers.length === 0 ? (
         <EmptyState
           icon={HandHeart}
           title="No prayer requests"
-          description="There are no prayer requests matching this filter. Try selecting a different filter or submit a new request."
+          description={
+            statusFilter !== 'all'
+              ? 'Try selecting a different filter.'
+              : 'Be the first to submit a prayer request.'
+          }
+          actionLabel={statusFilter === 'all' ? 'Submit Request' : undefined}
+          onAction={statusFilter === 'all' ? () => setIsModalOpen(true) : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPrayers.map((prayer) => (
+          {filteredPrayers.map((prayer: PrayerRequest) => (
             <Card
               key={prayer._id}
               padding="md"
               className="hover:shadow-md transition-shadow"
             >
               {/* Top row: Category + Answered Badge */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={categoryBadgeVariant[prayer.category]}>
-                  {prayer.category.charAt(0).toUpperCase() + prayer.category.slice(1)}
-                </Badge>
-                {prayer.status === 'answered' && (
-                  <Badge variant="success">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Answered
-                    </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={categoryBadgeVariant[prayer.category]}>
+                    {prayer.category.charAt(0).toUpperCase() + prayer.category.slice(1)}
                   </Badge>
-                )}
+                  {prayer.status === 'answered' && (
+                    <Badge variant="success">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Answered
+                      </span>
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {prayer.status === 'active' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => markAnsweredMutation.mutate(prayer._id)}
+                      aria-label="Mark as answered"
+                    >
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteId(prayer._id)}
+                    aria-label="Delete prayer request"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
 
               {/* Title */}
@@ -164,7 +254,7 @@ export default function PrayerWallPage() {
 
               {/* Author */}
               <p className="text-xs text-muted-foreground mt-3">
-                {prayer.isAnonymous ? 'Anonymous' : prayer.authorName}
+                {prayer.isAnonymous ? 'Anonymous' : prayer.authorName || 'Anonymous'}
               </p>
 
               {/* Bottom row */}
@@ -179,9 +269,10 @@ export default function PrayerWallPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handlePray(prayer._id)}
+                  disabled={prayedSet.has(prayer._id)}
+                  onClick={() => prayMutation.mutate(prayer._id)}
                 >
-                  Pray
+                  {prayedSet.has(prayer._id) ? 'Prayed' : 'Pray'}
                 </Button>
               </div>
 
@@ -193,6 +284,123 @@ export default function PrayerWallPage() {
           ))}
         </div>
       )}
+
+      {/* Submit Prayer Request Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          reset();
+        }}
+        title="Submit Prayer Request"
+        description="Share your prayer request with the congregation."
+        size="md"
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <Input
+            label="Title"
+            error={errors.title?.message}
+            {...register('title')}
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Description
+            </label>
+            <textarea
+              className={`block w-full rounded-lg border bg-white dark:bg-gray-800 px-3 py-2.5
+                text-gray-900 dark:text-gray-100 transition-colors duration-200
+                focus:outline-none focus:ring-2 focus:ring-[#3AAFDC] focus:border-transparent
+                ${errors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+              rows={4}
+              {...register('description')}
+            />
+            {errors.description && (
+              <p className="mt-1.5 text-sm text-red-500 dark:text-red-400">{errors.description.message}</p>
+            )}
+          </div>
+
+          <Select
+            label="Category"
+            options={[
+              { value: 'health', label: 'Health' },
+              { value: 'family', label: 'Family' },
+              { value: 'financial', label: 'Financial' },
+              { value: 'spiritual', label: 'Spiritual' },
+              { value: 'other', label: 'Other' },
+            ]}
+            error={errors.category?.message}
+            {...register('category')}
+          />
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isAnonymous"
+              className="rounded border-gray-300 text-primary focus:ring-primary"
+              {...register('isAnonymous')}
+            />
+            <label htmlFor="isAnonymous" className="text-sm text-gray-700 dark:text-gray-300">
+              Submit anonymously
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsModalOpen(false);
+                reset();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={createMutation.isPending}
+            >
+              Submit Request
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        title="Delete Prayer Request"
+        description="This action cannot be undone."
+        size="sm"
+      >
+        <div>
+          <p className="text-sm text-muted mb-6">
+            Are you sure you want to delete{' '}
+            <span className="font-semibold text-foreground">
+              {prayerToDelete ? prayerToDelete.title : 'this prayer request'}
+            </span>
+            ?
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="!bg-red-600 hover:!bg-red-700 focus:!ring-red-500"
+              isLoading={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteId) {
+                  deleteMutation.mutate(deleteId);
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

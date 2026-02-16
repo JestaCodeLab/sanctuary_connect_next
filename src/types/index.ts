@@ -330,15 +330,39 @@ export interface DonationStats {
   month: string;
 }
 
-// Frontend-only types (no backend yet)
+// Attendance types
 export interface AttendanceRecord {
   _id: string;
-  eventTitle: string;
+  eventId: {
+    _id: string;
+    title: string;
+    eventType?: string;
+  };
   date: string;
   totalPresent: number;
   totalAbsent: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
+export interface CreateAttendanceRequest {
+  eventId: string;
+  date: string;
+  totalPresent: number;
+  totalAbsent: number;
+  notes?: string;
+}
+
+export interface AttendanceStats {
+  totalRecords: number;
+  averageRate: number;
+  totalPresent: number;
+  totalAbsent: number;
+  lastAttendance: number;
+}
+
+// Message types
 export interface Message {
   _id: string;
   subject: string;
@@ -349,19 +373,40 @@ export interface Message {
   status: 'draft' | 'sent' | 'scheduled';
   sentAt?: string;
   scheduledAt?: string;
+  authorId?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
+export interface CreateMessageRequest {
+  subject: string;
+  body: string;
+  recipientType: 'all' | 'branch' | 'group' | 'individual';
+  channel: 'email' | 'sms' | 'in-app';
+  status?: 'draft' | 'sent' | 'scheduled';
+  scheduledAt?: string;
+}
+
+// Prayer Request types
 export interface PrayerRequest {
   _id: string;
   title: string;
   description: string;
   category: 'health' | 'family' | 'financial' | 'spiritual' | 'other';
-  status: 'active' | 'answered' | 'closed';
+  status: 'active' | 'answered';
   isAnonymous: boolean;
   authorName?: string;
   prayerCount: number;
+  prayedByUsers?: string[];
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePrayerRequestRequest {
+  title: string;
+  description: string;
+  category: 'health' | 'family' | 'financial' | 'spiritual' | 'other';
+  isAnonymous?: boolean;
 }
 
 // Onboarding state

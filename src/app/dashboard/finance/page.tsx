@@ -53,6 +53,8 @@ function formatDate(dateString: string): string {
 
 export default function FinancePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewTarget, setViewTarget] = useState<Donation | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: donations = [], isLoading } = useQuery({
@@ -98,8 +100,44 @@ export default function FinancePage() {
     },
   });
 
+  const editForm = useForm<DonationFormData>({
+    resolver: zodResolver(donationSchema) as any,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: DonationFormData }) => donationsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['donations'] });
+      toast.success('Donation updated successfully');
+      setViewTarget(null);
+      setIsEditMode(false);
+      editForm.reset();
+    },
+    onError: () => {
+      toast.error('Failed to update donation');
+    },
+  });
+
   const onSubmit = (data: DonationFormData) => {
     createMutation.mutate(data);
+  };
+
+  const handleView = (donation: Donation) => {
+    setViewTarget(donation);
+    setIsEditMode(false);
+  };
+
+  const handleStartEdit = () => {
+    if (!viewTarget) return;
+    editForm.reset({
+      amount: viewTarget.amount,
+      donationType: viewTarget.donationType || '',
+      donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
+      paymentMethod: viewTarget.paymentMethod || '',
+      notes: viewTarget.notes || '',
+      fundBucketId: viewTarget.fundBucketId?._id || '',
+    });
+    setIsEditMode(true);
   };
 
   // Compute stats from donations array
@@ -251,9 +289,7 @@ export default function FinancePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            /* TODO: view/edit donation */
-                          }}
+                          onClick={() => handleView(donation)}
                         >
                           View
                         </Button>
@@ -358,6 +394,139 @@ export default function FinancePage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* View/Edit Donation Modal */}
+      <Modal
+        isOpen={viewTarget !== null}
+        onClose={() => {
+          setViewTarget(null);
+          setIsEditMode(false);
+          editForm.reset();
+        }}
+        title={isEditMode ? 'Edit Donation' : 'Donation Details'}
+        size="lg"
+      >
+        {viewTarget && !isEditMode && (
+          <div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <p className="text-sm text-muted">Date</p>
+                <p className="text-foreground font-medium">{formatDate(viewTarget.donationDate)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Amount</p>
+                <p className="text-foreground font-medium">{formatCurrency(viewTarget.amount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Donor</p>
+                <p className="text-foreground">
+                  {viewTarget.donorId
+                    ? `${viewTarget.donorId.firstName} ${viewTarget.donorId.lastName}`
+                    : 'Anonymous'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Type</p>
+                <p className="text-foreground capitalize">{viewTarget.donationType || '—'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Payment Method</p>
+                <p className="text-foreground capitalize">{viewTarget.paymentMethod?.replace('_', ' ') || '—'}</p>
+              </div>
+              {viewTarget.fundBucketId && (
+                <div>
+                  <p className="text-sm text-muted">Fund Bucket</p>
+                  <p className="text-foreground">{viewTarget.fundBucketId.name}</p>
+                </div>
+              )}
+              {viewTarget.notes && (
+                <div className="col-span-2">
+                  <p className="text-sm text-muted">Notes</p>
+                  <p className="text-foreground">{viewTarget.notes}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="outline" onClick={() => { setViewTarget(null); setIsEditMode(false); }}>
+                Close
+              </Button>
+              <Button onClick={handleStartEdit}>
+                Edit
+              </Button>
+            </div>
+          </div>
+        )}
+        {viewTarget && isEditMode && (
+          <form
+            onSubmit={editForm.handleSubmit((data) =>
+              updateMutation.mutate({ id: viewTarget._id, data })
+            )}
+            className="space-y-5"
+          >
+            <Input
+              label="Amount"
+              type="number"
+              step="0.01"
+              error={editForm.formState.errors.amount?.message}
+              {...editForm.register('amount')}
+            />
+
+            <Select
+              label="Donation Type"
+              options={donationTypeOptions}
+              placeholder="Select donation type"
+              error={editForm.formState.errors.donationType?.message}
+              {...editForm.register('donationType')}
+            />
+
+            <Input
+              label="Donation Date"
+              type="date"
+              error={editForm.formState.errors.donationDate?.message}
+              {...editForm.register('donationDate')}
+            />
+
+            <Select
+              label="Payment Method"
+              options={paymentMethodOptions}
+              placeholder="Select payment method"
+              error={editForm.formState.errors.paymentMethod?.message}
+              {...editForm.register('paymentMethod')}
+            />
+
+            {fundBucketOptions.length > 0 && (
+              <Select
+                label="Fund Bucket"
+                options={fundBucketOptions}
+                placeholder="Select fund bucket"
+                error={editForm.formState.errors.fundBucketId?.message}
+                {...editForm.register('fundBucketId')}
+              />
+            )}
+
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Notes
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Optional notes..."
+                className="w-full px-3 py-2 rounded-lg border border-input bg-input-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                {...editForm.register('notes')}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditMode(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={updateMutation.isPending}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

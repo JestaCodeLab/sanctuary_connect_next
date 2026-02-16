@@ -51,7 +51,9 @@ export default function EventsPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchText, setSearchText] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [editTarget, setEditTarget] = useState<ChurchEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChurchEvent | null>(null);
 
   // Data fetching
@@ -66,7 +68,7 @@ export default function EventsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       toast.success('Event created successfully');
-      setIsCreateModalOpen(false);
+      setIsModalOpen(false);
       reset();
     },
     onError: () => {
@@ -87,6 +89,21 @@ export default function EventsPage() {
     },
   });
 
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: EventFormData }) => eventsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      toast.success('Event updated successfully');
+      setIsModalOpen(false);
+      setEditTarget(null);
+      reset();
+    },
+    onError: () => {
+      toast.error('Failed to update event');
+    },
+  });
+
   // Form
   const {
     register,
@@ -99,7 +116,41 @@ export default function EventsPage() {
   });
 
   const onSubmit = (data: EventFormData) => {
-    createMutation.mutate(data);
+    if (modalMode === 'edit' && editTarget) {
+      updateMutation.mutate({ id: editTarget._id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (event: ChurchEvent) => {
+    setEditTarget(event);
+    setModalMode('edit');
+    reset({
+      title: event.title,
+      description: event.description || '',
+      eventType: event.eventType || '',
+      startDate: event.startDate ? new Date(event.startDate).toISOString().slice(0, 16) : '',
+      endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
+      location: event.location || '',
+      maxCapacity: event.maxCapacity,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setModalMode('create');
+    setEditTarget(null);
+    reset({
+      title: '',
+      description: '',
+      eventType: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      maxCapacity: undefined,
+    });
+    setIsModalOpen(true);
   };
 
   // Computed stats
@@ -139,7 +190,7 @@ export default function EventsPage() {
         description="Manage church events and activities"
         actionLabel="Create Event"
         actionIcon={Plus}
-        onAction={() => setIsCreateModalOpen(true)}
+        onAction={handleOpenCreate}
       />
 
       <StatsGrid stats={stats} />
@@ -188,7 +239,7 @@ export default function EventsPage() {
           title="No events yet"
           description="Create your first event to get started managing your church activities."
           actionLabel="Create Event"
-          onAction={() => setIsCreateModalOpen(true)}
+          onAction={handleOpenCreate}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -254,6 +305,7 @@ export default function EventsPage() {
                   variant="ghost"
                   size="sm"
                   leftIcon={<Edit2 className="w-4 h-4" />}
+                  onClick={() => handleEdit(event)}
                 >
                   Edit
                 </Button>
@@ -272,15 +324,16 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Create Event Modal */}
+      {/* Create/Edit Event Modal */}
       <Modal
-        isOpen={isCreateModalOpen}
+        isOpen={isModalOpen}
         onClose={() => {
-          setIsCreateModalOpen(false);
+          setIsModalOpen(false);
+          setEditTarget(null);
           reset();
         }}
-        title="Create Event"
-        description="Fill in the details to create a new church event."
+        title={modalMode === 'edit' ? 'Edit Event' : 'Create Event'}
+        description={modalMode === 'edit' ? 'Update the event details.' : 'Fill in the details to create a new church event.'}
         size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -351,7 +404,8 @@ export default function EventsPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                setIsCreateModalOpen(false);
+                setIsModalOpen(false);
+                setEditTarget(null);
                 reset();
               }}
             >
@@ -359,9 +413,9 @@ export default function EventsPage() {
             </Button>
             <Button
               type="submit"
-              isLoading={createMutation.isPending}
+              isLoading={modalMode === 'edit' ? updateMutation.isPending : createMutation.isPending}
             >
-              Create Event
+              {modalMode === 'edit' ? 'Save Changes' : 'Create Event'}
             </Button>
           </div>
         </form>

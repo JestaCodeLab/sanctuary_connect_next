@@ -27,6 +27,13 @@ import type {
   Donation,
   CreateDonationRequest,
   DonationStats,
+  AttendanceRecord,
+  CreateAttendanceRequest,
+  AttendanceStats,
+  Message,
+  CreateMessageRequest,
+  PrayerRequest,
+  CreatePrayerRequestRequest,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -331,6 +338,86 @@ export const donationsApi = {
   },
   getStats: async (): Promise<DonationStats[]> => {
     const response = await api.get<DonationStats[]>('/api/donations/stats/summary');
+    return response.data;
+  },
+};
+
+// Attendance API
+export const attendanceApi = {
+  getAll: async (): Promise<AttendanceRecord[]> => {
+    const response = await api.get<AttendanceRecord[]>('/api/attendance');
+    return response.data;
+  },
+  getById: async (id: string): Promise<AttendanceRecord> => {
+    const response = await api.get<AttendanceRecord>(`/api/attendance/${id}`);
+    return response.data;
+  },
+  create: async (data: CreateAttendanceRequest): Promise<AttendanceRecord> => {
+    const response = await api.post<AttendanceRecord>('/api/attendance', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<CreateAttendanceRequest>): Promise<AttendanceRecord> => {
+    const response = await api.put<AttendanceRecord>(`/api/attendance/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/attendance/${id}`);
+    return response.data;
+  },
+  getStats: async (): Promise<AttendanceStats> => {
+    const response = await api.get<AttendanceStats>('/api/attendance/stats/summary');
+    return response.data;
+  },
+};
+
+// Messages API
+export const messagesApi = {
+  getAll: async (): Promise<Message[]> => {
+    const response = await api.get<Message[]>('/api/messages');
+    return response.data;
+  },
+  getById: async (id: string): Promise<Message> => {
+    const response = await api.get<Message>(`/api/messages/${id}`);
+    return response.data;
+  },
+  create: async (data: CreateMessageRequest): Promise<Message> => {
+    const response = await api.post<Message>('/api/messages', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<CreateMessageRequest>): Promise<Message> => {
+    const response = await api.put<Message>(`/api/messages/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/messages/${id}`);
+    return response.data;
+  },
+};
+
+// Prayer Requests API
+export const prayerRequestsApi = {
+  getAll: async (): Promise<PrayerRequest[]> => {
+    const response = await api.get<PrayerRequest[]>('/api/prayer-requests');
+    return response.data;
+  },
+  getById: async (id: string): Promise<PrayerRequest> => {
+    const response = await api.get<PrayerRequest>(`/api/prayer-requests/${id}`);
+    return response.data;
+  },
+  create: async (data: CreatePrayerRequestRequest): Promise<PrayerRequest> => {
+    const response = await api.post<PrayerRequest>('/api/prayer-requests', data);
+    return response.data;
+  },
+  pray: async (id: string): Promise<PrayerRequest> => {
+    const response = await api.post<PrayerRequest>(`/api/prayer-requests/${id}/pray`);
+    return response.data;
+  },
+  markAsAnswered: async (id: string): Promise<PrayerRequest> => {
+    const response = await api.patch<PrayerRequest>(`/api/prayer-requests/${id}/answered`);
+    return response.data;
+  },
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/prayer-requests/${id}`);
     return response.data;
   },
 };
