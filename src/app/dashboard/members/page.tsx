@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Users, UserPlus, Search, Trash2, Edit2 } from 'lucide-react';
+import { Users, UserPlus, Search, Trash2, Edit2, Eye } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { membersApi } from '@/lib/api';
@@ -183,9 +184,12 @@ export default function MembersPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-foreground">
+                          <Link
+                            href={`/dashboard/members/${member._id}`}
+                            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                          >
                             {member.firstName} {member.lastName}
-                          </p>
+                          </Link>
                           <p className="text-xs text-muted">
                             {member.email}
                           </p>
@@ -216,6 +220,14 @@ export default function MembersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/members/${member._id}`)}
+                          aria-label={`View ${member.firstName} ${member.lastName}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

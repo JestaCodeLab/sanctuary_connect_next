@@ -42,7 +42,7 @@ const paymentGateways = [
 ];
 
 const defaultFundBuckets = [
-  { id: 'tithes', name: 'General Tithes', description: 'The standard fund for church operations and staff.', checked: true },
+  { id: 'tithes', name: 'Tithes', description: 'The standard fund for church operations and staff.', checked: true },
   { id: 'offerings', name: 'Offerings', description: 'Unrestricted gifts for general use.', checked: true },
   { id: 'building', name: 'Building Fund', description: 'Specifically for renovations and new campus construction.', checked: false },
   { id: 'missions', name: 'Global Missions', description: 'Support for missionaries and international outreach programs.', checked: false },

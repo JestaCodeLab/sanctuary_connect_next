@@ -20,21 +20,83 @@ import {
   Building2,
   ClipboardCheck,
   HandHeart,
+  Cake,
+  CalendarPlus,
+  PieChart,
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  Network,
+  LucideIcon,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
-import { organizationApi } from '@/lib/api';
+import { useBranchStore } from '@/store/branchStore';
+import { organizationApi, userBranchApi } from '@/lib/api';
+import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
+import BranchSelector from '@/components/dashboard/BranchSelector';
 
-const sidebarLinks = [
+interface SidebarChild {
+  label: string;
+  href: string;
+  icon?: LucideIcon;
+  featureKey?: string;
+}
+
+interface SidebarLink {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  featureKey?: string;
+  children?: SidebarChild[];
+  hideWhenBranchSelected?: boolean;
+}
+
+const sidebarLinks: SidebarLink[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Branches', href: '/dashboard/branches', icon: Building2 },
-  { label: 'Members', href: '/dashboard/members', icon: Users },
-  { label: 'Events', href: '/dashboard/events', icon: Calendar },
+  { label: 'Branches', href: '/dashboard/branches', icon: Building2, hideWhenBranchSelected: true },
+  { label: 'Departments', href: '/dashboard/departments', icon: Network, featureKey: 'department_management' },
+  {
+    label: 'Members',
+    href: '/dashboard/members',
+    icon: Users,
+    children: [
+      { label: 'All Members', href: '/dashboard/members' },
+      { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake, featureKey: 'birthday_notifications' },
+    ],
+  },
+  {
+    label: 'Events',
+    href: '/dashboard/events',
+    icon: Calendar,
+    children: [
+      { label: 'All Events', href: '/dashboard/events' },
+      { label: 'New Event', href: '/dashboard/events/new', icon: CalendarPlus },
+    ],
+  },
   { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck },
-  { label: 'Finance', href: '/dashboard/finance', icon: DollarSign },
+  {
+    label: 'Finance',
+    href: '/dashboard/finance',
+    icon: DollarSign,
+    children: [
+      { label: 'Overview', href: '/dashboard/finance', icon: PieChart },
+      { label: 'Income', href: '/dashboard/finance/income', icon: TrendingUp },
+      { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
+      { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
+    ],
+  },
   { label: 'Communication', href: '/dashboard/communication', icon: MessageSquare },
   { label: 'Prayer Wall', href: '/dashboard/prayer-wall', icon: HandHeart },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+  {
+    label: 'Settings',
+    href: '/dashboard/settings',
+    icon: Settings,
+    children: [
+      { label: 'General', href: '/dashboard/settings' },
+      { label: 'Users & Branches', href: '/dashboard/settings/users', icon: Users },
+    ],
+  },
 ];
 
 const onboardingStepRoutes: Record<number, string> = {
@@ -45,6 +107,113 @@ const onboardingStepRoutes: Record<number, string> = {
   5: '/onboarding/review',
 };
 
+function SidebarItem({
+  link,
+  pathname,
+  hasFeature,
+  featureLoading,
+  onNavigate,
+}: {
+  link: SidebarLink;
+  pathname: string;
+  hasFeature: (key: string) => boolean;
+  featureLoading: boolean;
+  onNavigate: () => void;
+}) {
+  const isParentActive = link.href === '/dashboard'
+    ? pathname === '/dashboard'
+    : pathname.startsWith(link.href);
+
+  const [isExpanded, setIsExpanded] = useState(isParentActive);
+
+  // Auto-expand when navigating to a child route
+  useEffect(() => {
+    if (isParentActive && link.children) {
+      setIsExpanded(true);
+    }
+  }, [isParentActive, link.children]);
+
+  // If the item itself is feature-gated and the feature is not available, hide it
+  if (link.featureKey && !featureLoading && !hasFeature(link.featureKey)) {
+    return null;
+  }
+
+  // If no children, render simple link
+  if (!link.children) {
+    return (
+      <Link
+        href={link.href}
+        onClick={onNavigate}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          isParentActive
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted hover:bg-background hover:text-foreground'
+        }`}
+      >
+        <link.icon className={`w-5 h-5 ${isParentActive ? 'text-primary' : ''}`} />
+        {link.label}
+      </Link>
+    );
+  }
+
+  // Filter children by feature access
+  const visibleChildren = link.children.filter(child => {
+    if (!child.featureKey) return true;
+    if (featureLoading) return true;
+    return hasFeature(child.featureKey);
+  });
+
+  return (
+    <div>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full ${
+          isParentActive
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted hover:bg-background hover:text-foreground'
+        }`}
+      >
+        <link.icon className={`w-5 h-5 ${isParentActive ? 'text-primary' : ''}`} />
+        <span className="flex-1 text-left">{link.label}</span>
+        <ChevronDown
+          className={`w-4 h-4 transition-transform duration-200 ${
+            isExpanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
+          {visibleChildren.map((child) => {
+            const isChildActive = child.href === link.href
+              ? pathname === child.href
+              : pathname.startsWith(child.href) && pathname !== link.href;
+            // Special case: "All Members" / "All Events" / "Overview" exact match
+            const isExactMatch = pathname === child.href;
+            const active = child.href === link.href ? isExactMatch : isChildActive;
+
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                onClick={onNavigate}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  active
+                    ? 'text-primary font-medium'
+                    : 'text-muted hover:text-foreground hover:bg-background'
+                }`}
+              >
+                {child.icon && <child.icon className={`w-4 h-4 ${active ? 'text-primary' : ''}`} />}
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -53,6 +222,8 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isAuthenticated, isLoading, logout } = useAuthStore();
+  const { selectedBranchId, setBranches } = useBranchStore();
+  const { hasFeature, isLoading: featureLoading } = useFeatureAccess();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -64,14 +235,14 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Check if user has completed onboarding
+  // Check if user has completed onboarding and load branches
   useEffect(() => {
     const checkOnboarding = async () => {
       if (!isAuthenticated || isLoading) return;
 
       try {
         const orgData = await organizationApi.getMyOrganization();
-        
+
         if (!orgData.organization.onboardingComplete) {
           // Redirect to appropriate onboarding step
           const step = orgData.organization.onboardingStep || 1;
@@ -79,6 +250,20 @@ export default function DashboardLayout({
           router.push(route);
         } else {
           setCheckingOnboarding(false);
+
+          // Load branches based on role
+          if (user?.role === 'admin') {
+            // Admin gets all org branches
+            setBranches(orgData.branches);
+          } else {
+            // Non-admin gets only assigned branches
+            try {
+              const myBranches = await userBranchApi.getMyBranches();
+              setBranches(myBranches);
+            } catch {
+              setBranches([]);
+            }
+          }
         }
       } catch (error) {
         // No organization found - redirect to start onboarding
@@ -91,7 +276,7 @@ export default function DashboardLayout({
     };
 
     checkOnboarding();
-  }, [isAuthenticated, isLoading, user, router]);
+  }, [isAuthenticated, isLoading, user, router, setBranches]);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -150,26 +335,18 @@ export default function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {sidebarLinks.map((link) => {
-            const isActive = link.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted hover:bg-background hover:text-foreground'
-                }`}
-              >
-                <link.icon className={`w-5 h-5 ${isActive ? 'text-primary' : ''}`} />
-                {link.label}
-              </Link>
-            );
-          })}
+          {sidebarLinks
+            .filter((link) => !(link.hideWhenBranchSelected && selectedBranchId))
+            .map((link) => (
+            <SidebarItem
+              key={link.label}
+              link={link}
+              pathname={pathname}
+              hasFeature={hasFeature}
+              featureLoading={featureLoading}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          ))}
         </nav>
 
         {/* Sidebar Footer */}
@@ -212,6 +389,8 @@ export default function DashboardLayout({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
+            <BranchSelector />
+            <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
             <ThemeToggle />
             <button className="p-2 rounded-lg text-muted hover:bg-background hover:text-foreground relative">
               <Bell className="w-5 h-5" />

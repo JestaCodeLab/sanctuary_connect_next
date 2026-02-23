@@ -91,6 +91,7 @@ export type FundBucketFormData = z.infer<typeof fundBucketSchema>;
 
 // Member schema
 export const memberSchema = z.object({
+  branchId: z.string().optional(),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email is required'),
@@ -107,12 +108,17 @@ export const memberSchema = z.object({
   baptismDate: z.string().optional(),
   membershipDate: z.string().optional(),
   memberStatus: z.enum(['active', 'inactive', 'visiting', 'transferred']).optional(),
+  familyName: z.string().optional(),
+  familyRelationship: z.enum(['head', 'spouse', 'child', 'other']).optional(),
+  familyMembers: z.array(z.string()).optional(),
+  notes: z.string().max(2000, 'Notes must be under 2000 characters').optional(),
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;
 
 // Event schema
 export const eventSchema = z.object({
+  branchId: z.string().optional(),
   title: z.string().min(1, 'Event title is required').max(100, 'Title is too long'),
   description: z.string().optional(),
   eventType: z.string().optional(),
@@ -129,6 +135,7 @@ export type EventFormData = z.infer<typeof eventSchema>;
 
 // Donation schema
 export const donationSchema = z.object({
+  branchId: z.string().optional(),
   amount: z.preprocess(
     (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
     z.number().min(0.01, 'Amount must be greater than 0')
@@ -145,6 +152,7 @@ export type DonationFormData = z.infer<typeof donationSchema>;
 
 // Prayer Request schema
 export const prayerRequestSchema = z.object({
+  branchId: z.string().optional(),
   title: z.string().min(1, 'Title is required').max(100, 'Title is too long'),
   description: z.string().min(1, 'Description is required').max(500, 'Description is too long'),
   category: z.enum(['health', 'family', 'financial', 'spiritual', 'other']),
@@ -155,6 +163,7 @@ export type PrayerRequestFormData = z.infer<typeof prayerRequestSchema>;
 
 // Message schema
 export const messageSchema = z.object({
+  branchId: z.string().optional(),
   subject: z.string().min(1, 'Subject is required').max(150, 'Subject is too long'),
   body: z.string().min(1, 'Message body is required'),
   recipientType: z.enum(['all', 'branch', 'group', 'individual']),
@@ -165,6 +174,7 @@ export type MessageFormData = z.infer<typeof messageSchema>;
 
 // Attendance schema
 export const attendanceSchema = z.object({
+  branchId: z.string().optional(),
   eventId: z.string().min(1, 'Event is required'),
   date: z.string().min(1, 'Date is required'),
   totalPresent: z.preprocess(
@@ -179,6 +189,33 @@ export const attendanceSchema = z.object({
 });
 
 export type AttendanceFormData = z.infer<typeof attendanceSchema>;
+
+// Department schema
+export const departmentSchema = z.object({
+  name: z.string().min(1, 'Department name is required').max(100, 'Name is too long'),
+  description: z.string().max(500, 'Description is too long').optional(),
+  branchId: z.string().min(1, 'Branch is required'),
+  leaderId: z.string().optional(),
+});
+
+export type DepartmentFormData = z.infer<typeof departmentSchema>;
+
+// Expense schema
+export const expenseSchema = z.object({
+  branchId: z.string().optional(),
+  amount: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
+    z.number().min(0.01, 'Amount must be greater than 0')
+  ),
+  category: z.string().min(1, 'Category is required'),
+  description: z.string().optional(),
+  date: z.string().min(1, 'Date is required'),
+  vendor: z.string().optional(),
+  receiptUrl: z.string().optional(),
+  paymentMethod: z.string().optional(),
+});
+
+export type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 // Password strength checker
 export const getPasswordStrength = (password: string): {

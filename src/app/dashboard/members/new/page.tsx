@@ -28,7 +28,7 @@ export default function AddMemberPage() {
   });
 
   return (
-    <div className="max-w-8xl mx-auto">
+    <div className="w-full">
       <div className="mb-8">
         <Link
           href="/dashboard/members"

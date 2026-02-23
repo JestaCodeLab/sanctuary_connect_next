@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +15,7 @@ import {
   Users,
   Trash2,
   Edit2,
+  Eye,
 } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
@@ -48,6 +51,7 @@ function formatDate(date: string): string {
 }
 
 export default function EventsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchText, setSearchText] = useState('');
@@ -264,8 +268,13 @@ export default function EventsPage() {
               </div>
 
               {/* Title */}
-              <h3 className="font-bold text-foreground text-lg mb-1">
-                {event.title}
+              <h3 className="font-bold text-lg mb-1">
+                <Link
+                  href={`/dashboard/events/${event._id}`}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  {event.title}
+                </Link>
               </h3>
 
               {/* Description */}
@@ -301,6 +310,14 @@ export default function EventsPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Eye className="w-4 h-4" />}
+                  onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                >
+                  View
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

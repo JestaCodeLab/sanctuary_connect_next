@@ -11,6 +11,7 @@ import { Card, Button, Input, Select } from '@/components/ui';
 import { prayerRequestsApi } from '@/lib/api';
 import { prayerRequestSchema } from '@/lib/validations';
 import type { PrayerRequestFormData } from '@/lib/validations';
+import BranchField from '@/components/dashboard/BranchField';
 import type { PrayerRequest } from '@/types';
 
 type StatusFilter = 'all' | 'active' | 'answered';
@@ -56,6 +57,8 @@ export default function PrayerWallPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<PrayerRequestFormData>({
     resolver: zodResolver(prayerRequestSchema) as any,
@@ -297,6 +300,7 @@ export default function PrayerWallPage() {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
           <Input
             label="Title"
             error={errors.title?.message}

@@ -66,7 +66,7 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
 
   if (isFetching) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         <Card padding="lg">
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -78,7 +78,7 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
 
   if (!member) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         <Card padding="lg">
           <div className="text-center py-12">
             <p className="text-muted">Member not found.</p>
@@ -92,7 +92,7 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       <div className="mb-8">
         <Link
           href="/dashboard/members"

@@ -54,8 +54,9 @@ export const useAuthStore = create<AuthState>()(
         // Clear localStorage items not managed by persist
         if (typeof window !== 'undefined') {
           localStorage.removeItem('token');
-          // Also clear onboarding storage to prevent data leaking between users
+          // Also clear onboarding and branch storage to prevent data leaking between users
           localStorage.removeItem('onboarding-storage');
+          localStorage.removeItem('branch-storage');
         }
       },
 

@@ -12,6 +12,7 @@ import { Card, Button, Input, Select } from '@/components/ui';
 import { attendanceApi, eventsApi } from '@/lib/api';
 import { attendanceSchema } from '@/lib/validations';
 import type { AttendanceFormData } from '@/lib/validations';
+import BranchField from '@/components/dashboard/BranchField';
 import type { AttendanceRecord, ChurchEvent } from '@/types';
 
 function formatDate(dateStr: string): string {
@@ -59,6 +60,8 @@ export default function AttendancePage() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<AttendanceFormData>({
     resolver: zodResolver(attendanceSchema) as any,
@@ -213,6 +216,7 @@ export default function AttendancePage() {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
           <Select
             label="Event / Service"
             options={eventOptions}

@@ -21,6 +21,7 @@ import type {
   Member,
   CreateMemberRequest,
   UpdateMemberRequest,
+  BirthdayResponse,
   ChurchEvent,
   CreateEventRequest,
   UpdateEventRequest,
@@ -34,6 +35,12 @@ import type {
   CreateMessageRequest,
   PrayerRequest,
   CreatePrayerRequestRequest,
+  Department,
+  CreateDepartmentRequest,
+  Expense,
+  CreateExpenseRequest,
+  FinanceOverview,
+  UserWithBranches,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -55,6 +62,18 @@ api.interceptors.request.use(
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      // Add branch context header
+      try {
+        const branchStorage = localStorage.getItem('branch-storage');
+        if (branchStorage) {
+          const { state } = JSON.parse(branchStorage);
+          if (state?.selectedBranchId) {
+            config.headers['X-Branch-Id'] = state.selectedBranchId;
+          }
+        }
+      } catch {
+        // Ignore parse errors
+      }
     }
     return config;
   },
@@ -74,6 +93,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('auth-storage');
+      localStorage.removeItem('branch-storage');
 
       // Only redirect if not already on auth pages
       const isOnAuthPage = window.location.pathname.startsWith('/login') ||
@@ -292,6 +312,10 @@ export const membersApi = {
     const response = await api.delete<{ message: string }>(`/api/members/${id}`);
     return response.data;
   },
+  getBirthdays: async (days: number = 7): Promise<BirthdayResponse> => {
+    const response = await api.get<BirthdayResponse>(`/api/members/birthdays/upcoming?days=${days}`);
+    return response.data;
+  },
 };
 
 // Events API
@@ -314,6 +338,18 @@ export const eventsApi = {
   },
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await api.delete<{ message: string }>(`/api/events/${id}`);
+    return response.data;
+  },
+  generateShareLink: async (id: string): Promise<{ shareUrl: string; shareToken: string }> => {
+    const response = await api.post<{ shareUrl: string; shareToken: string }>(`/api/events/${id}/share`);
+    return response.data;
+  },
+  getPublicEvent: async (shareToken: string): Promise<ChurchEvent> => {
+    const response = await api.get<ChurchEvent>(`/api/events/public/${shareToken}`);
+    return response.data;
+  },
+  shareByEmail: async (id: string, data: { memberIds: string[]; message?: string }): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
 };
@@ -418,6 +454,96 @@ export const prayerRequestsApi = {
   },
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await api.delete<{ message: string }>(`/api/prayer-requests/${id}`);
+    return response.data;
+  },
+};
+
+// Departments API
+export const departmentsApi = {
+  getAll: async (): Promise<Department[]> => {
+    const response = await api.get<Department[]>('/api/departments');
+    return response.data;
+  },
+  getById: async (id: string): Promise<Department> => {
+    const response = await api.get<Department>(`/api/departments/${id}`);
+    return response.data;
+  },
+  create: async (data: CreateDepartmentRequest): Promise<Department> => {
+    const response = await api.post<Department>('/api/departments', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<CreateDepartmentRequest>): Promise<Department> => {
+    const response = await api.put<Department>(`/api/departments/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/departments/${id}`);
+    return response.data;
+  },
+  addMember: async (id: string, memberId: string): Promise<Department> => {
+    const response = await api.post<Department>(`/api/departments/${id}/members`, { memberId });
+    return response.data;
+  },
+  removeMember: async (id: string, memberId: string): Promise<Department> => {
+    const response = await api.delete<Department>(`/api/departments/${id}/members/${memberId}`);
+    return response.data;
+  },
+};
+
+// Expenses API
+export const expensesApi = {
+  getAll: async (): Promise<Expense[]> => {
+    const response = await api.get<Expense[]>('/api/expenses');
+    return response.data;
+  },
+  getById: async (id: string): Promise<Expense> => {
+    const response = await api.get<Expense>(`/api/expenses/${id}`);
+    return response.data;
+  },
+  create: async (data: CreateExpenseRequest): Promise<Expense> => {
+    const response = await api.post<Expense>('/api/expenses', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<CreateExpenseRequest>): Promise<Expense> => {
+    const response = await api.put<Expense>(`/api/expenses/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/expenses/${id}`);
+    return response.data;
+  },
+};
+
+// Finance API
+export const financeApi = {
+  getOverview: async (): Promise<FinanceOverview> => {
+    const response = await api.get<FinanceOverview>('/api/finance/overview');
+    return response.data;
+  },
+  getReport: async (startDate?: string, endDate?: string) => {
+    const response = await api.get('/api/finance/reports', {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
+};
+
+// User Branch Assignment API
+export const userBranchApi = {
+  getMyBranches: async (): Promise<Branch[]> => {
+    const response = await api.get<Branch[]>('/api/users/me/branches');
+    return response.data;
+  },
+  getOrgUsers: async (orgId: string): Promise<UserWithBranches[]> => {
+    const response = await api.get<UserWithBranches[]>(`/api/organizations/${orgId}/users`);
+    return response.data;
+  },
+  assignBranches: async (orgId: string, userId: string, branchIds: string[]): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/branches`, { branchIds });
+    return response.data;
+  },
+  removeBranch: async (orgId: string, userId: string, branchId: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/branches/${branchId}`);
     return response.data;
   },
 };

@@ -12,6 +12,7 @@ import { Card, Button, Input, Select } from '@/components/ui';
 import { messagesApi } from '@/lib/api';
 import { messageSchema } from '@/lib/validations';
 import type { MessageFormData } from '@/lib/validations';
+import BranchField from '@/components/dashboard/BranchField';
 import type { Message } from '@/types';
 
 const statusBadgeVariant: Record<string, 'success' | 'muted' | 'info'> = {
@@ -62,6 +63,8 @@ export default function CommunicationPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<MessageFormData>({
     resolver: zodResolver(messageSchema) as any,
@@ -244,6 +247,7 @@ export default function CommunicationPage() {
         size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
           <Input
             label="Subject"
             error={errors.subject?.message}

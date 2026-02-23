@@ -8,6 +8,7 @@ export interface User {
   role: 'admin' | 'pastor' | 'staff' | 'member';
   status: 'active' | 'inactive' | 'suspended';
   verified: boolean;
+  organizationId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -186,6 +187,8 @@ export interface SubscriptionState {
 export interface Member {
   _id: string;
   userId?: string;
+  organizationId?: string;
+  branchId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -202,11 +205,26 @@ export interface Member {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus: 'active' | 'inactive' | 'visiting' | 'transferred';
+  familyName?: string;
+  familyRelationship?: 'head' | 'spouse' | 'child' | 'other';
+  familyMembers?: string[];
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface MemberWithBirthday extends Member {
+  age: number;
+  daysUntilBirthday: number;
+}
+
+export interface BirthdayResponse {
+  today: MemberWithBirthday[];
+  upcoming: MemberWithBirthday[];
+}
+
 export interface CreateMemberRequest {
+  branchId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -223,6 +241,10 @@ export interface CreateMemberRequest {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus?: string;
+  familyName?: string;
+  familyRelationship?: string;
+  familyMembers?: string[];
+  notes?: string;
 }
 
 export interface UpdateMemberRequest {
@@ -242,11 +264,17 @@ export interface UpdateMemberRequest {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus?: string;
+  familyName?: string;
+  familyRelationship?: string;
+  familyMembers?: string[];
+  notes?: string;
 }
 
 // Event types (named ChurchEvent to avoid DOM Event collision)
 export interface ChurchEvent {
   _id: string;
+  organizationId?: string;
+  branchId?: string;
   title: string;
   description?: string;
   eventType?: string;
@@ -261,11 +289,14 @@ export interface ChurchEvent {
   };
   maxCapacity?: number;
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  shareToken?: string;
+  isPublic?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateEventRequest {
+  branchId?: string;
   title: string;
   description?: string;
   eventType?: string;
@@ -290,6 +321,8 @@ export interface UpdateEventRequest {
 // Donation types
 export interface Donation {
   _id: string;
+  organizationId?: string;
+  branchId?: string;
   donorId?: {
     _id: string;
     firstName: string;
@@ -311,6 +344,7 @@ export interface Donation {
 }
 
 export interface CreateDonationRequest {
+  branchId?: string;
   donorId?: string;
   amount: number;
   donationType?: string;
@@ -333,6 +367,8 @@ export interface DonationStats {
 // Attendance types
 export interface AttendanceRecord {
   _id: string;
+  organizationId?: string;
+  branchId?: string;
   eventId: {
     _id: string;
     title: string;
@@ -347,6 +383,7 @@ export interface AttendanceRecord {
 }
 
 export interface CreateAttendanceRequest {
+  branchId?: string;
   eventId: string;
   date: string;
   totalPresent: number;
@@ -365,6 +402,8 @@ export interface AttendanceStats {
 // Message types
 export interface Message {
   _id: string;
+  organizationId?: string;
+  branchId?: string;
   subject: string;
   body: string;
   recipientType: 'all' | 'branch' | 'group' | 'individual';
@@ -379,6 +418,7 @@ export interface Message {
 }
 
 export interface CreateMessageRequest {
+  branchId?: string;
   subject: string;
   body: string;
   recipientType: 'all' | 'branch' | 'group' | 'individual';
@@ -390,6 +430,8 @@ export interface CreateMessageRequest {
 // Prayer Request types
 export interface PrayerRequest {
   _id: string;
+  organizationId?: string;
+  branchId?: string;
   title: string;
   description: string;
   category: 'health' | 'family' | 'financial' | 'spiritual' | 'other';
@@ -403,10 +445,103 @@ export interface PrayerRequest {
 }
 
 export interface CreatePrayerRequestRequest {
+  branchId?: string;
   title: string;
   description: string;
   category: 'health' | 'family' | 'financial' | 'spiritual' | 'other';
   isAnonymous?: boolean;
+}
+
+// Department types
+export interface Department {
+  _id: string;
+  organizationId: string;
+  branchId: {
+    _id: string;
+    name: string;
+  };
+  name: string;
+  description?: string;
+  leaderId?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  members: Member[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepartmentRequest {
+  organizationId: string;
+  branchId: string;
+  name: string;
+  description?: string;
+  leaderId?: string;
+}
+
+// Expense types
+export interface Expense {
+  _id: string;
+  organizationId: string;
+  branchId?: string;
+  amount: number;
+  category: string;
+  description?: string;
+  date: string;
+  vendor?: string;
+  receiptUrl?: string;
+  approvedBy?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+  };
+  paymentMethod?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExpenseRequest {
+  branchId?: string;
+  amount: number;
+  category: string;
+  description?: string;
+  date: string;
+  vendor?: string;
+  receiptUrl?: string;
+  paymentMethod?: string;
+}
+
+// Finance types
+export interface FinanceOverview {
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  monthlyTrends: {
+    month: string;
+    income: number;
+    expenses: number;
+  }[];
+}
+
+// User Branch Assignment types
+export interface UserBranchAssignment {
+  _id: string;
+  userId: string;
+  branchId: string | Branch;
+  organizationId: string;
+  createdAt: string;
+}
+
+export interface UserWithBranches {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  status: string;
+  branches: Branch[];
 }
 
 // Onboarding state

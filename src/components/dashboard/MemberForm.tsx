@@ -2,8 +2,9 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { User, Mail, Phone } from 'lucide-react';
+import { User, Mail, Phone, Users, FileText } from 'lucide-react';
 import { Button, Input, Card, Select } from '@/components/ui';
+import BranchField from '@/components/dashboard/BranchField';
 import { memberSchema, type MemberFormData } from '@/lib/validations';
 
 const genderOptions = [
@@ -25,6 +26,13 @@ const memberStatusOptions = [
   { value: 'transferred', label: 'Transferred' },
 ];
 
+const familyRelationshipOptions = [
+  { value: 'head', label: 'Head of Family' },
+  { value: 'spouse', label: 'Spouse' },
+  { value: 'child', label: 'Child' },
+  { value: 'other', label: 'Other' },
+];
+
 interface MemberFormProps {
   defaultValues?: Partial<MemberFormData>;
   onSubmit: (data: MemberFormData) => void;
@@ -43,6 +51,8 @@ export default function MemberForm({
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<MemberFormData>({
     resolver: zodResolver(memberSchema) as any,
@@ -63,6 +73,9 @@ export default function MemberForm({
       baptismDate: '',
       membershipDate: '',
       memberStatus: 'active',
+      familyName: '',
+      familyRelationship: undefined,
+      notes: '',
       ...defaultValues,
     },
   });
@@ -197,19 +210,69 @@ export default function MemberForm({
       {/* Church Information */}
       <Card padding="lg">
         <h2 className="text-lg font-semibold text-foreground mb-6">Church Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Baptism Date"
-            type="date"
-            error={errors.baptismDate?.message}
-            {...register('baptismDate')}
+        <div className="space-y-4">
+          <BranchField
+            value={watch('branchId')}
+            onChange={(v) => setValue('branchId', v)}
           />
-          <Input
-            label="Membership Date"
-            type="date"
-            error={errors.membershipDate?.message}
-            {...register('membershipDate')}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Baptism Date"
+              type="date"
+              error={errors.baptismDate?.message}
+              {...register('baptismDate')}
+            />
+            <Input
+              label="Membership Date"
+              type="date"
+              error={errors.membershipDate?.message}
+              {...register('membershipDate')}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Family Information */}
+      <Card padding="lg">
+        <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Family Information
+        </h2>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Family Name"
+              placeholder="e.g. The Mensah Family"
+              error={errors.familyName?.message}
+              {...register('familyName')}
+            />
+            <Select
+              label="Family Relationship"
+              options={familyRelationshipOptions}
+              placeholder="Select relationship"
+              error={errors.familyRelationship?.message}
+              {...register('familyRelationship')}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Notes */}
+      <Card padding="lg">
+        <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Notes
+        </h2>
+        <div>
+          <textarea
+            placeholder="Add any notes about this member..."
+            rows={4}
+            className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3AAFDC] focus:border-transparent resize-none"
+            {...register('notes')}
           />
+          {errors.notes?.message && (
+            <p className="mt-1 text-sm text-red-500">{errors.notes.message}</p>
+          )}
         </div>
       </Card>
 
