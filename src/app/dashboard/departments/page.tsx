@@ -241,6 +241,7 @@ function DepartmentsContent() {
       {/* Create/Edit Modal */}
       {showModal && (
         <Modal
+          isOpen={showModal}
           title={editingDept ? 'Edit Department' : 'New Department'}
           onClose={closeModal}
         >
