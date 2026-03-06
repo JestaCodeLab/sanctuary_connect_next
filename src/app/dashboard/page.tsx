@@ -165,7 +165,10 @@ export default function DashboardPage() {
 
   // Get next upcoming events
   const nextEvents = events
-    .filter((e: ChurchEvent) => e.status === 'scheduled')
+    .filter((e: ChurchEvent) => {
+      const startDate = new Date(e.startDate);
+      return e.status === 'scheduled' && startDate > now;
+    })
     .sort((a: ChurchEvent, b: ChurchEvent) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 3);
 
