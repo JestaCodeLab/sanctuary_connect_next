@@ -32,6 +32,7 @@ import {
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useBranchStore } from '@/store/branchStore';
+import { useOrganizationStore } from '@/store/organizationStore';
 import { organizationApi, userBranchApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
 import BranchSelector from '@/components/dashboard/BranchSelector';
@@ -223,6 +224,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, isAuthenticated, isLoading, logout } = useAuthStore();
   const { selectedBranchId, setBranches } = useBranchStore();
+  const { setOrganization, logoUrl, organization } = useOrganizationStore();
   const { hasFeature, isLoading: featureLoading } = useFeatureAccess();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -250,6 +252,7 @@ export default function DashboardLayout({
           router.push(route);
         } else {
           setCheckingOnboarding(false);
+          setOrganization(orgData.organization);
 
           // Load branches based on role
           if (user?.role === 'admin') {
@@ -276,7 +279,7 @@ export default function DashboardLayout({
     };
 
     checkOnboarding();
-  }, [isAuthenticated, isLoading, user, router, setBranches]);
+  }, [isAuthenticated, isLoading, user, router, setBranches, setOrganization]);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -324,7 +327,20 @@ export default function DashboardLayout({
       >
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-          <Logo size="sm" />
+          {logoUrl ? (
+            <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+              <img
+                src={logoUrl}
+                alt={organization?.churchName || 'Church logo'}
+                className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+              />
+              <span className="text-sm font-semibold text-foreground truncate">
+                {organization?.churchName || 'Dashboard'}
+              </span>
+            </Link>
+          ) : (
+            <Logo size="sm" />
+          )}
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-1 rounded-md text-muted hover:bg-background"

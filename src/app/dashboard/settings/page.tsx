@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon, Check, X as XIcon, Users, Building, MessageSquare, Zap, ArrowRight } from 'lucide-react';
+import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon, Check, X as XIcon, Users, Building, MessageSquare, ArrowRight, BarChart3, Wallet } from 'lucide-react';
 import { PageHeader, Badge } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import { organizationApi, subscriptionApi } from '@/lib/api';
@@ -56,26 +56,59 @@ function formatCurrency(amount: number, curr: string = 'GHS'): string {
   return `${curr} ${amount.toLocaleString()}`;
 }
 
-function UsageBar({ used, max, label }: { used: number; max: number; label: string }) {
-  const percentage = max <= 0 ? 0 : Math.min((used / max) * 100, 100);
+function UsageCard({
+  icon: Icon,
+  label,
+  used,
+  max,
+}: {
+  icon: typeof Users;
+  label: string;
+  used: number;
+  max: number;
+}) {
   const isUnlimited = max === -1;
+  const percentage = isUnlimited ? 0 : max <= 0 ? 0 : Math.min((used / max) * 100, 100);
+  const isWarning = !isUnlimited && percentage > 70;
+  const isDanger = !isUnlimited && percentage > 90;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-foreground">{label}</span>
+    <div className="bg-background rounded-xl border border-border p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+          isDanger ? 'bg-red-100 dark:bg-red-900/30' :
+          isWarning ? 'bg-amber-100 dark:bg-amber-900/30' :
+          'bg-primary/10'
+        }`}>
+          <Icon className={`w-4.5 h-4.5 ${
+            isDanger ? 'text-red-600 dark:text-red-400' :
+            isWarning ? 'text-amber-600 dark:text-amber-400' :
+            'text-primary'
+          }`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+        </div>
+      </div>
+      <div className="flex items-end justify-between mb-2">
+        <span className="text-2xl font-bold text-foreground">{used.toLocaleString()}</span>
         <span className="text-sm text-muted">
-          {isUnlimited ? `${used} / Unlimited` : `${used} / ${max}`}
+          {isUnlimited ? 'Unlimited' : `of ${max.toLocaleString()}`}
         </span>
       </div>
-      <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${
-            percentage > 90 ? 'bg-red-500' : percentage > 70 ? 'bg-amber-500' : 'bg-primary'
-          }`}
-          style={{ width: isUnlimited ? '10%' : `${percentage}%` }}
-        />
-      </div>
+      {!isUnlimited && (
+        <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${
+              isDanger ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-primary'
+            }`}
+            style={{ width: `${Math.max(percentage, 2)}%` }}
+          />
+        </div>
+      )}
+      {isUnlimited && (
+        <div className="h-1.5 bg-primary/20 rounded-full" />
+      )}
     </div>
   );
 }
@@ -161,7 +194,7 @@ function SubscriptionTab({
                 <p className="text-lg font-bold text-foreground mt-1">
                   {currentPlan ? (
                     currentPlan.price === 0 ? 'Free' : formatCurrency(
-                      sub.billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price * 12,
+                      sub.billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price,
                       currentPlan.currency
                     ) + (sub.billingCycle === 'annual' ? '/yr' : '/mo')
                   ) : '—'}
@@ -186,50 +219,36 @@ function SubscriptionTab({
 
             {/* Usage Section */}
             {currentPlan?.limits && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Usage</h3>
-                <div className="space-y-3">
-                  <UsageBar
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <BarChart3 className="w-4 h-4 text-muted" />
+                  <h3 className="text-sm font-semibold text-foreground">Usage Overview</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <UsageCard
+                    icon={Users}
                     label="Members"
-                    used={0}
+                    used={sub.usage?.membersCount ?? 0}
                     max={currentPlan.limits.maxMembers}
                   />
-                  <UsageBar
+                  <UsageCard
+                    icon={Building}
                     label="Branches"
-                    used={0}
+                    used={sub.usage?.branchesCount ?? 0}
                     max={currentPlan.limits.maxBranches}
                   />
-                  <UsageBar
+                  <UsageCard
+                    icon={MessageSquare}
                     label="SMS Credits"
-                    used={0}
+                    used={sub.usage?.smsUsed ?? 0}
                     max={currentPlan.limits.smsCredits}
                   />
-                  <UsageBar
-                    label="Donation Transactions"
-                    used={0}
+                  <UsageCard
+                    icon={Wallet}
+                    label="Transactions"
+                    used={sub.usage?.donationTransactions ?? 0}
                     max={currentPlan.limits.donationTransactions}
                   />
-                </div>
-              </div>
-            )}
-
-            {/* Included Features */}
-            {currentPlan?.features && (
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">Included Features</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {currentPlan.features.map((feature: any) => (
-                    <div key={feature.key || feature.text} className="flex items-center gap-2">
-                      {feature.included ? (
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                      ) : (
-                        <XIcon className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0" />
-                      )}
-                      <span className={`text-sm ${feature.included ? 'text-foreground' : 'text-muted'}`}>
-                        {feature.text || feature.name}
-                      </span>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
