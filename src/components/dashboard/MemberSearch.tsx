@@ -23,7 +23,7 @@ export default function MemberSearch({
 
   const { data: members = [] } = useQuery({
     queryKey: ['members', query],
-    queryFn: () => membersApi.getAll(query ? `?search=${encodeURIComponent(query)}` : ''),
+    queryFn: () => membersApi.getAll(query ? { search: query } : undefined),
     enabled: query.length > 0 || query.length === 0,
   });
 

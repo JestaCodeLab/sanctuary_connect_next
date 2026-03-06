@@ -155,8 +155,8 @@ export default function PrayerWallPage() {
   return (
     <div>
       <PageHeader
-        title="Prayer Wall"
-        description="Share and support prayer requests"
+        title="Prayer & Testimony"
+        description="Share and support prayer requests and testimonies"
         actionLabel="Submit Request"
         actionIcon={Plus}
         onAction={() => setIsModalOpen(true)}

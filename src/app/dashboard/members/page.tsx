@@ -35,12 +35,29 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [showDateFilter, setShowDateFilter] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [dateFilterApplied, setDateFilterApplied] = useState<{ startDate: string; endDate: string }>({ startDate: '', endDate: '' });
 
-  const { data: members = [], isLoading } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => membersApi.getAll(),
+  const { data: members = [], isLoading, refetch } = useQuery({
+    queryKey: ['members', dateFilterApplied],
+    queryFn: () => {
+      const params: { startDate?: string; endDate?: string } = {};
+      if (dateFilterApplied.startDate) params.startDate = dateFilterApplied.startDate;
+      if (dateFilterApplied.endDate) params.endDate = dateFilterApplied.endDate;
+      return membersApi.getAll(Object.keys(params).length > 0 ? params : undefined);
+    },
   });
+
+  const handleDateSearch = () => {
+    setDateFilterApplied({ startDate, endDate });
+  };
+
+  const handleClearDates = () => {
+    setStartDate('');
+    setEndDate('');
+    setDateFilterApplied({ startDate: '', endDate: '' });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: membersApi.delete,
@@ -57,23 +74,8 @@ export default function MembersPage() {
     const matchesSearch = fullName.includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
-    
-    // Date range filter
-    let matchesDateRange = true;
-    if (startDate || endDate) {
-      const memberDate = new Date(member.createdAt);
-      if (startDate) {
-        const start = new Date(startDate);
-        matchesDateRange = matchesDateRange && memberDate >= start;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        matchesDateRange = matchesDateRange && memberDate <= end;
-      }
-    }
 
-    return matchesSearch && matchesStatus && matchesDateRange;
+    return matchesSearch && matchesStatus;
   });
 
   // Compute stats
@@ -128,11 +130,11 @@ export default function MembersPage() {
     { label: 'Total Members', value: totalMembers, icon: Users },
     { label: 'Male', value: maleCount, icon: Users },
     { label: 'Female', value: femaleCount, icon: Users },
+    { label: 'New This Month', value: newThisMonth, icon: UserPlus },
     { label: 'Children (1-12)', value: childrenCount, icon: Users2 },
     { label: 'Teens (13-19)', value: teensCount, icon: Users2 },
     { label: 'Adults (20-59)', value: adultsCount, icon: Users },
     { label: 'Seniors (60+)', value: seniorsCount, icon: Users },
-    { label: 'New This Month', value: newThisMonth, icon: UserPlus },
   ];
 
   const memberToDelete = deleteId
@@ -162,60 +164,82 @@ export default function MembersPage() {
               leftIcon={<Search className="w-4 h-4" />}
             />
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
-            {statusFilters.map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                  statusFilter === status
-                    ? 'bg-primary text-white'
-                    : 'text-muted hover:text-foreground hover:bg-card'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
+              {statusFilters.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+                    statusFilter === status
+                      ? 'bg-primary text-white'
+                      : 'text-muted hover:text-foreground hover:bg-card'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowDateFilter(!showDateFilter)}
+              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                showDateFilter || startDate || endDate
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-border text-muted hover:text-foreground hover:bg-card'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              Date
+              {(startDate || endDate) && (
+                <span className="w-2 h-2 bg-white rounded-full" />
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Date Range Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              <Calendar className="w-4 h-4 inline mr-2" />
-              From
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              To
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-          </div>
-          {(startDate || endDate) && (
-            <button
-              onClick={() => {
-                setStartDate('');
-                setEndDate('');
-              }}
-              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+        {/* Date Range Filter - Collapsible */}
+        {showDateFilter && (
+          <div className="flex flex-col sm:flex-row gap-4 items-end p-4 bg-background rounded-lg border border-border">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                From
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                To
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
+            </div>
+            <Button
+              onClick={handleDateSearch}
+              disabled={!startDate && !endDate}
+              className="px-6"
             >
-              Clear Dates
-            </button>
-          )}
-        </div>
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </Button>
+            {(startDate || endDate || dateFilterApplied.startDate || dateFilterApplied.endDate) && (
+              <button
+                onClick={handleClearDates}
+                className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Members Table */}

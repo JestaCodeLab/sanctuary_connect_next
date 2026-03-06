@@ -292,8 +292,14 @@ export const subscriptionApi = {
 
 // Members API
 export const membersApi = {
-  getAll: async (query: string = ''): Promise<Member[]> => {
-    const url = query ? `/api/members${query}` : '/api/members';
+  getAll: async (params?: { search?: string; startDate?: string; endDate?: string }): Promise<Member[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/members?${queryString}` : '/api/members';
     const response = await api.get<Member[]>(url);
     return response.data;
   },

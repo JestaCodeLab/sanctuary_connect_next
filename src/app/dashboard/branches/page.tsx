@@ -1,22 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Building2, MapPin, Plus, Edit2, Trash2 } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
+import { 
+  Building2, 
+  MapPin, 
+  Plus, 
+  Edit2, 
+  Search, 
+  Users, 
+  Globe, 
+  Loader2,
+  Star,
+  Eye
+} from 'lucide-react';
 
 import { PageHeader, Modal, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
 import { Button, Input, Card, Checkbox } from '@/components/ui';
-import { organizationApi } from '@/lib/api';
+import { organizationApi, membersApi } from '@/lib/api';
 import { branchSchema, type BranchFormData } from '@/lib/validations';
-import type { Branch } from '@/types';
+import type { Branch, Member } from '@/types';
 
 export default function BranchesPage() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
   const { data: orgData, isLoading } = useQuery({
@@ -24,8 +37,28 @@ export default function BranchesPage() {
     queryFn: () => organizationApi.getMyOrganization(),
   });
 
+  const { data: members = [] } = useQuery({
+    queryKey: ['members'],
+    queryFn: () => membersApi.getAll(),
+  });
+
   const branches = orgData?.branches ?? [];
   const organization = orgData?.organization;
+
+  // Filter branches by search
+  const filteredBranches = branches.filter((branch: Branch) => {
+    const searchLower = search.toLowerCase();
+    return (
+      branch.name.toLowerCase().includes(searchLower) ||
+      branch.city?.toLowerCase().includes(searchLower) ||
+      branch.address?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Get member count per branch
+  const getMemberCount = (branchId: string) => {
+    return members.filter((m: Member) => m.branchId === branchId).length;
+  };
 
   const {
     register,
@@ -128,7 +161,8 @@ export default function BranchesPage() {
     reset();
   };
 
-  const headOffice = branches.find((b) => b.isHeadOffice);
+  const headOffice = branches.find((b: Branch) => b.isHeadOffice);
+  const totalMembers = members.length;
 
   const isEditing = !!editingBranch;
   const isMutating = createBranchMutation.isPending || updateBranchMutation.isPending || isSubmitting;
@@ -142,12 +176,17 @@ export default function BranchesPage() {
     {
       label: 'Head Office',
       value: headOffice?.name ?? 'Not set',
-      icon: MapPin,
+      icon: Star,
+    },
+    {
+      label: 'Total Members',
+      value: totalMembers,
+      icon: Users,
     },
     {
       label: 'Structure',
-      value: organization?.structure === 'multi' ? 'Multi-Branch' : 'Single Branch',
-      icon: Building2,
+      value: organization?.structure === 'multi' ? 'Multi-Branch' : 'Single',
+      icon: Globe,
     },
   ];
 
@@ -163,13 +202,23 @@ export default function BranchesPage() {
     <div>
       <PageHeader
         title="Branches"
-        description="Manage your church locations"
+        description="Manage your church locations and campuses"
         actionLabel="Add Branch"
         actionIcon={Plus}
         onAction={handleOpenModal}
       />
 
       <StatsGrid stats={stats} />
+
+      {/* Search */}
+      <div className="mb-6">
+        <Input
+          placeholder="Search branches by name, city, or address..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          leftIcon={<Search className="w-4 h-4" />}
+        />
+      </div>
 
       {branches.length === 0 ? (
         <EmptyState
@@ -179,55 +228,106 @@ export default function BranchesPage() {
           actionLabel="Add Branch"
           onAction={handleOpenModal}
         />
+      ) : filteredBranches.length === 0 ? (
+        <Card padding="lg">
+          <div className="text-center py-8">
+            <Search className="w-12 h-12 text-muted mx-auto mb-3 opacity-50" />
+            <p className="text-sm text-muted">No branches found matching &quot;{search}&quot;</p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSearch('')}
+              className="mt-4"
+            >
+              Clear Search
+            </Button>
+          </div>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {branches.map((branch) => (
-            <Card key={branch._id} padding="md">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-5 h-5 text-primary" />
+        <div className="space-y-4">
+          {filteredBranches.map((branch: Branch) => {
+            const memberCount = getMemberCount(branch._id);
+            const fullAddress = [branch.address, branch.suburb, branch.city, branch.region, branch.zipCode]
+              .filter(Boolean)
+              .join(', ');
+            
+            return (
+              <Card 
+                key={branch._id} 
+                padding="none"
+                className="overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <div className="flex flex-col md:flex-row">
+                  {/* Left section - Icon and main info */}
+                  <div className="flex-1 p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-7 h-7 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            {branch.name}
+                          </h3>
+                          {branch.isHeadOffice && (
+                            <Badge variant="warning">
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3 h-3" />
+                                Head Office
+                              </span>
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {fullAddress && (
+                          <p className="text-sm text-muted mt-1 flex items-center gap-1">
+                            <MapPin className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{fullAddress}</span>
+                          </p>
+                        )}
+
+                        {/* Stats row */}
+                        <div className="flex items-center gap-6 mt-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm font-medium text-foreground">{memberCount}</span>
+                            <span className="text-sm text-muted">Members</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium text-foreground">{branch.geofenceRadius || 200}m</span>
+                            <span className="text-sm text-muted">Radius</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{branch.name}</h3>
-                    {branch.isHeadOffice && (
-                      <Badge variant="info">Head Office</Badge>
-                    )}
+
+                  {/* Right section - Actions */}
+                  <div className="flex md:flex-col items-center justify-end gap-2 p-4 bg-background border-t md:border-t-0 md:border-l border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/branches/${branch._id}`)}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditBranch(branch)}
+                      className="flex items-center gap-2"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Edit
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="p-1.5"
-                  onClick={() => handleEditBranch(branch)}
-                >
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-2 mt-4">
-                {(branch.address || branch.city || branch.suburb || branch.region) && (
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-muted mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-muted">
-                      {[branch.address, branch.suburb, branch.city, branch.region, branch.zipCode]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                    <span className="block w-2 h-2 rounded-full bg-primary" />
-                  </div>
-                  <p className="text-sm text-muted">
-                    Geofence radius: {branch.geofenceRadius}m
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

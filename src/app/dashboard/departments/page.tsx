@@ -24,11 +24,15 @@ function DepartmentsContent() {
   const { data: departments = [], isLoading } = useQuery({
     queryKey: ['departments'],
     queryFn: departmentsApi.getAll,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const { data: orgData } = useQuery({
     queryKey: ['my-organization'],
     queryFn: organizationApi.getMyOrganization,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const branches = orgData?.branches ?? [];
