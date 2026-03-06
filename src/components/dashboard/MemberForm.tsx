@@ -43,7 +43,7 @@ const memberStatusOptions = [
 ];
 
 interface DepartmentSelectProps {
-  value?: string;
+  value?: string[];
   onChange: (value: string[]) => void;
 }
 
@@ -53,7 +53,7 @@ function DepartmentSelect({ value, onChange }: DepartmentSelectProps) {
     queryFn: () => departmentsApi.getAll(),
   });
 
-  const selectedDepts = value || [];
+  const selectedDepts: string[] = value || [];
 
   const handleToggleDepartment = (deptId: string) => {
     const updated = selectedDepts.includes(deptId)

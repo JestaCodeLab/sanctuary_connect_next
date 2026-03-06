@@ -98,6 +98,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Global button cursor */
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 /* Animation classes */
 @keyframes fadeIn {
   from { opacity: 0; }
