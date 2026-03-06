@@ -406,11 +406,13 @@ export interface CreateAttendanceRequest {
 }
 
 export interface AttendanceStats {
-  totalRecords: number;
-  averageRate: number;
-  totalPresent: number;
-  totalAbsent: number;
-  lastAttendance: number;
+  totalCheckIns: number;
+  qrCheckIns: number;
+  manualCheckIns: number;
+  guestCheckIns: number;
+  eventsWithCheckIns: number;
+  recentCheckIns: number;
+  lastCheckInTime: string | null;
 }
 
 // Message types
