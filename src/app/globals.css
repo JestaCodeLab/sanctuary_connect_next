@@ -11,6 +11,8 @@
   --foreground: #1F2937;
   --card: #FFFFFF;
   --card-foreground: #1F2937;
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F1F5F9;
   --muted: #6B7280;
   --muted-foreground: #9CA3AF;
   --border: #E5E7EB;
@@ -30,6 +32,8 @@
   --foreground: #F1F5F9;
   --card: #1E293B;
   --card-foreground: #F1F5F9;
+  --sidebar: #0A0F1A;
+  --sidebar-foreground: #F1F5F9;
   --muted: #94A3B8;
   --muted-foreground: #64748B;
   --border: #334155;
@@ -49,6 +53,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
