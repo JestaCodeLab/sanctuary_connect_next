@@ -28,6 +28,10 @@ import {
   FileText,
   Network,
   LucideIcon,
+  BarChart3,
+  Send,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -87,7 +91,17 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
     ],
   },
-  { label: 'Communication', href: '/dashboard/communication', icon: MessageSquare },
+  {
+    label: 'Communication',
+    href: '/dashboard/communication',
+    icon: MessageSquare,
+    children: [
+      { label: 'Analytics', href: '/dashboard/communication/analytics', icon: BarChart3 },
+      { label: 'Send SMS', href: '/dashboard/communication/send-sms', icon: Send },
+      { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
+      { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Phone },
+    ],
+  },
   { label: 'Prayer Wall', href: '/dashboard/prayer-wall', icon: HandHeart },
   {
     label: 'Settings',

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Users, UserPlus, Search, Trash2, Edit2, Eye } from 'lucide-react';
+import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2 } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { membersApi } from '@/lib/api';
@@ -60,21 +60,61 @@ export default function MembersPage() {
 
   // Compute stats
   const totalMembers = members.length;
-  const activeCount = members.filter((m: Member) => m.memberStatus === 'active').length;
-  const inactiveCount = members.filter((m: Member) => m.memberStatus === 'inactive').length;
+  
+  // Gender stats
+  const maleCount = members.filter((m: Member) => m.gender === 'male').length;
+  const femaleCount = members.filter((m: Member) => m.gender === 'female').length;
+
+  // Age demographics helper
+  const getAge = (dateOfBirth: string | undefined): number | null => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Age demographics (Children: 1-12, Teens: 13-19, Adults: 20-59, Seniors: 60+)
+  const childrenCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 1 && age <= 12;
+  }).length;
+
+  const teensCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 13 && age <= 19;
+  }).length;
+
+  const adultsCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 20 && age <= 59;
+  }).length;
+
+  const seniorsCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 60;
+  }).length;
+
+  const stats = [
+    { label: 'Total Members', value: totalMembers, icon: Users },
+    { label: 'Male', value: maleCount, icon: Users },
+    { label: 'Female', value: femaleCount, icon: Users },
+    { label: 'Children (1-12)', value: childrenCount, icon: Users2 },
+    { label: 'Teens (13-19)', value: teensCount, icon: Users2 },
+    { label: 'Adults (20-59)', value: adultsCount, icon: Users },
+    { label: 'Seniors (60+)', value: seniorsCount, icon: Users },
+    { label: 'New This Month', value: newThisMonth, icon: UserPlus },
+  ];
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const newThisMonth = members.filter(
     (m: Member) => new Date(m.createdAt) >= startOfMonth
   ).length;
-
-  const stats = [
-    { label: 'Total Members', value: totalMembers, icon: Users },
-    { label: 'Active', value: activeCount, icon: Users },
-    { label: 'Inactive', value: inactiveCount, icon: Users },
-    { label: 'New This Month', value: newThisMonth, icon: UserPlus },
-  ];
 
   const memberToDelete = deleteId
     ? members.find((m: Member) => m._id === deleteId)
