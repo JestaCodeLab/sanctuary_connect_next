@@ -322,7 +322,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   {event.eventType && (
-                    <Badge variant="muted" className="text-xs">
+                    <Badge variant="muted">
                       {event.eventType}
                     </Badge>
                   )}

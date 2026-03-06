@@ -482,7 +482,7 @@ export default function IncomePage() {
         {receiptTarget && (
           <DonationReceipt
             donation={receiptTarget}
-            churchName={orgData?.churchName}
+            churchName={orgData?.organization?.churchName}
             onClose={() => setReceiptTarget(null)}
           />
         )}
