@@ -320,8 +320,16 @@ export const membersApi = {
 
 // Events API
 export const eventsApi = {
-  getAll: async (): Promise<ChurchEvent[]> => {
-    const response = await api.get<ChurchEvent[]>('/api/events');
+  getAll: async (params?: { startDate?: string; endDate?: string; status?: string }): Promise<ChurchEvent[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.status) queryParams.append('status', params.status);
+    
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/events?${queryString}` : '/api/events';
+    
+    const response = await api.get<ChurchEvent[]>(url);
     return response.data;
   },
   getById: async (id: string): Promise<ChurchEvent> => {

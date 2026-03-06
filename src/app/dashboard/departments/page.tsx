@@ -58,7 +58,11 @@ function DepartmentsContent() {
       toast.success('Department created');
       closeModal();
     },
-    onError: () => toast.error('Failed to create department'),
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to create department';
+      console.error('Create department error:', error);
+      toast.error(message);
+    },
   });
 
   const updateMutation = useMutation({
@@ -69,7 +73,11 @@ function DepartmentsContent() {
       toast.success('Department updated');
       closeModal();
     },
-    onError: () => toast.error('Failed to update department'),
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to update department';
+      console.error('Update department error:', error);
+      toast.error(message);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -78,7 +86,11 @@ function DepartmentsContent() {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department deleted');
     },
-    onError: () => toast.error('Failed to delete department'),
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to delete department';
+      console.error('Delete department error:', error);
+      toast.error(message);
+    },
   });
 
   const closeModal = () => {

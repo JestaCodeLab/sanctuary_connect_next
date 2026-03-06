@@ -1,12 +1,15 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, Info } from 'lucide-react';
-import { Card, Button } from '@/components/ui';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Card, Button, Input } from '@/components/ui';
 import { Badge, PageHeader, StatsGrid } from '@/components/dashboard';
-import { attendanceApi, eventsApi } from '@/lib/api';
+import MemberSearch from '@/components/dashboard/MemberSearch';
+import { attendanceApi, eventsApi, membersApi } from '@/lib/api';
+import type { Member } from '@/types';
 
 function formatDateTime(date: string): string {
   return new Date(date).toLocaleString('en-US', {
@@ -20,16 +23,58 @@ function formatDateTime(date: string): string {
 
 export default function EventAttendancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [checkInType, setCheckInType] = useState<'member' | 'guest'>('member');
+  const [guestInfo, setGuestInfo] = useState({ name: '', email: '', phone: '' });
 
   const { data: event } = useQuery({
     queryKey: ['events', id],
     queryFn: () => eventsApi.getById(id),
   });
 
-  const { data: attendanceData, isLoading } = useQuery({
+  const { data: attendanceData, isLoading, refetch } = useQuery({
     queryKey: ['attendance', 'event', id],
     queryFn: () => attendanceApi.getEventAttendanceRecords(id),
   });
+
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ['members'],
+    queryFn: membersApi.getAll,
+  });
+
+  const checkInMutation = useMutation({
+    mutationFn: (data: any) => attendanceApi.manualCheckIn(data),
+    onSuccess: () => {
+      toast.success('Check-in successful!');
+      setGuestInfo({ name: '', email: '', phone: '' });
+      refetch();
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Check-in failed';
+      toast.error(message);
+    },
+  });
+
+  const handleMemberCheckIn = (member: Member) => {
+    checkInMutation.mutate({
+      eventId: id,
+      memberId: member._id,
+    });
+  };
+
+  const handleGuestCheckIn = () => {
+    if (!guestInfo.name) {
+      toast.error('Guest name is required');
+      return;
+    }
+    checkInMutation.mutate({
+      eventId: id,
+      name: guestInfo.name,
+      email: guestInfo.email,
+      phone: guestInfo.phone,
+    });
+  };
 
   const records = attendanceData?.records || [];
   const stats = attendanceData?.stats || {};
@@ -67,28 +112,20 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
         Back to Attendance
       </Link>
 
-      <PageHeader
-        title={event?.title || 'Event Attendance'}
-        description="Individual check-in records for this event"
-      />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{event?.title || 'Event Attendance'}</h1>
+          <p className="text-sm text-muted mt-1">Individual check-in records for this event</p>
+        </div>
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          leftIcon={<UserPlus className="w-4 h-4" />}
+        >
+          Manual Check-In
+        </Button>
+      </div>
 
       <StatsGrid stats={statsData} />
-
-      {/* Info Card about Automatic Attendance */}
-      <Card padding="lg" className="mb-6 bg-primary/5 border-primary/20">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-foreground mb-2">How Automatic Attendance Works</h3>
-            <ul className="text-sm text-muted space-y-1">
-              <li>• <strong>QR Check-In:</strong> People scan the event QR code to automatically check in</li>
-              <li>• <strong>Manual Check-In:</strong> Staff can manually check in members or guests from the attendance page</li>
-              <li>• <strong>Real-time Tracking:</strong> All check-ins are recorded instantly with timestamps</li>
-              <li>• <strong>Duplicate Prevention:</strong> Each person can only check in once per event</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
 
       <Card padding="lg">
         <h2 className="text-lg font-semibold text-foreground mb-4">Check-In Records</h2>
@@ -170,6 +207,107 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
           </div>
         )}
       </Card>
+
+      {/* Manual Check-In Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card padding="lg" className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-foreground">Manual Check-In</h2>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setCheckInType('member');
+                  setGuestInfo({ name: '', email: '', phone: '' });
+                }}
+                className="text-muted hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Check-in Type Toggle */}
+            <div className="flex gap-2 mb-6">
+              <Button
+                variant={checkInType === 'member' ? 'primary' : 'outline'}
+                onClick={() => setCheckInType('member')}
+                className="flex-1"
+              >
+                <UserCheck className="w-4 h-4 mr-2" />
+                Member
+              </Button>
+              <Button
+                variant={checkInType === 'guest' ? 'primary' : 'outline'}
+                onClick={() => setCheckInType('guest')}
+                className="flex-1"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Guest
+              </Button>
+            </div>
+
+            {checkInType === 'member' ? (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Search Member</label>
+                <MemberSearch
+                  onSelect={(member) => {
+                    handleMemberCheckIn(member);
+                    setIsModalOpen(false);
+                    setCheckInType('member');
+                    setGuestInfo({ name: '', email: '', phone: '' });
+                  }}
+                  excludeIds={records.map((r: any) => r.memberId?._id).filter(Boolean)}
+                  placeholder="Search by name, email, or phone..."
+                />
+                {records.filter((r: any) => r.memberId).length > 0 && (
+                  <p className="text-xs text-muted mt-2">
+                    {records.filter((r: any) => r.memberId).length} member(s) already checked in
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Input
+                  label="Guest Name *"
+                  value={guestInfo.name}
+                  onChange={(e) => setGuestInfo({ ...guestInfo, name: e.target.value })}
+                  placeholder="Enter guest name"
+                />
+                <div className="grid grid-cols-1 gap-4">
+                  <Input
+                    label="Email (optional)"
+                    type="email"
+                    value={guestInfo.email}
+                    onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
+                    placeholder="guest@example.com"
+                  />
+                  <Input
+                    label="Phone (optional)"
+                    type="tel"
+                    value={guestInfo.phone}
+                    onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+                    placeholder="+1 234 567 8900"
+                  />
+                </div>
+                <Button
+                  onClick={() => {
+                    handleGuestCheckIn();
+                    if (!checkInMutation.isPending) {
+                      setIsModalOpen(false);
+                      setGuestInfo({ name: '', email: '', phone: '' });
+                    }
+                  }}
+                  isLoading={checkInMutation.isPending}
+                  leftIcon={<CheckCircle className="w-4 h-4" />}
+                  className="w-full"
+                >
+                  Check In Guest
+                </Button>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

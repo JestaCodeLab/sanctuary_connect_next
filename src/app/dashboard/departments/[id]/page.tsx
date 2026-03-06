@@ -26,7 +26,11 @@ function DepartmentDetailContent({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ['departments', id] });
       toast.success('Member added');
     },
-    onError: () => toast.error('Failed to add member'),
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to add member';
+      console.error('Add member error:', error);
+      toast.error(message);
+    },
   });
 
   const removeMemberMutation = useMutation({
@@ -35,7 +39,11 @@ function DepartmentDetailContent({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: ['departments', id] });
       toast.success('Member removed');
     },
-    onError: () => toast.error('Failed to remove member'),
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to remove member';
+      console.error('Remove member error:', error);
+      toast.error(message);
+    },
   });
 
   if (isLoading) {
