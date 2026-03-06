@@ -16,11 +16,14 @@ import {
   ArrowDownRight,
   Minus,
   Users2,
+  Building2,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import { useAuthStore } from '@/store/authStore';
 import { useOrganizationStore } from '@/store/organizationStore';
+import { useBranchStore } from '@/store/branchStore';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import { membersApi, eventsApi, donationsApi, attendanceApi } from '@/lib/api';
 import type { Member, ChurchEvent, Donation } from '@/types';
@@ -45,11 +48,22 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const { formatCurrency } = useCurrency();
+  const { selectedBranchId, branches } = useBranchStore();
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
     queryFn: () => membersApi.getAll(),
   });
+
+  // Filter members by selected branch
+  const filteredMembers = selectedBranchId
+    ? members.filter((m: Member) => m.branchId === selectedBranchId)
+    : members;
+
+  // Get current branch name for display
+  const currentBranchName = selectedBranchId
+    ? branches.find(b => b._id === selectedBranchId)?.name || 'Selected Branch'
+    : 'All Branches';
 
   const { data: events = [] } = useQuery({
     queryKey: ['events'],
@@ -66,12 +80,12 @@ export default function DashboardPage() {
     queryFn: attendanceApi.getStats,
   });
 
-  // Compute current month stats
+  // Compute current month stats (use filteredMembers for branch-aware stats)
   const now = new Date();
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   
-  const totalMembers = members.length;
-  const newMembersThisMonth = members.filter((m: Member) => {
+  const totalMembers = filteredMembers.length;
+  const newMembersThisMonth = filteredMembers.filter((m: Member) => {
     const date = new Date(m.createdAt);
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   }).length;
@@ -117,12 +131,12 @@ export default function DashboardPage() {
       href: '/dashboard/events',
     },
     {
-      label: 'Monthly Donations',
-      value: formatCurrency(monthlyDonations),
-      change: donationTrend !== 0 ? `${donationTrend > 0 ? '+' : ''}${donationTrend.toFixed(1)}% vs last month` : 'No change',
-      icon: DollarSign,
-      trend: donationTrend > 0 ? 'up' : donationTrend < 0 ? 'down' : 'neutral',
-      href: '/dashboard/finance',
+      label: 'Branches',
+      value: branches.length,
+      change: selectedBranchId ? 'Viewing 1 branch' : 'Viewing all',
+      icon: Building2,
+      trend: 'neutral',
+      href: '/dashboard/branches',
     },
     {
       label: 'Total Check-Ins',
@@ -135,10 +149,10 @@ export default function DashboardPage() {
   ];
 
   const quickActions = [
-    { label: 'Add New Member', icon: UserPlus, onClick: () => router.push('/dashboard/members/new'), color: 'bg-blue-500' },
-    { label: 'Create Event', icon: Calendar, onClick: () => router.push('/dashboard/events/new'), color: 'bg-green-500' },
-    { label: 'Record Donation', icon: DollarSign, onClick: () => router.push('/dashboard/finance/income'), color: 'bg-yellow-500' },
-    { label: 'Record Attendance', icon: Activity, onClick: () => router.push('/dashboard/attendance'), color: 'bg-purple-500' },
+    { label: 'Add New Member', icon: UserPlus, onClick: () => router.push('/dashboard/members/new'), color: 'text-blue-500' },
+    { label: 'Create Event', icon: Calendar, onClick: () => router.push('/dashboard/events/new'), color: 'text-green-500' },
+    { label: 'Record Donation', icon: DollarSign, onClick: () => router.push('/dashboard/finance/income'), color: 'text-yellow-500' },
+    { label: 'Record Attendance', icon: Activity, onClick: () => router.push('/dashboard/attendance'), color: 'text-purple-500' },
   ];
 
   // Derive recent activity from real data
@@ -190,24 +204,35 @@ export default function DashboardPage() {
     return age;
   };
 
-  const maleCount = members.filter((m: Member) => m.gender === 'male').length;
-  const femaleCount = members.filter((m: Member) => m.gender === 'female').length;
-  const childrenCount = members.filter((m: Member) => {
+  // Use filteredMembers for branch-aware demographics
+  const maleCount = filteredMembers.filter((m: Member) => m.gender === 'male').length;
+  const femaleCount = filteredMembers.filter((m: Member) => m.gender === 'female').length;
+  const childrenCount = filteredMembers.filter((m: Member) => {
     const age = getAge(m.dateOfBirth);
     return age !== null && age >= 1 && age <= 12;
   }).length;
-  const teensCount = members.filter((m: Member) => {
+  const teensCount = filteredMembers.filter((m: Member) => {
     const age = getAge(m.dateOfBirth);
     return age !== null && age >= 13 && age <= 19;
   }).length;
-  const adultsCount = members.filter((m: Member) => {
+  const adultsCount = filteredMembers.filter((m: Member) => {
     const age = getAge(m.dateOfBirth);
     return age !== null && age >= 20 && age <= 59;
   }).length;
-  const seniorsCount = members.filter((m: Member) => {
+  const seniorsCount = filteredMembers.filter((m: Member) => {
     const age = getAge(m.dateOfBirth);
     return age !== null && age >= 60;
   }).length;
+
+  // Demographics chart data
+  const demographicsData = [
+    { name: 'Male', value: maleCount, color: '#6366f1' },
+    { name: 'Female', value: femaleCount, color: '#ec4899' },
+    { name: 'Children', value: childrenCount, color: '#3b82f6' },
+    { name: 'Teens', value: teensCount, color: '#22c55e' },
+    { name: 'Adults', value: adultsCount, color: '#a855f7' },
+    { name: 'Seniors', value: seniorsCount, color: '#f59e0b' },
+  ];
 
   function formatEventDate(dateStr: string): string {
     const date = new Date(dateStr);
@@ -288,10 +313,10 @@ export default function DashboardPage() {
                 <button
                   key={action.label}
                   onClick={action.onClick}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background transition-all hover:scale-[1.02] group"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-background hover:border-primary/50 transition-all hover:scale-[1.02] group"
                 >
-                  <div className={`w-8 h-8 ${action.color} bg-opacity-10 rounded-lg flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${action.color.replace('bg-', 'text-')}`} />
+                  <div className="w-8 h-8 bg-muted/30 rounded-lg flex items-center justify-center">
+                    <Icon className={`w-4 h-4 ${action.color}`} />
                   </div>
                   <span className="text-sm text-foreground flex-1 text-left">{action.label}</span>
                   <ChevronRight className="w-4 h-4 text-muted group-hover:text-foreground transition-colors" />
@@ -301,44 +326,62 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Member Demographics */}
+        {/* Member Demographics Chart */}
         <Card padding="md" className="lg:col-span-2">
-          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Users2 className="w-5 h-5" />
-            Member Demographics
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{maleCount}</p>
-              <p className="text-xs text-muted mt-1">Male</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{femaleCount}</p>
-              <p className="text-xs text-muted mt-1">Female</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-blue-500">{childrenCount}</p>
-              <p className="text-xs text-muted mt-1">Children (1-12)</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-green-500">{teensCount}</p>
-              <p className="text-xs text-muted mt-1">Teens (13-19)</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-purple-500">{adultsCount}</p>
-              <p className="text-xs text-muted mt-1">Adults (20-59)</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-amber-500">{seniorsCount}</p>
-              <p className="text-xs text-muted mt-1">Seniors (60+)</p>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Users2 className="w-5 h-5" />
+              Member Demographics
+            </h2>
+            <Badge variant="info">{currentBranchName}</Badge>
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={demographicsData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--color-border)' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--color-border)' }}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'var(--color-card)', 
+                    borderColor: 'var(--color-border)',
+                    borderRadius: '8px',
+                    color: 'var(--color-foreground)'
+                  }}
+                  labelStyle={{ color: 'var(--color-foreground)', fontWeight: 600 }}
+                  cursor={{ fill: 'var(--color-muted)', opacity: 0.1 }}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {demographicsData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}  
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-3 mt-4 justify-center">
+            {demographicsData.map((item) => (
+              <div key={item.name} className="flex items-center gap-2 text-sm">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />
+                <span className="text-muted">{item.name}:</span>
+                <span className="font-medium text-foreground">{item.value}</span>
+              </div>
+            ))}
           </div>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         {/* Upcoming Events */}
-        <Card padding="md" className="lg:col-span-3">
+        <Card padding="md" className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <Calendar className="w-5 h-5" />
@@ -375,19 +418,17 @@ export default function DashboardPage() {
                   onClick={() => router.push(`/dashboard/events/${event._id}`)}
                   className="flex items-start gap-3 p-3 bg-background rounded-lg hover:bg-muted/30 transition-colors cursor-pointer group"
                 >
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex flex-col items-center justify-center flex-shrink-0">
-                    <span className="text-xs text-primary font-medium">
-                      {formatEventDate(event.startDate)}
-                    </span>
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-5 h-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                       {event.title}
                     </p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted flex-wrap">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {formatEventTime(event.startDate)}
+                        {formatEventDate(event.startDate)} • {formatEventTime(event.startDate)}
                       </span>
                       {event.location && (
                         <span className="flex items-center gap-1 truncate">
@@ -401,6 +442,67 @@ export default function DashboardPage() {
                     <Badge variant="muted">
                       {event.eventType}
                     </Badge>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* Branches */}
+        <Card padding="md" className="lg:col-span-1">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Branches
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => router.push('/dashboard/branches')}
+            >
+              Manage
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {branches.length === 0 ? (
+              <div className="text-center py-8">
+                <Building2 className="w-12 h-12 text-muted mx-auto mb-3 opacity-50" />
+                <p className="text-sm text-muted">
+                  No branches created yet
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => router.push('/dashboard/branches/new')}
+                  className="mt-4"
+                >
+                  Add Branch
+                </Button>
+              </div>
+            ) : (
+              branches.slice(0, 5).map((branch) => (
+                <div
+                  key={branch._id}
+                  onClick={() => router.push(`/dashboard/branches/${branch._id}`)}
+                  className="flex items-center gap-3 p-3 bg-background rounded-lg hover:bg-muted/30 transition-colors cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {branch.name}
+                    </p>
+                    {branch.address && (
+                      <p className="text-xs text-muted truncate flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {branch.address}
+                      </p>
+                    )}
+                  </div>
+                  {selectedBranchId === branch._id && (
+                    <Badge variant="success">Active</Badge>
                   )}
                 </div>
               ))
