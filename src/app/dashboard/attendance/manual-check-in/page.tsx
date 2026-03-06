@@ -37,7 +37,7 @@ export default function ManualCheckInPage() {
   // Fetch members for member check-in
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryFn: () => membersApi.getAll(),
     enabled: checkInType === 'member',
   });
 

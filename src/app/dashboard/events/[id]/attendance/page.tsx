@@ -40,7 +40,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
 
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryFn: () => membersApi.getAll(),
   });
 
   const checkInMutation = useMutation({

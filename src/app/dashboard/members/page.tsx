@@ -37,7 +37,7 @@ export default function MembersPage() {
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryFn: () => membersApi.getAll(),
   });
 
   const deleteMutation = useMutation({

@@ -47,7 +47,7 @@ export default function DashboardPage() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryFn: () => membersApi.getAll(),
   });
 
   const { data: events = [] } = useQuery({

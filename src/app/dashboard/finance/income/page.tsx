@@ -118,7 +118,7 @@ export default function IncomePage() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryFn: () => membersApi.getAll(),
   });
 
   const donorOptions = [
