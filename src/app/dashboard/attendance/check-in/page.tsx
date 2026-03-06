@@ -71,6 +71,18 @@ export default function QRCheckInPage() {
         description="Scan or enter QR code to check in to an event"
       />
 
+      {/* Instructions */}
+      <Card padding="lg" className="mt-6 bg-primary/5 border-primary/20">
+        <h3 className="text-sm font-semibold text-foreground mb-2">How QR Check-In Works:</h3>
+        <ol className="text-sm text-muted space-y-1 list-decimal list-inside">
+          <li>Event organizer generates a QR code for the event</li>
+          <li>QR code is displayed at the event venue (on screen, printed, etc.)</li>
+          <li>Attendees scan the QR code or enter the token manually</li>
+          <li>System automatically records attendance with timestamp</li>
+          <li>Each person can only check in once per event</li>
+        </ol>
+      </Card>
+
       <div className="space-y-6 mt-6">
         {/* Check-in Type */}
         <Card padding="lg">
@@ -145,6 +157,9 @@ export default function QRCheckInPage() {
               onChange={(e) => setQrToken(e.target.value)}
               leftIcon={<QrCode className="w-4 h-4" />}
             />
+            <p className="text-xs text-muted">
+              💡 The QR token is displayed in the event QR code. You can manually type it or use camera scanning.
+            </p>
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -152,7 +167,7 @@ export default function QRCheckInPage() {
                 className="flex-1"
                 leftIcon={<QrCode className="w-4 h-4" />}
               >
-                Scan with Camera
+                Scan with Camera (Coming Soon)
               </Button>
               <Button
                 onClick={handleCheckIn}

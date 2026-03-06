@@ -3,7 +3,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Users, QrCode, UserCheck, UserPlus } from 'lucide-react';
+import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, Info } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
 import { Badge, PageHeader, StatsGrid } from '@/components/dashboard';
 import { attendanceApi, eventsApi } from '@/lib/api';
@@ -73,6 +73,22 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       />
 
       <StatsGrid stats={statsData} />
+
+      {/* Info Card about Automatic Attendance */}
+      <Card padding="lg" className="mb-6 bg-primary/5 border-primary/20">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-foreground mb-2">How Automatic Attendance Works</h3>
+            <ul className="text-sm text-muted space-y-1">
+              <li>• <strong>QR Check-In:</strong> People scan the event QR code to automatically check in</li>
+              <li>• <strong>Manual Check-In:</strong> Staff can manually check in members or guests from the attendance page</li>
+              <li>• <strong>Real-time Tracking:</strong> All check-ins are recorded instantly with timestamps</li>
+              <li>• <strong>Duplicate Prevention:</strong> Each person can only check in once per event</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
 
       <Card padding="lg">
         <h2 className="text-lg font-semibold text-foreground mb-4">Check-In Records</h2>

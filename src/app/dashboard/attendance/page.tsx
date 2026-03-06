@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { ClipboardCheck, Users, TrendingUp, Calendar, BarChart3, Plus, QrCode } from 'lucide-react';
+import { ClipboardCheck, Users, TrendingUp, Calendar, BarChart3, Plus, QrCode, UserCheck } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, Modal, EmptyState } from '@/components/dashboard';
 import { Card, Button, Input, Select } from '@/components/ui';
@@ -70,6 +70,8 @@ export default function AttendancePage() {
   });
 
   const selectedEventId = watch('eventId');
+  const selectedEvent = events.find((e: ChurchEvent) => e._id === selectedEventId);
+  
   useEffect(() => {
     if (selectedEventId) {
       const event = events.find((e: ChurchEvent) => e._id === selectedEventId);
@@ -148,6 +150,13 @@ export default function AttendancePage() {
           onClick={() => router.push('/dashboard/attendance/check-in')}
         >
           QR Check-In
+        </Button>
+        <Button
+          variant="outline"
+          leftIcon={<UserCheck className="w-4 h-4" />}
+          onClick={() => router.push('/dashboard/attendance/manual-check-in')}
+        >
+          Manual Check-In
         </Button>
       </div>
 
@@ -233,11 +242,16 @@ export default function AttendancePage() {
           setIsModalOpen(false);
           reset();
         }}
-        title="Record Attendance"
-        description="Log attendance for a service or event."
+        title="Record Attendance (Summary)"
+        description="Log aggregate attendance counts for a service or event. For individual check-ins, use Manual Check-In or QR Check-In."
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="p-3 bg-muted/20 rounded-lg border border-border text-sm text-muted mb-4">
+            <strong className="text-foreground">Note:</strong> This records total present/absent counts. 
+            For tracking individual attendees, use <strong>Manual Check-In</strong> or <strong>QR Check-In</strong> instead.
+          </div>
+          
           <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
           <Select
             label="Event / Service"
@@ -247,12 +261,19 @@ export default function AttendancePage() {
             {...register('eventId')}
           />
 
-          <Input
-            label="Date"
-            type="date"
-            error={errors.date?.message}
-            {...register('date')}
-          />
+          <div className="space-y-2">
+            <Input
+              label="Date"
+              type="date"
+              error={errors.date?.message}
+              {...register('date')}
+            />
+            {selectedEventId && selectedEvent?.startDate && (
+              <p className="text-xs text-muted">
+                Auto-filled from event date. You can change it if needed.
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Input
