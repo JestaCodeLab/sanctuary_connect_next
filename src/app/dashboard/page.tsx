@@ -95,7 +95,8 @@ export default function DashboardPage() {
   const donationTrend = lastMonthDonations === 0 ? 0 : 
     ((monthlyDonations - lastMonthDonations) / lastMonthDonations) * 100;
 
-  const attendanceRate = attendanceStats?.averageRate ?? 0;
+  // Calculate a simple attendance rate: check-ins across all events (placeholder metric)
+  const totalCheckIns = attendanceStats?.totalCheckIns ?? 0;
 
   const stats = [
     {
@@ -123,11 +124,11 @@ export default function DashboardPage() {
       href: '/dashboard/finance',
     },
     {
-      label: 'Attendance Rate',
-      value: `${attendanceRate}%`,
-      change: attendanceStats?.lastAttendance ? `${attendanceStats.lastAttendance} last service` : 'No data',
+      label: 'Total Check-Ins',
+      value: totalCheckIns.toLocaleString(),
+      change: attendanceStats?.recentCheckIns ? `${attendanceStats.recentCheckIns} last 7 days` : 'No data',
       icon: TrendingUp,
-      trend: attendanceRate >= 80 ? 'up' : attendanceRate >= 60 ? 'neutral' : 'down',
+      trend: attendanceStats?.recentCheckIns && attendanceStats?.recentCheckIns > 0 ? 'up' : 'neutral',
       href: '/dashboard/attendance',
     },
   ];

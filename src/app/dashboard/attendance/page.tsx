@@ -184,15 +184,17 @@ export default function AttendancePage() {
                       <h3 className="text-base font-semibold text-foreground truncate">{event.title}</h3>
                       <p className="text-xs text-muted">Started {formatDate(event.startDate)}</p>
                     </div>
-                    <Badge variant="success" className="animate-pulse">
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        LIVE
-                      </span>
-                    </Badge>
+                    <div className="animate-pulse">
+                      <Badge variant="success">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          LIVE
+                        </span>
+                      </Badge>
+                    </div>
                   </div>
                   <Button
-                    variant="default"
+                    variant="primary"
                     size="sm"
                     onClick={() => router.push(`/dashboard/events/${event._id}/attendance`)}
                   >
