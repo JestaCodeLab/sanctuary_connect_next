@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, CheckCircle, XCircle, User, Mail, Phone, Calendar } from 'lucide-react';
+import { UserCheck, CheckCircle, XCircle, User, Mail, Phone, Calendar, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input, Select } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
@@ -17,6 +17,9 @@ export default function ManualCheckInPage() {
   const [eventDate, setEventDate] = useState('');
   const [checkInType, setCheckInType] = useState<'member' | 'guest'>('member');
   const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [guestInfo, setGuestInfo] = useState({
     name: '',
     email: '',
@@ -96,7 +99,29 @@ export default function ManualCheckInPage() {
     checkInMutation.mutate(data);
   };
 
-  const eventOptions = events.map((e) => ({
+  // Filter events by search query and date range
+  const filteredEvents = events.filter((event) => {
+    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    let matchesDateRange = true;
+    if (startDate || endDate) {
+      const eventDate = new Date(event.startDate);
+      if (startDate) {
+        const start = new Date(startDate);
+        if (eventDate < start) matchesDateRange = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        // Set end date to end of day
+        end.setHours(23, 59, 59, 999);
+        if (eventDate > end) matchesDateRange = false;
+      }
+    }
+    
+    return matchesSearch && matchesDateRange;
+  });
+
+  const eventOptions = filteredEvents.map((e) => ({
     value: e._id,
     label: `${e.title} - ${new Date(e.startDate).toLocaleDateString()}`,
   }));
@@ -114,18 +139,86 @@ export default function ManualCheckInPage() {
       />
 
       <div className="space-y-6 mt-6">
+        {/* Event Search and Filters */}
+        <Card padding="lg">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Find Event</h2>
+          <div className="space-y-4">
+            {/* Search by Name */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Search by Event Name</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Clear Filters */}
+            {(searchQuery || startDate || endDate) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </Card>
+
         {/* Event Selection */}
         <Card padding="lg">
           <h2 className="text-lg font-semibold text-foreground mb-4">Select Event</h2>
           <div className="space-y-4">
-            <Select
-              label="Event"
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              options={eventOptions}
-              placeholder="Select an event"
-              required
-            />
+            {filteredEvents.length === 0 ? (
+              <div className="p-4 text-center rounded-lg bg-muted/10 border border-border">
+                <Calendar className="w-8 h-8 text-muted mx-auto mb-2" />
+                <p className="text-sm text-muted">No events found matching your criteria</p>
+              </div>
+            ) : (
+              <>
+                <Select
+                  label="Event"
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  options={eventOptions}
+                  placeholder="Select an event"
+                  required
+                />
+                <p className="text-xs text-muted">{filteredEvents.length} event(s) available</p>
+              </>
+            )}
             {eventDate && (
               <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-lg border border-border">
                 <Calendar className="w-5 h-5 text-primary" />

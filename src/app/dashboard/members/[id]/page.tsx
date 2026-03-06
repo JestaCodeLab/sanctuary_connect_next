@@ -3,7 +3,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Edit2, Mail, Phone, MapPin, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Edit2, Mail, Phone, MapPin, Calendar, User, Users } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import { membersApi } from '@/lib/api';
@@ -45,6 +45,24 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const { data: member, isLoading } = useQuery({
     queryKey: ['members', id],
     queryFn: () => membersApi.getById(id),
+  });
+
+  // Fetch family members if they exist
+  const { data: familyMembers = [] } = useQuery({
+    queryKey: ['members', 'family', member?.familyMembers],
+    queryFn: async () => {
+      if (!member?.familyMembers || member.familyMembers.length === 0) {
+        return [];
+      }
+      const members = await Promise.all(
+        member.familyMembers.map(async (fm: any) => {
+          const memberData = await membersApi.getById(fm.memberId);
+          return { ...memberData, relationship: fm.relationship };
+        })
+      );
+      return members;
+    },
+    enabled: !!member?.familyMembers && member.familyMembers.length > 0,
   });
 
   if (isLoading) {
@@ -161,6 +179,40 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             <DetailField label="Member Since" value={formatDate(member.createdAt)} />
           </dl>
         </Card>
+
+        {/* Family Information */}
+        {familyMembers.length > 0 && (
+          <Card padding="lg">
+            <div className="flex items-center gap-2 mb-6">
+              <Users className="w-5 h-5 text-muted" />
+              <h2 className="text-lg font-semibold text-foreground">Family Links</h2>
+            </div>
+            {familyMembers.length > 0 && (
+              <div>
+                <p className="text-sm text-muted mb-3">Linked Family Members</p>
+                <div className="space-y-2">
+                  {familyMembers.map((familyMember: any) => (
+                    <Link
+                      key={familyMember._id}
+                      href={`/dashboard/members/${familyMember._id}`}
+                      className="block p-3 rounded-lg bg-muted/20 border border-border hover:border-primary transition"
+                    >
+                      <p className="text-sm font-medium text-foreground">
+                        {familyMember.firstName} {familyMember.lastName}
+                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                          {familyMember.relationship}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted mt-0.5">
+                        {familyMember.email || familyMember.phone || '—'}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

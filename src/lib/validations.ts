@@ -108,9 +108,12 @@ export const memberSchema = z.object({
   baptismDate: z.string().optional(),
   membershipDate: z.string().optional(),
   memberStatus: z.enum(['active', 'inactive', 'visiting', 'transferred']).optional(),
-  familyName: z.string().optional(),
-  familyRelationship: z.enum(['head', 'spouse', 'child', 'other']).optional(),
-  familyMembers: z.array(z.string()).optional(),
+  familyMembers: z.array(
+    z.object({
+      memberId: z.string(),
+      relationship: z.enum(['mother', 'father', 'spouse', 'child', 'sibling', 'grandparent', 'other']),
+    })
+  ).optional(),
   notes: z.string().max(2000, 'Notes must be under 2000 characters').optional(),
 });
 

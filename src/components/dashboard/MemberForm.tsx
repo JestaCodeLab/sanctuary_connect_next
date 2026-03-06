@@ -1,13 +1,27 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { User, Mail, Phone, Users, FileText } from 'lucide-react';
+import { User, Mail, Phone, Users, FileText, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Button, Input, Card, Select } from '@/components/ui';
 import BranchField from '@/components/dashboard/BranchField';
+import MemberSearch from '@/components/dashboard/MemberSearch';
 import { memberSchema, type MemberFormData } from '@/lib/validations';
 import { countryOptions, regionsByCountry } from '@/lib/data/countries';
+import { membersApi } from '@/lib/api';
+import type { Member } from '@/types';
+
+const relationshipOptions = [
+  { value: 'mother', label: 'Mother' },
+  { value: 'father', label: 'Father' },
+  { value: 'spouse', label: 'Spouse' },
+  { value: 'child', label: 'Child' },
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'grandparent', label: 'Grandparent' },
+  { value: 'other', label: 'Other' },
+];
 
 const genderOptions = [
   { value: 'male', label: 'Male' },
@@ -28,19 +42,13 @@ const memberStatusOptions = [
   { value: 'transferred', label: 'Transferred' },
 ];
 
-const familyRelationshipOptions = [
-  { value: 'head', label: 'Head of Family' },
-  { value: 'spouse', label: 'Spouse' },
-  { value: 'child', label: 'Child' },
-  { value: 'other', label: 'Other' },
-];
-
 interface MemberFormProps {
   defaultValues?: Partial<MemberFormData>;
   onSubmit: (data: MemberFormData) => void;
   isLoading: boolean;
   submitLabel: string;
   onCancel: () => void;
+  currentMemberId?: string;
 }
 
 export default function MemberForm({
@@ -49,7 +57,18 @@ export default function MemberForm({
   isLoading,
   submitLabel,
   onCancel,
+  currentMemberId,
 }: MemberFormProps) {
+  const [selectedFamilyMembers, setSelectedFamilyMembers] = useState<Array<{
+    member: Member;
+    relationship: string;
+  }>>([]);
+  const [memberForRelationship, setMemberForRelationship] = useState<Member | null>(null);
+
+  const { data: allMembers = [] } = useQuery<Member[]>({
+    queryKey: ['members'],
+    queryFn: () => membersApi.getAll(),
+  });
   const {
     register,
     handleSubmit,
@@ -75,8 +94,6 @@ export default function MemberForm({
       baptismDate: '',
       membershipDate: '',
       memberStatus: 'active',
-      familyName: '',
-      familyRelationship: undefined,
       notes: '',
       ...defaultValues,
     },
@@ -85,11 +102,18 @@ export default function MemberForm({
   const selectedCountry = watch('country');
   const regionOptions = selectedCountry ? (regionsByCountry[selectedCountry] || []) : [];
 
+  // Load default family members
   useEffect(() => {
-    if (selectedCountry && !defaultValues?.region) {
-      setValue('region', '');
+    if (defaultValues?.familyMembers && defaultValues.familyMembers.length > 0) {
+      const familyMembers = (defaultValues.familyMembers as any[])
+        .map((fm) => ({
+          member: allMembers.find((m) => m._id === fm.memberId),
+          relationship: fm.relationship,
+        }))
+        .filter((fm): fm is { member: Member; relationship: string } => !!fm.member);
+      setSelectedFamilyMembers(familyMembers);
     }
-  }, [selectedCountry, setValue, defaultValues?.region]);
+  }, [defaultValues?.familyMembers, allMembers]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -249,24 +273,99 @@ export default function MemberForm({
       <Card padding="lg">
         <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
           <Users className="w-5 h-5" />
-          Family Information
+          Family Links
         </h2>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Family Name"
-              placeholder="e.g. The Mensah Family"
-              error={errors.familyName?.message}
-              {...register('familyName')}
+          <p className="text-sm text-muted">Search and add family members to create relationships</p>
+
+          {memberForRelationship ? (
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm font-medium text-foreground mb-3">
+                Select relationship for: <span className="font-semibold">{memberForRelationship.firstName} {memberForRelationship.lastName}</span>
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {relationshipOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      if (!selectedFamilyMembers.find((fm) => fm.member._id === memberForRelationship._id)) {
+                        const updated = [...selectedFamilyMembers, { member: memberForRelationship, relationship: option.value }];
+                        setSelectedFamilyMembers(updated);
+                        setValue(
+                          'familyMembers',
+                          updated.map((fm) => ({ memberId: fm.member._id, relationship: fm.relationship as 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other' }))
+                        );
+                      }
+                      setMemberForRelationship(null);
+                    }}
+                    className="px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setMemberForRelationship(null)}
+                className="mt-3 text-sm text-muted hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <MemberSearch
+              onSelect={(member) => {
+                setMemberForRelationship(member);
+              }}
+              excludeIds={[
+                ...(currentMemberId ? [currentMemberId] : []),
+                ...selectedFamilyMembers.map((fm) => fm.member._id),
+              ]}
+              placeholder="Search for family members..."
             />
-            <Select
-              label="Family Relationship"
-              options={familyRelationshipOptions}
-              placeholder="Select relationship"
-              error={errors.familyRelationship?.message}
-              {...register('familyRelationship')}
-            />
-          </div>
+          )}
+
+          {/* Selected Family Members */}
+          {selectedFamilyMembers.length > 0 && (
+            <div className="mt-6 space-y-2">
+              <p className="text-sm font-medium text-foreground">
+                Linked Family Members ({selectedFamilyMembers.length})
+              </p>
+              <div className="space-y-2">
+                {selectedFamilyMembers.map((fm) => (
+                  <div
+                    key={fm.member._id}
+                    className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {fm.member.firstName} {fm.member.lastName}
+                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                          {fm.relationship}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted">{fm.member.email || fm.member.phone}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = selectedFamilyMembers.filter((m) => m.member._id !== fm.member._id);
+                        setSelectedFamilyMembers(updated);
+                        setValue(
+                          'familyMembers',
+                          updated.map((m) => ({ memberId: m.member._id, relationship: m.relationship as 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other' }))
+                        );
+                      }}
+                      className="ml-2 p-1.5 text-muted hover:text-foreground hover:bg-muted rounded transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 

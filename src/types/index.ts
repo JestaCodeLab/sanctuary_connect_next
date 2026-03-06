@@ -205,9 +205,10 @@ export interface Member {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus: 'active' | 'inactive' | 'visiting' | 'transferred';
-  familyName?: string;
-  familyRelationship?: 'head' | 'spouse' | 'child' | 'other';
-  familyMembers?: string[];
+  familyMembers?: Array<{
+    memberId: string;
+    relationship: 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other';
+  }>;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -241,9 +242,7 @@ export interface CreateMemberRequest {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus?: string;
-  familyName?: string;
-  familyRelationship?: string;
-  familyMembers?: string[];
+  familyMembers?: Array<{memberId: string; relationship: 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other'}>;
   notes?: string;
 }
 
@@ -264,9 +263,7 @@ export interface UpdateMemberRequest {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus?: string;
-  familyName?: string;
-  familyRelationship?: string;
-  familyMembers?: string[];
+  familyMembers?: Array<{memberId: string; relationship: 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other'}>;
   notes?: string;
 }
 
