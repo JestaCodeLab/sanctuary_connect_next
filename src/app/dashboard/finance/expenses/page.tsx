@@ -11,6 +11,7 @@ import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/da
 import { Button, Input, Card, Select } from '@/components/ui';
 import { expensesApi } from '@/lib/api';
 import { expenseSchema, type ExpenseFormData } from '@/lib/validations';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import BranchField from '@/components/dashboard/BranchField';
 import type { Expense } from '@/types';
 
@@ -42,10 +43,6 @@ const categoryBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'err
   other: 'muted',
 };
 
-function formatCurrency(amount: number): string {
-  return `GHS ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -58,7 +55,9 @@ export default function ExpensesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<Expense | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const { formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
+  const { formatCurrency: currencyFormatter } = useCurrency();
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ['expenses'],

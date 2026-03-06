@@ -8,11 +8,8 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet, ArrowRight, CreditCard, S
 import { PageHeader, StatsGrid } from '@/components/dashboard';
 import { Card, Button } from '@/components/ui';
 import { financeApi } from '@/lib/api';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import FinanceChart from '@/components/dashboard/FinanceChart';
-
-function formatCurrency(amount: number): string {
-  return `GHS ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 const methodLabels: Record<string, string> = {
   cash: 'Cash',
@@ -39,6 +36,7 @@ const quickLinks = [
 
 export default function FinanceOverviewPage() {
   const [viewMode, setViewMode] = useState<'all' | 'monthly' | 'ytd'>('all');
+  const { formatCurrency } = useCurrency();
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['finance', 'overview'],

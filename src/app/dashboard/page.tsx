@@ -19,6 +19,8 @@ import {
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import { useAuthStore } from '@/store/authStore';
+import { useOrganizationStore } from '@/store/organizationStore';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import { membersApi, eventsApi, donationsApi, attendanceApi } from '@/lib/api';
 import type { Member, ChurchEvent, Donation } from '@/types';
 
@@ -41,6 +43,7 @@ function getTimeAgo(dateString: string): string {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const { formatCurrency } = useCurrency();
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
@@ -112,8 +115,8 @@ export default function DashboardPage() {
       href: '/dashboard/events',
     },
     {
-      label: 'Donations (MTD)',
-      value: `GHS ${monthlyDonations.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      label: 'Monthly Donations',
+      value: formatCurrency(monthlyDonations),
       change: donationTrend !== 0 ? `${donationTrend > 0 ? '+' : ''}${donationTrend.toFixed(1)}% vs last month` : 'No change',
       icon: DollarSign,
       trend: donationTrend > 0 ? 'up' : donationTrend < 0 ? 'down' : 'neutral',
@@ -147,7 +150,7 @@ export default function DashboardPage() {
     })),
     ...donations.slice(0, 3).map((d: Donation) => ({
       action: 'Donation received',
-      name: `GHS ${d.amount.toFixed(2)} - ${d.donationType || 'General'}`,
+      name: `${formatCurrency(d.amount)} - ${d.donationType || 'General'}`,
       time: d.createdAt,
       icon: DollarSign,
       color: 'text-green-500',

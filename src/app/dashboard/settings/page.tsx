@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Settings, Building2, User, CreditCard, Save } from 'lucide-react';
+import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon } from 'lucide-react';
 import { PageHeader, Badge } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import { organizationApi, subscriptionApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useOrganizationStore } from '@/store/organizationStore';
 
 type Tab = 'profile' | 'account' | 'subscription';
 
@@ -53,13 +54,18 @@ function getInitials(firstName: string, lastName: string): string {
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const { setOrganization, setCurrency: setStoreCurrency } = useOrganizationStore();
   const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state for church profile
   const [churchName, setChurchName] = useState('');
   const [legalName, setLegalName] = useState('');
   const [currency, setCurrency] = useState('');
   const [paymentGateway, setPaymentGateway] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState('');
 
   // Fetch organization data
   const { data: orgData, isLoading } = useQuery({
@@ -86,15 +92,20 @@ export default function SettingsPage() {
       setLegalName(organization.legalName || '');
       setCurrency(organization.currency || '');
       setPaymentGateway(organization.paymentGateway || '');
+      setLogoUrl(organization.logoUrl || '');
+      setLogoPreview(organization.logoUrl || '');
+      setOrganization(organization);
     }
-  }, [organization]);
+  }, [organization, setOrganization]);
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: { churchName: string; legalName: string; currency: string; paymentGateway: string }) =>
+    mutationFn: (data: { churchName: string; legalName: string; currency: string; paymentGateway: string; logoUrl: string }) =>
       organizationApi.update(organization!._id, data),
-    onSuccess: () => {
+    onSuccess: (updatedOrg) => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+      setOrganization(updatedOrg);
+      setStoreCurrency(updatedOrg.currency || 'GHS');
       toast.success('Church profile updated successfully');
     },
     onError: () => {
@@ -102,9 +113,52 @@ export default function SettingsPage() {
     },
   });
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateMutation.mutate({ churchName, legalName, currency, paymentGateway });
+    
+    let finalLogoUrl = logoUrl;
+    
+    // If a new logo file was selected, upload it first
+    if (logoFile) {
+      // TODO: Implement actual file upload to your storage service (e.g., AWS S3, Cloudinary)
+      // For now, we'll use the preview URL (data URL)
+      // In production, you would upload the file and get back a URL
+      finalLogoUrl = logoPreview;
+      toast('Logo upload would happen here in production');
+    }
+    
+    updateMutation.mutate({ churchName, legalName, currency, paymentGateway, logoUrl: finalLogoUrl });
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Logo file size must be less than 5MB');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview('');
+    setLogoUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
@@ -160,6 +214,64 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-foreground mb-1">Church Profile</h2>
           <p className="text-sm text-muted mb-6">Update your church information and preferences.</p>
           <form onSubmit={handleSaveProfile} className="space-y-4">
+            {/* Logo Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Church Logo
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  {logoPreview ? (
+                    <div className="relative w-24 h-24 rounded-lg border-2 border-border overflow-hidden bg-background">
+                      <img
+                        src={logoPreview}
+                        alt="Church logo"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/20">
+                      <ImageIcon className="w-8 h-8 text-muted" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Upload className="w-4 h-4" />}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Upload Logo
+                    </Button>
+                    {logoPreview && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveLogo}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted mt-2">
+                    PNG, JPG or GIF (max. 5MB)
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <Input
               label="Church Name"
               value={churchName}

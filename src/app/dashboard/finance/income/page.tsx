@@ -12,6 +12,7 @@ import { Button, Input, Card, Select } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, organizationApi, membersApi } from '@/lib/api';
 import { donationSchema, type DonationFormData } from '@/lib/validations';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import BranchField from '@/components/dashboard/BranchField';
 import type { Donation } from '@/types';
 
@@ -40,10 +41,6 @@ const typeBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'muted'>
   building: 'muted',
   missions: 'info',
 };
-
-function formatCurrency(amount: number): string {
-  return `GHS ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -107,6 +104,7 @@ export default function IncomePage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
   const queryClient = useQueryClient();
+  const { formatCurrency } = useCurrency();
 
   const { data: donations = [], isLoading } = useQuery({
     queryKey: ['donations'],

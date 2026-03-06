@@ -7,11 +7,8 @@ import { FileText, Download } from 'lucide-react';
 import { PageHeader, Badge } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { financeApi } from '@/lib/api';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import FeatureGate from '@/components/dashboard/FeatureGate';
-
-function formatCurrency(amount: number): string {
-  return `GHS ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -48,6 +45,7 @@ function ReportsContent() {
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const today = now.toISOString().split('T')[0];
+  const { formatCurrency } = useCurrency();
 
   const [startDate, setStartDate] = useState(firstOfMonth);
   const [endDate, setEndDate] = useState(today);
