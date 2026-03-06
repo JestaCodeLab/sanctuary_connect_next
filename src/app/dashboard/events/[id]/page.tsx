@@ -258,8 +258,15 @@ function ShareEventSection({
       setIsModalOpen(true);
       toast.success('Share link generated');
     },
-    onError: () => {
-      toast.error('Failed to generate share link');
+    onError: (error: any) => {
+      const errorData = error.response?.data;
+      if (errorData?.code === 'FEATURE_GATED') {
+        toast.error(`Event sharing is only available on the ${errorData.requiredPlan} plan or higher. Please upgrade your subscription.`);
+      } else if (errorData?.code === 'NO_SUB') {
+        toast.error('No active subscription found. Please set up a subscription to use this feature.');
+      } else {
+        toast.error(errorData?.error || 'Failed to generate share link');
+      }
     },
   });
 

@@ -33,6 +33,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
   // Check-in mutation
   const checkInMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('Making API call with data:', data);
       const response = await axios.post(`${API_URL}/api/attendance/check-in/qr`, data);
       return response.data;
     },
@@ -42,8 +43,17 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       toast.success('Check-in successful!');
     },
     onError: (error: any) => {
+      console.error('Check-in error:', error.response?.data || error.message);
       const message = error.response?.data?.error || 'Check-in failed';
-      toast.error(message);
+      
+      // Show more helpful messages based on error type
+      if (message.includes('token') || message.includes('QR')) {
+        toast.error('Invalid or expired check-in code. Please ask the event organizer for a new QR code.');
+      } else if (message.includes('Already checked in')) {
+        toast.error('You have already checked in to this event.');
+      } else {
+        toast.error(message);
+      }
     },
   });
 
@@ -55,6 +65,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       }
     }
 
+    // Always include the token
     const data: any = { token };
 
     if (checkInType === 'guest') {
@@ -63,6 +74,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       data.phone = guestInfo.phone;
     }
 
+    console.log('Check-in data being sent:', data); // Debug log
     checkInMutation.mutate(data);
   };
 
@@ -137,6 +149,15 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
               <p className="text-sm text-muted mb-4">{eventData.description}</p>
             )}
           </div>
+
+          {/* Event Not Started Notice */}
+          {eventData.startDate && new Date(eventData.startDate) > new Date() && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-700 dark:text-blue-400 text-center">
+                ℹ️ This event hasn't started yet, but you can check in early!
+              </p>
+            </div>
+          )}
 
           <div className="space-y-3 bg-muted/20 rounded-lg p-4">
             {eventData.startDate && (
