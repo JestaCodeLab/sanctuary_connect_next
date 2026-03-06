@@ -1,17 +1,35 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, TrendingUp, TrendingDown, Wallet, ArrowRight } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Wallet, ArrowRight, CreditCard, Smartphone, Banknote, Globe } from 'lucide-react';
 
 import { PageHeader, StatsGrid } from '@/components/dashboard';
-import { Card } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
 import { financeApi } from '@/lib/api';
 import FinanceChart from '@/components/dashboard/FinanceChart';
 
 function formatCurrency(amount: number): string {
   return `GHS ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+const methodLabels: Record<string, string> = {
+  cash: 'Cash',
+  check: 'Check',
+  card: 'Card',
+  bank_transfer: 'Bank Transfer',
+  mobile_money: 'Mobile Money',
+  online: 'Online',
+  unknown: 'Other',
+};
+
+const methodIcons: Record<string, typeof DollarSign> = {
+  cash: Banknote,
+  card: CreditCard,
+  mobile_money: Smartphone,
+  online: Globe,
+};
 
 const quickLinks = [
   { label: 'Income', description: 'Record and manage donations', href: '/dashboard/finance/income', icon: TrendingUp },
@@ -20,28 +38,34 @@ const quickLinks = [
 ];
 
 export default function FinanceOverviewPage() {
+  const [viewMode, setViewMode] = useState<'all' | 'monthly' | 'ytd'>('all');
+
   const { data: overview, isLoading } = useQuery({
     queryKey: ['finance', 'overview'],
     queryFn: financeApi.getOverview,
   });
 
-  const stats = [
-    {
-      label: 'Total Income',
-      value: formatCurrency(overview?.totalIncome ?? 0),
-      icon: TrendingUp,
-    },
-    {
-      label: 'Total Expenses',
-      value: formatCurrency(overview?.totalExpenses ?? 0),
-      icon: TrendingDown,
-    },
-    {
-      label: 'Net Balance',
-      value: formatCurrency(overview?.netBalance ?? 0),
-      icon: DollarSign,
-    },
-  ];
+  const getStatsForMode = () => {
+    if (viewMode === 'monthly' && overview?.monthly) {
+      return [
+        { label: 'Monthly Income', value: formatCurrency(overview.monthly.income), icon: TrendingUp },
+        { label: 'Monthly Expenses', value: formatCurrency(overview.monthly.expenses), icon: TrendingDown },
+        { label: 'Monthly Net', value: formatCurrency(overview.monthly.net), icon: DollarSign },
+      ];
+    }
+    if (viewMode === 'ytd' && overview?.ytd) {
+      return [
+        { label: 'YTD Income', value: formatCurrency(overview.ytd.income), icon: TrendingUp },
+        { label: 'YTD Expenses', value: formatCurrency(overview.ytd.expenses), icon: TrendingDown },
+        { label: 'YTD Net', value: formatCurrency(overview.ytd.net), icon: DollarSign },
+      ];
+    }
+    return [
+      { label: 'Total Income', value: formatCurrency(overview?.totalIncome ?? 0), icon: TrendingUp },
+      { label: 'Total Expenses', value: formatCurrency(overview?.totalExpenses ?? 0), icon: TrendingDown },
+      { label: 'Net Balance', value: formatCurrency(overview?.netBalance ?? 0), icon: DollarSign },
+    ];
+  };
 
   return (
     <div>
@@ -53,7 +77,45 @@ export default function FinanceOverviewPage() {
         </div>
       ) : (
         <>
-          <StatsGrid stats={stats} />
+          {/* View Mode Toggle */}
+          <div className="flex gap-2 mb-6">
+            {(['all', 'monthly', 'ytd'] as const).map((mode) => (
+              <Button
+                key={mode}
+                variant={viewMode === mode ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode(mode)}
+              >
+                {mode === 'all' ? 'All Time' : mode === 'monthly' ? 'This Month' : 'Year to Date'}
+              </Button>
+            ))}
+          </div>
+
+          <StatsGrid stats={getStatsForMode()} />
+
+          {/* Income by Payment Method */}
+          {overview?.incomeByMethod && overview.incomeByMethod.length > 0 && (
+            <Card padding="md" className="mb-8">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Income by Payment Method</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {overview.incomeByMethod.map((item) => {
+                  const Icon = methodIcons[item.method] || DollarSign;
+                  return (
+                    <div key={item.method} className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border">
+                      <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted truncate">{methodLabels[item.method] || item.method}</p>
+                        <p className="text-sm font-semibold text-foreground">{formatCurrency(item.total)}</p>
+                        <p className="text-xs text-muted">{item.count} transaction{item.count !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Monthly Trends Chart */}
           {overview?.monthlyTrends && overview.monthlyTrends.length > 0 && (

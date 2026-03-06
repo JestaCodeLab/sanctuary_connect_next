@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import ShareButtons from '@/components/dashboard/ShareButtons';
+import QRCodeDisplay from '@/components/dashboard/QRCodeDisplay';
 import { eventsApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
 import type { ChurchEvent } from '@/types';
@@ -134,11 +135,19 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <p className="text-muted mt-2 max-w-2xl">{event.description}</p>
           )}
         </div>
-        <Link href="/dashboard/events">
-          <Button variant="outline" size="sm" leftIcon={<Edit2 className="w-4 h-4" />}>
-            Edit
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/dashboard/events/${event._id}/attendance`}>
+            <Button variant="outline" size="sm" leftIcon={<Users className="w-4 h-4" />}>
+              View Attendance
+            </Button>
+          </Link>
+          <QRCodeDisplay eventId={event._id} eventTitle={event.title} />
+          <Link href="/dashboard/events">
+            <Button variant="outline" size="sm" leftIcon={<Edit2 className="w-4 h-4" />}>
+              Edit
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -197,6 +206,29 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <DetailField label="Last Updated" value={formatDate(event.updatedAt)} />
           </dl>
         </Card>
+
+        {/* Recurring Event Info */}
+        {event.isRecurring && (
+          <Card padding="lg">
+            <div className="flex items-center gap-2 mb-6">
+              <Calendar className="w-5 h-5 text-muted" />
+              <h2 className="text-lg font-semibold text-foreground">Recurring Event</h2>
+            </div>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              <DetailField 
+                label="Pattern" 
+                value={event.recurrencePattern ? event.recurrencePattern.charAt(0).toUpperCase() + event.recurrencePattern.slice(1) : undefined} 
+              />
+              <DetailField 
+                label="Day of Week" 
+                value={event.recurrenceDay !== undefined ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay] : undefined} 
+              />
+              {event.recurrenceEndDate && (
+                <DetailField label="Recurrence End Date" value={formatDate(event.recurrenceEndDate)} />
+              )}
+            </dl>
+          </Card>
+        )}
 
         {/* Share Event */}
         <ShareEventSection eventId={id} eventTitle={event.title} existingShareToken={event.shareToken} />

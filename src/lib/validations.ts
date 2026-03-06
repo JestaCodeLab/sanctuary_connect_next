@@ -129,6 +129,13 @@ export const eventSchema = z.object({
     (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
     z.number().min(1).optional()
   ),
+  isRecurring: z.boolean().optional(),
+  recurrencePattern: z.enum(['weekly', 'biweekly', 'monthly']).optional(),
+  recurrenceDay: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0).max(6).optional()
+  ),
+  recurrenceEndDate: z.string().optional(),
 });
 
 export type EventFormData = z.infer<typeof eventSchema>;
@@ -136,6 +143,7 @@ export type EventFormData = z.infer<typeof eventSchema>;
 // Donation schema
 export const donationSchema = z.object({
   branchId: z.string().optional(),
+  donorId: z.string().optional(),
   amount: z.preprocess(
     (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
     z.number().min(0.01, 'Amount must be greater than 0')

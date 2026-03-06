@@ -291,6 +291,16 @@ export interface ChurchEvent {
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   shareToken?: string;
   isPublic?: boolean;
+  isRecurring?: boolean;
+  recurrencePattern?: 'weekly' | 'biweekly' | 'monthly';
+  recurrenceDay?: number;
+  recurrenceEndDate?: string;
+  parentEventId?: string;
+  qrCode?: {
+    token: string;
+    dataUrl: string;
+    expiresAt: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -523,6 +533,21 @@ export interface FinanceOverview {
     income: number;
     expenses: number;
   }[];
+  incomeByMethod?: {
+    method: string;
+    total: number;
+    count: number;
+  }[];
+  monthly?: {
+    income: number;
+    expenses: number;
+    net: number;
+  };
+  ytd?: {
+    income: number;
+    expenses: number;
+    net: number;
+  };
 }
 
 // User Branch Assignment types

@@ -18,7 +18,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
-import { Button, Input, Card, Select } from '@/components/ui';
+import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
 import type { ChurchEvent } from '@/types';
@@ -40,6 +40,22 @@ const eventTypeOptions = [
   { value: 'outreach', label: 'Outreach' },
   { value: 'prayer', label: 'Prayer' },
   { value: 'other', label: 'Other' },
+];
+
+const recurrencePatternOptions = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Bi-weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
+const dayOfWeekOptions = [
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
 ];
 
 function formatDate(date: string): string {
@@ -113,6 +129,7 @@ export default function EventsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<EventFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,13 +255,15 @@ export default function EventsPage() {
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <EmptyState
-          icon={Calendar}
-          title="No events yet"
-          description="Create your first event to get started managing your church activities."
-          actionLabel="Create Event"
-          onAction={handleOpenCreate}
-        />
+        <Card padding="lg">
+          <EmptyState
+            icon={Calendar}
+            title="No events yet"
+            description="Create your first event to get started managing your church activities."
+            actionLabel="Create Event"
+            onAction={handleOpenCreate}
+          />
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map((event) => (
@@ -415,6 +434,42 @@ export default function EventsPage() {
             error={errors.maxCapacity?.message}
             {...register('maxCapacity')}
           />
+
+          {/* Recurring Event Section */}
+          <div className="border-t border-border pt-4 mt-4">
+            <Checkbox
+              label="Make this a recurring event"
+              {...register('isRecurring')}
+            />
+
+            {watch('isRecurring') && (
+              <div className="mt-4 space-y-4 pl-6 border-l-2 border-primary/20">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select
+                    label="Recurrence Pattern"
+                    options={recurrencePatternOptions}
+                    placeholder="Select pattern"
+                    error={errors.recurrencePattern?.message}
+                    {...register('recurrencePattern')}
+                  />
+                  <Select
+                    label="Day of Week"
+                    options={dayOfWeekOptions}
+                    placeholder="Select day"
+                    error={errors.recurrenceDay?.message}
+                    {...register('recurrenceDay')}
+                  />
+                </div>
+                <Input
+                  label="Recurrence End Date"
+                  type="date"
+                  placeholder="When should this recurrence end?"
+                  error={errors.recurrenceEndDate?.message}
+                  {...register('recurrenceEndDate')}
+                />
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button

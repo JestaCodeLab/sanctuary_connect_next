@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { DollarSign, Plus, TrendingUp, Wallet } from 'lucide-react';
+import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
-import { donationsApi, organizationApi } from '@/lib/api';
+import DonationReceipt from '@/components/dashboard/DonationReceipt';
+import { donationsApi, organizationApi, membersApi } from '@/lib/api';
 import { donationSchema, type DonationFormData } from '@/lib/validations';
 import BranchField from '@/components/dashboard/BranchField';
 import type { Donation } from '@/types';
@@ -52,10 +53,59 @@ function formatDate(dateString: string): string {
   });
 }
 
+function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsReceipt }: {
+  donation: Donation;
+  onView: () => void;
+  onPrintReceipt: () => void;
+  onEmailReceipt: () => void;
+  onSmsReceipt: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <MoreVertical className="w-4 h-4 text-muted" />
+      </button>
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-900 border border-border rounded-lg shadow-lg z-10 py-1">
+          <button onClick={() => { onView(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
+            <Eye className="w-4 h-4" /> View Details
+          </button>
+          <button onClick={() => { onPrintReceipt(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
+            <Printer className="w-4 h-4" /> Print Receipt
+          </button>
+          <button onClick={() => { onEmailReceipt(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
+            <Mail className="w-4 h-4" /> Email Receipt
+          </button>
+          <button onClick={() => { onSmsReceipt(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
+            <MessageSquare className="w-4 h-4" /> SMS Receipt
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function IncomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
   const queryClient = useQueryClient();
 
   const { data: donations = [], isLoading } = useQuery({
@@ -67,6 +117,19 @@ export default function IncomePage() {
     queryKey: ['organization'],
     queryFn: () => organizationApi.getMyOrganization(),
   });
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['members'],
+    queryFn: membersApi.getAll,
+  });
+
+  const donorOptions = [
+    { value: '', label: 'Anonymous' },
+    ...members.map((m: any) => ({
+      value: m._id,
+      label: `${m.firstName} ${m.lastName}`,
+    })),
+  ];
 
   const fundBuckets = orgData?.fundBuckets ?? [];
 
@@ -81,6 +144,7 @@ export default function IncomePage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(donationSchema) as any,
     defaultValues: {
+      donorId: '',
       amount: undefined,
       donationType: '',
       donationDate: new Date().toISOString().split('T')[0],
@@ -130,9 +194,36 @@ export default function IncomePage() {
     setIsEditMode(false);
   };
 
+  const handleEmailReceipt = async (donation: Donation) => {
+    if (!donation.donorId) {
+      toast.error('Cannot send receipt for anonymous donation');
+      return;
+    }
+    try {
+      const result = await donationsApi.sendReceipt(donation._id, 'email');
+      toast.success(result.message);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to send email receipt');
+    }
+  };
+
+  const handleSmsReceipt = async (donation: Donation) => {
+    if (!donation.donorId) {
+      toast.error('Cannot send receipt for anonymous donation');
+      return;
+    }
+    try {
+      const result = await donationsApi.sendReceipt(donation._id, 'sms');
+      toast.success(result.message);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to send SMS receipt');
+    }
+  };
+
   const handleStartEdit = () => {
     if (!viewTarget) return;
     editForm.reset({
+      donorId: viewTarget.donorId?._id || '',
       amount: viewTarget.amount,
       donationType: viewTarget.donationType || '',
       donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
@@ -255,9 +346,13 @@ export default function IncomePage() {
                         {donation.paymentMethod?.replace('_', ' ') ?? '--'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Button variant="ghost" size="sm" onClick={() => handleView(donation)}>
-                          View
-                        </Button>
+                        <ActionMenu
+                          donation={donation}
+                          onView={() => handleView(donation)}
+                          onPrintReceipt={() => setReceiptTarget(donation)}
+                          onEmailReceipt={() => handleEmailReceipt(donation)}
+                          onSmsReceipt={() => handleSmsReceipt(donation)}
+                        />
                       </td>
                     </tr>
                   );
@@ -278,6 +373,7 @@ export default function IncomePage() {
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
+          <Select label="Donor" options={donorOptions} placeholder="Select donor (or leave as Anonymous)" error={errors.donorId?.message} {...register('donorId')} />
           <Input label="Amount" type="number" step="0.01" placeholder="0.00" error={errors.amount?.message} {...register('amount')} />
           <Select label="Donation Type" options={donationTypeOptions} placeholder="Select donation type" error={errors.donationType?.message} {...register('donationType')} />
           <Input label="Donation Date" type="date" error={errors.donationDate?.message} {...register('donationDate')} />
@@ -356,6 +452,7 @@ export default function IncomePage() {
         )}
         {viewTarget && isEditMode && (
           <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate({ id: viewTarget._id, data }))} className="space-y-5">
+            <Select label="Donor" options={donorOptions} placeholder="Select donor (or leave as Anonymous)" error={editForm.formState.errors.donorId?.message} {...editForm.register('donorId')} />
             <Input label="Amount" type="number" step="0.01" error={editForm.formState.errors.amount?.message} {...editForm.register('amount')} />
             <Select label="Donation Type" options={donationTypeOptions} placeholder="Select donation type" error={editForm.formState.errors.donationType?.message} {...editForm.register('donationType')} />
             <Input label="Donation Date" type="date" error={editForm.formState.errors.donationDate?.message} {...editForm.register('donationDate')} />
@@ -372,6 +469,22 @@ export default function IncomePage() {
               <Button type="submit" isLoading={updateMutation.isPending}>Save Changes</Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Print Receipt Modal */}
+      <Modal
+        isOpen={receiptTarget !== null}
+        onClose={() => setReceiptTarget(null)}
+        title="Donation Receipt"
+        size="lg"
+      >
+        {receiptTarget && (
+          <DonationReceipt
+            donation={receiptTarget}
+            churchName={orgData?.churchName}
+            onClose={() => setReceiptTarget(null)}
+          />
         )}
       </Modal>
     </div>

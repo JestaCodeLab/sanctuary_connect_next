@@ -9,7 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
-import { Button, Input, Card, Select } from '@/components/ui';
+import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
 import BranchField from '@/components/dashboard/BranchField';
 
@@ -21,6 +21,22 @@ const eventTypeOptions = [
   { value: 'outreach', label: 'Outreach' },
   { value: 'prayer', label: 'Prayer' },
   { value: 'other', label: 'Other' },
+];
+
+const recurrencePatternOptions = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Bi-weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
+const dayOfWeekOptions = [
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
 ];
 
 export default function NewEventPage() {
@@ -43,6 +59,10 @@ export default function NewEventPage() {
       endDate: '',
       location: '',
       maxCapacity: undefined,
+      isRecurring: false,
+      recurrencePattern: undefined,
+      recurrenceDay: undefined,
+      recurrenceEndDate: '',
     },
   });
 
@@ -142,6 +162,44 @@ export default function NewEventPage() {
                 {...register('maxCapacity')}
               />
             </div>
+          </div>
+        </Card>
+
+        <Card padding="lg">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Recurring Event</h2>
+          <div className="space-y-4">
+            <Checkbox
+              label="Make this a recurring event"
+              {...register('isRecurring')}
+            />
+
+            {watch('isRecurring') && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Select
+                    label="Recurrence Pattern"
+                    options={recurrencePatternOptions}
+                    placeholder="Select pattern"
+                    error={errors.recurrencePattern?.message}
+                    {...register('recurrencePattern')}
+                  />
+                  <Select
+                    label="Day of Week"
+                    options={dayOfWeekOptions}
+                    placeholder="Select day"
+                    error={errors.recurrenceDay?.message}
+                    {...register('recurrenceDay')}
+                  />
+                </div>
+                <Input
+                  label="Recurrence End Date"
+                  type="date"
+                  placeholder="When should this recurrence end?"
+                  error={errors.recurrenceEndDate?.message}
+                  {...register('recurrenceEndDate')}
+                />
+              </>
+            )}
           </div>
         </Card>
 

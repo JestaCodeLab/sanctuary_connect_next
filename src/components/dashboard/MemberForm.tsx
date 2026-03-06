@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { User, Mail, Phone, Users, FileText } from 'lucide-react';
 import { Button, Input, Card, Select } from '@/components/ui';
 import BranchField from '@/components/dashboard/BranchField';
 import { memberSchema, type MemberFormData } from '@/lib/validations';
+import { countryOptions, regionsByCountry } from '@/lib/data/countries';
 
 const genderOptions = [
   { value: 'male', label: 'Male' },
@@ -79,6 +81,15 @@ export default function MemberForm({
       ...defaultValues,
     },
   });
+
+  const selectedCountry = watch('country');
+  const regionOptions = selectedCountry ? (regionsByCountry[selectedCountry] || []) : [];
+
+  useEffect(() => {
+    if (selectedCountry && !defaultValues?.region) {
+      setValue('region', '');
+    }
+  }, [selectedCountry, setValue, defaultValues?.region]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -184,26 +195,28 @@ export default function MemberForm({
               {...register('suburb')}
             />
           </div>
-          <Input
-            label="Region"
-            placeholder="Region"
-            error={errors.region?.message}
-            {...register('region')}
-          />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Zip / Postal Code"
-              placeholder="Zip code"
-              error={errors.zipCode?.message}
-              {...register('zipCode')}
-            />
-            <Input
+            <Select
               label="Country"
-              placeholder="Country"
+              options={countryOptions}
+              placeholder="Select country"
               error={errors.country?.message}
               {...register('country')}
             />
+            <Select
+              label="Region"
+              options={regionOptions}
+              placeholder={selectedCountry ? 'Select region' : 'Select a country first'}
+              error={errors.region?.message}
+              {...register('region')}
+            />
           </div>
+          <Input
+            label="Zip / Postal Code"
+            placeholder="Zip code"
+            error={errors.zipCode?.message}
+            {...register('zipCode')}
+          />
         </div>
       </Card>
 

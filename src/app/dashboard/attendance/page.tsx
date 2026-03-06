@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { ClipboardCheck, Users, TrendingUp, Calendar, BarChart3, Plus } from 'lucide-react';
+import { ClipboardCheck, Users, TrendingUp, Calendar, BarChart3, Plus, QrCode } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, Modal, EmptyState } from '@/components/dashboard';
 import { Card, Button, Input, Select } from '@/components/ui';
@@ -38,6 +39,7 @@ function getRateBadgeVariant(rate: number): 'success' | 'warning' | 'error' {
 }
 
 export default function AttendancePage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -66,6 +68,16 @@ export default function AttendancePage() {
   } = useForm<AttendanceFormData>({
     resolver: zodResolver(attendanceSchema) as any,
   });
+
+  const selectedEventId = watch('eventId');
+  useEffect(() => {
+    if (selectedEventId) {
+      const event = events.find((e: ChurchEvent) => e._id === selectedEventId);
+      if (event?.startDate) {
+        setValue('date', new Date(event.startDate).toISOString().split('T')[0]);
+      }
+    }
+  }, [selectedEventId, events, setValue]);
 
   const createMutation = useMutation({
     mutationFn: attendanceApi.create,
@@ -128,6 +140,16 @@ export default function AttendancePage() {
         actionIcon={Plus}
         onAction={() => setIsModalOpen(true)}
       />
+
+      <div className="mb-6 flex gap-3">
+        <Button
+          variant="outline"
+          leftIcon={<QrCode className="w-4 h-4" />}
+          onClick={() => router.push('/dashboard/attendance/check-in')}
+        >
+          QR Check-In
+        </Button>
+      </div>
 
       <StatsGrid stats={stats} />
 

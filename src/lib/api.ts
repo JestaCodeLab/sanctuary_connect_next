@@ -352,6 +352,14 @@ export const eventsApi = {
     const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
+  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string }> => {
+    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string }>(`/api/events/${id}/qr-code`);
+    return response.data;
+  },
+  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string }> => {
+    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string }>(`/api/events/${id}/qr-code`);
+    return response.data;
+  },
 };
 
 // Donations API
@@ -374,6 +382,10 @@ export const donationsApi = {
   },
   getStats: async (): Promise<DonationStats[]> => {
     const response = await api.get<DonationStats[]>('/api/donations/stats/summary');
+    return response.data;
+  },
+  sendReceipt: async (id: string, channel: 'email' | 'sms'): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>(`/api/donations/${id}/receipt`, { channel });
     return response.data;
   },
 };
@@ -402,6 +414,18 @@ export const attendanceApi = {
   },
   getStats: async (): Promise<AttendanceStats> => {
     const response = await api.get<AttendanceStats>('/api/attendance/stats/summary');
+    return response.data;
+  },
+  checkInWithQR: async (data: { token: string; memberId?: string; userId?: string; name?: string; email?: string; phone?: string }): Promise<{ message: string; record: any }> => {
+    const response = await api.post<{ message: string; record: any }>('/api/attendance/check-in/qr', data);
+    return response.data;
+  },
+  getEventAttendanceRecords: async (eventId: string): Promise<{ records: any[]; stats: any }> => {
+    const response = await api.get<{ records: any[]; stats: any }>(`/api/attendance/event/${eventId}/records`);
+    return response.data;
+  },
+  manualCheckIn: async (data: { eventId: string; memberId?: string; userId?: string; name?: string; email?: string; phone?: string; notes?: string }): Promise<{ message: string; record: any }> => {
+    const response = await api.post<{ message: string; record: any }>('/api/attendance/check-in/manual', data);
     return response.data;
   },
 };
