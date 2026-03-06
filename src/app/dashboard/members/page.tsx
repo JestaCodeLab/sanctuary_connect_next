@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2 } from 'lucide-react';
+import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2, Calendar } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { membersApi } from '@/lib/api';
@@ -33,6 +33,8 @@ export default function MembersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: members = [], isLoading } = useQuery({
@@ -55,7 +57,23 @@ export default function MembersPage() {
     const matchesSearch = fullName.includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
+    
+    // Date range filter
+    let matchesDateRange = true;
+    if (startDate || endDate) {
+      const memberDate = new Date(member.createdAt);
+      if (startDate) {
+        const start = new Date(startDate);
+        matchesDateRange = matchesDateRange && memberDate >= start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchesDateRange = matchesDateRange && memberDate <= end;
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesDateRange;
   });
 
   // Compute stats
@@ -64,6 +82,13 @@ export default function MembersPage() {
   // Gender stats
   const maleCount = members.filter((m: Member) => m.gender === 'male').length;
   const femaleCount = members.filter((m: Member) => m.gender === 'female').length;
+
+  // New this month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const newThisMonth = members.filter(
+    (m: Member) => new Date(m.createdAt) >= startOfMonth
+  ).length;
 
   // Age demographics helper
   const getAge = (dateOfBirth: string | undefined): number | null => {
@@ -110,12 +135,6 @@ export default function MembersPage() {
     { label: 'New This Month', value: newThisMonth, icon: UserPlus },
   ];
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const newThisMonth = members.filter(
-    (m: Member) => new Date(m.createdAt) >= startOfMonth
-  ).length;
-
   const memberToDelete = deleteId
     ? members.find((m: Member) => m._id === deleteId)
     : null;
@@ -133,29 +152,69 @@ export default function MembersPage() {
       <StatsGrid stats={stats} />
 
       {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex-1">
-          <Input
-            placeholder="Search members..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            leftIcon={<Search className="w-4 h-4" />}
-          />
+      <div className="space-y-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder="Search members..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
+            {statusFilters.map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+                  statusFilter === status
+                    ? 'bg-primary text-white'
+                    : 'text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
-          {statusFilters.map((status) => (
+
+        {/* Date Range Filter */}
+        <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              <Calendar className="w-4 h-4 inline mr-2" />
+              From
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              To
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
+          </div>
+          {(startDate || endDate) && (
             <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                statusFilter === status
-                  ? 'bg-primary text-white'
-                  : 'text-muted hover:text-foreground hover:bg-card'
-              }`}
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
             >
-              {status}
+              Clear Dates
             </button>
-          ))}
+          )}
         </div>
       </div>
 

@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Users2,
 } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
@@ -176,6 +177,38 @@ export default function DashboardPage() {
     .sort((a: ChurchEvent, b: ChurchEvent) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 3);
 
+  // Calculate member demographics
+  const getAge = (dateOfBirth: string | undefined): number | null => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const maleCount = members.filter((m: Member) => m.gender === 'male').length;
+  const femaleCount = members.filter((m: Member) => m.gender === 'female').length;
+  const childrenCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 1 && age <= 12;
+  }).length;
+  const teensCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 13 && age <= 19;
+  }).length;
+  const adultsCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 20 && age <= 59;
+  }).length;
+  const seniorsCount = members.filter((m: Member) => {
+    const age = getAge(m.dateOfBirth);
+    return age !== null && age >= 60;
+  }).length;
+
   function formatEventDate(dateStr: string): string {
     const date = new Date(dateStr);
     const today = new Date();
@@ -268,8 +301,44 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Upcoming Events */}
+        {/* Member Demographics */}
         <Card padding="md" className="lg:col-span-2">
+          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Users2 className="w-5 h-5" />
+            Member Demographics
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{maleCount}</p>
+              <p className="text-xs text-muted mt-1">Male</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{femaleCount}</p>
+              <p className="text-xs text-muted mt-1">Female</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-blue-500">{childrenCount}</p>
+              <p className="text-xs text-muted mt-1">Children (1-12)</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-green-500">{teensCount}</p>
+              <p className="text-xs text-muted mt-1">Teens (13-19)</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-purple-500">{adultsCount}</p>
+              <p className="text-xs text-muted mt-1">Adults (20-59)</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-amber-500">{seniorsCount}</p>
+              <p className="text-xs text-muted mt-1">Seniors (60+)</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        {/* Upcoming Events */}
+        <Card padding="md" className="lg:col-span-3">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <Calendar className="w-5 h-5" />
