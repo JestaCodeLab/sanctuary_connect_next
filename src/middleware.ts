@@ -8,6 +8,7 @@ const publicRoutes = [
   '/forgot-password',
   '/reset-password',
   '/verify-email',
+  '/check-in',
 ];
 
 // Define auth routes (should redirect to dashboard if authenticated)

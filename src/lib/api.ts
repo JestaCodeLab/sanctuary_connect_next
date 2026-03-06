@@ -352,12 +352,12 @@ export const eventsApi = {
     const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
-  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string }> => {
-    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string }>(`/api/events/${id}/qr-code`);
+  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }> => {
+    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }>(`/api/events/${id}/qr-code`);
     return response.data;
   },
-  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string }> => {
-    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string }>(`/api/events/${id}/qr-code`);
+  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }> => {
+    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }>(`/api/events/${id}/qr-code`);
     return response.data;
   },
 };

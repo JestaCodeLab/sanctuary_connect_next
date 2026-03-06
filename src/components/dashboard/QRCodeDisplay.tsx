@@ -97,6 +97,14 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
                   className="w-64 h-64"
                 />
               </div>
+              
+              {qrData.checkInUrl && (
+                <div className="mb-4 p-3 bg-muted/20 rounded-lg">
+                  <p className="text-xs font-medium text-foreground mb-1">Check-In URL:</p>
+                  <p className="text-xs text-muted break-all">{qrData.checkInUrl}</p>
+                </div>
+              )}
+              
               <p className="text-xs text-muted mb-6">
                 Valid until: {new Date(qrData.expiresAt).toLocaleString()}
               </p>
