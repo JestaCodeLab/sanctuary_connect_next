@@ -292,8 +292,9 @@ export const subscriptionApi = {
 
 // Members API
 export const membersApi = {
-  getAll: async (): Promise<Member[]> => {
-    const response = await api.get<Member[]>('/api/members');
+  getAll: async (query: string = ''): Promise<Member[]> => {
+    const url = query ? `/api/members${query}` : '/api/members';
+    const response = await api.get<Member[]>(url);
     return response.data;
   },
   getById: async (id: string): Promise<Member> => {

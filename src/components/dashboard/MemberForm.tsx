@@ -10,7 +10,7 @@ import BranchField from '@/components/dashboard/BranchField';
 import MemberSearch from '@/components/dashboard/MemberSearch';
 import { memberSchema, type MemberFormData } from '@/lib/validations';
 import { countryOptions, regionsByCountry } from '@/lib/data/countries';
-import { membersApi } from '@/lib/api';
+import { membersApi, departmentsApi } from '@/lib/api';
 import type { Member } from '@/types';
 
 const relationshipOptions = [
@@ -41,6 +41,66 @@ const memberStatusOptions = [
   { value: 'visiting', label: 'Visiting' },
   { value: 'transferred', label: 'Transferred' },
 ];
+
+interface DepartmentSelectProps {
+  value?: string;
+  onChange: (value: string[]) => void;
+}
+
+function DepartmentSelect({ value, onChange }: DepartmentSelectProps) {
+  const { data: departments = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => departmentsApi.getAll(),
+  });
+
+  const selectedDepts = value || [];
+
+  const handleToggleDepartment = (deptId: string) => {
+    const updated = selectedDepts.includes(deptId)
+      ? selectedDepts.filter((id) => id !== deptId)
+      : [...selectedDepts, deptId];
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm font-medium text-foreground">Departments (Optional)</label>
+      <p className="text-xs text-muted">Select all departments this member belongs to</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {departments.map((dept) => (
+          <label key={dept._id} className="flex items-center gap-2 p-2 rounded border border-border cursor-pointer hover:bg-muted/50 transition">
+            <input
+              type="checkbox"
+              checked={selectedDepts.includes(dept._id)}
+              onChange={() => handleToggleDepartment(dept._id)}
+              className="w-4 h-4"
+            />
+            <span className="text-sm text-foreground">{dept.name}</span>
+          </label>
+        ))}
+      </div>
+      {selectedDepts.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {selectedDepts.map((deptId) => {
+            const dept = departments.find((d) => d._id === deptId);
+            return dept ? (
+              <div key={deptId} className="flex items-center gap-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm">
+                {dept.name}
+                <button
+                  type="button"
+                  onClick={() => handleToggleDepartment(deptId)}
+                  className="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface MemberFormProps {
   defaultValues?: Partial<MemberFormData>;
@@ -94,6 +154,7 @@ export default function MemberForm({
       baptismDate: '',
       membershipDate: '',
       memberStatus: 'active',
+      departments: [],
       notes: '',
       ...defaultValues,
     },
@@ -251,6 +312,10 @@ export default function MemberForm({
           <BranchField
             value={watch('branchId')}
             onChange={(v) => setValue('branchId', v)}
+          />
+          <DepartmentSelect
+            value={watch('departments')}
+            onChange={(v) => setValue('departments', v)}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input

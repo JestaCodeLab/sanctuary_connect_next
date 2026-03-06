@@ -92,6 +92,7 @@ export type FundBucketFormData = z.infer<typeof fundBucketSchema>;
 // Member schema
 export const memberSchema = z.object({
   branchId: z.string().optional(),
+  departments: z.array(z.string()).optional(),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email is required'),

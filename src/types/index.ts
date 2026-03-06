@@ -188,7 +188,8 @@ export interface Member {
   _id: string;
   userId?: string;
   organizationId?: string;
-  branchId?: string;
+  branchId?: string | { _id: string; name: string };
+  departments?: Array<string | { _id: string; name: string }>;
   firstName: string;
   lastName: string;
   email: string;
@@ -226,6 +227,7 @@ export interface BirthdayResponse {
 
 export interface CreateMemberRequest {
   branchId?: string;
+  departments?: string[];
   firstName: string;
   lastName: string;
   email: string;
@@ -263,6 +265,7 @@ export interface UpdateMemberRequest {
   baptismDate?: string;
   membershipDate?: string;
   memberStatus?: string;
+  departments?: string[];
   familyMembers?: Array<{memberId: string; relationship: 'mother' | 'father' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other'}>;
   notes?: string;
 }

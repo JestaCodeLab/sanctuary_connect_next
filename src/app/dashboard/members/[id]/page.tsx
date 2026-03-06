@@ -177,6 +177,23 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             <DetailField label="Membership Date" value={formatDate(member.membershipDate)} />
             <DetailField label="Member Status" value={member.memberStatus.charAt(0).toUpperCase() + member.memberStatus.slice(1)} />
             <DetailField label="Member Since" value={formatDate(member.createdAt)} />
+            <div>
+              <dt className="text-sm text-muted">Departments</dt>
+              {member.departments && member.departments.length > 0 ? (
+                <dd className="text-sm font-medium text-foreground mt-0.5 flex flex-wrap gap-2">
+                  {member.departments.map((dept: any) => {
+                    const deptName = typeof dept === 'object' ? dept.name : dept;
+                    return (
+                      <span key={typeof dept === 'object' ? dept._id : dept} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs font-medium">
+                        {deptName}
+                      </span>
+                    );
+                  })}
+                </dd>
+              ) : (
+                <dd className="text-sm text-muted mt-0.5 italic">Not assigned to any departments</dd>
+              )}
+            </div>
           </dl>
         </Card>
 

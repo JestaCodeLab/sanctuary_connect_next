@@ -22,15 +22,14 @@ export default function MemberSearch({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: membersApi.getAll,
+    queryKey: ['members', query],
+    queryFn: () => membersApi.getAll(query ? `?search=${encodeURIComponent(query)}` : ''),
+    enabled: query.length > 0 || query.length === 0,
   });
 
   const filtered = members.filter((m) => {
     if (excludeIds.includes(m._id)) return false;
-    if (!query) return false;
-    const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
-    return fullName.includes(query.toLowerCase());
+    return true; // Already filtered by API
   });
 
   useEffect(() => {
