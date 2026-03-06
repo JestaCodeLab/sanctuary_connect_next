@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   const { data: events = [] } = useQuery({
     queryKey: ['events'],
-    queryFn: eventsApi.getAll,
+    queryFn: () => eventsApi.getAll(),
   });
 
   const { data: donations = [] } = useQuery({

@@ -28,7 +28,7 @@ export default function ManualCheckInPage() {
   // Fetch events
   const { data: events = [] } = useQuery<ChurchEvent[]>({
     queryKey: ['events'],
-    queryFn: eventsApi.getAll,
+    queryFn: () => eventsApi.getAll(),
   });
 
   // Fetch members for member check-in

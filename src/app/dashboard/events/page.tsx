@@ -80,7 +80,7 @@ export default function EventsPage() {
   // Data fetching
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events'],
-    queryFn: eventsApi.getAll,
+    queryFn: () => eventsApi.getAll(),
   });
 
   // Create mutation
