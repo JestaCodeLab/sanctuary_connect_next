@@ -45,7 +45,7 @@ export default function QRCheckInPage() {
     const data: any = { token: qrToken };
 
     if (checkInType === 'member' && user) {
-      data.userId = user.userId;
+      data.userId = user.id;
     } else if (checkInType === 'guest') {
       if (!guestInfo.name) {
         toast.error('Guest name is required');
@@ -60,7 +60,7 @@ export default function QRCheckInPage() {
   };
 
   const handleScanFromCamera = () => {
-    toast.info('Camera QR scanning coming soon!');
+    toast('Camera QR scanning coming soon!');
     // TODO: Integrate with a QR scanner library like react-qr-reader
   };
 
