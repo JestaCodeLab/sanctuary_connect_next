@@ -16,6 +16,7 @@ import {
   Trash2,
   Edit2,
   Eye,
+  Repeat,
 } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
@@ -155,6 +156,10 @@ export default function EventsPage() {
       endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
       location: event.location || '',
       maxCapacity: event.maxCapacity,
+      isRecurring: event.isRecurring || false,
+      recurrencePattern: event.recurrencePattern,
+      recurrenceDay: event.recurrenceDay,
+      recurrenceEndDate: event.recurrenceEndDate ? new Date(event.recurrenceEndDate).toISOString().split('T')[0] : '',
     });
     setIsModalOpen(true);
   };
@@ -278,6 +283,12 @@ export default function EventsPage() {
                   {event.eventType && (
                     <Badge variant="muted">
                       {event.eventType}
+                    </Badge>
+                  )}
+                  {(event.isRecurring || event.parentEventId) && (
+                    <Badge variant="info">
+                      <Repeat className="w-3 h-3 mr-1 inline" />
+                      Recurring
                     </Badge>
                   )}
                 </div>

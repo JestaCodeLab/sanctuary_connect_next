@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon } from 'lucide-react';
+import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon, Check, X as XIcon, Users, Building, MessageSquare, Zap, ArrowRight } from 'lucide-react';
 import { PageHeader, Badge } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import { organizationApi, subscriptionApi } from '@/lib/api';
+import type { SubscriptionPlanResponse } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 
@@ -49,6 +50,348 @@ function formatDate(dateString: string): string {
 
 function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+}
+
+function formatCurrency(amount: number, curr: string = 'GHS'): string {
+  return `${curr} ${amount.toLocaleString()}`;
+}
+
+function UsageBar({ used, max, label }: { used: number; max: number; label: string }) {
+  const percentage = max <= 0 ? 0 : Math.min((used / max) * 100, 100);
+  const isUnlimited = max === -1;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm text-foreground">{label}</span>
+        <span className="text-sm text-muted">
+          {isUnlimited ? `${used} / Unlimited` : `${used} / ${max}`}
+        </span>
+      </div>
+      <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${
+            percentage > 90 ? 'bg-red-500' : percentage > 70 ? 'bg-amber-500' : 'bg-primary'
+          }`}
+          style={{ width: isUnlimited ? '10%' : `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionTab({
+  organization,
+  subscriptionData,
+  isSubscriptionLoading,
+  isSubscriptionError,
+}: {
+  organization: any;
+  subscriptionData: any;
+  isSubscriptionLoading: boolean;
+  isSubscriptionError: boolean;
+}) {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const queryClient = useQueryClient();
+
+  const { data: allPlans = [], isLoading: plansLoading } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: subscriptionApi.getPlans,
+  });
+
+  const changePlanMutation = useMutation({
+    mutationFn: (planId: string) =>
+      subscriptionApi.update(organization._id, { planId, billingCycle }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      toast.success('Subscription updated successfully');
+    },
+    onError: () => {
+      toast.error('Failed to update subscription');
+    },
+  });
+
+  const currentPlanId = subscriptionData?.subscription?.planId;
+  const currentPlan = allPlans.find((p: SubscriptionPlanResponse) => p.id === currentPlanId);
+  const sub = subscriptionData?.subscription;
+
+  if (isSubscriptionLoading || plansLoading) {
+    return (
+      <Card padding="lg">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Current Plan Summary */}
+      <Card>
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Current Plan</h2>
+            <p className="text-sm text-muted mt-0.5">Your subscription details and usage</p>
+          </div>
+          {sub && (
+            <Badge variant={subscriptionStatusVariant[sub.status] || 'muted'}>
+              {sub.status.charAt(0).toUpperCase() + sub.status.slice(1).replace('_', ' ')}
+            </Badge>
+          )}
+        </div>
+
+        {isSubscriptionError || !sub ? (
+          <div className="text-center py-8">
+            <CreditCard className="w-12 h-12 text-muted mx-auto mb-3" />
+            <p className="text-foreground font-medium">No active subscription</p>
+            <p className="text-sm text-muted mt-1">Choose a plan below to get started.</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-background rounded-lg p-4 border border-border">
+                <p className="text-xs text-muted uppercase tracking-wider">Plan</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {currentPlan?.name || sub.planId}
+                </p>
+              </div>
+              <div className="bg-background rounded-lg p-4 border border-border">
+                <p className="text-xs text-muted uppercase tracking-wider">Price</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {currentPlan ? (
+                    currentPlan.price === 0 ? 'Free' : formatCurrency(
+                      sub.billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price * 12,
+                      currentPlan.currency
+                    ) + (sub.billingCycle === 'annual' ? '/yr' : '/mo')
+                  ) : '—'}
+                </p>
+                {currentPlan && currentPlan.price > 0 && (
+                  <p className="text-xs text-muted mt-0.5">
+                    Billed {sub.billingCycle}
+                  </p>
+                )}
+              </div>
+              <div className="bg-background rounded-lg p-4 border border-border">
+                <p className="text-xs text-muted uppercase tracking-wider">Billing Cycle</p>
+                <p className="text-lg font-bold text-foreground mt-1 capitalize">{sub.billingCycle}</p>
+              </div>
+              <div className="bg-background rounded-lg p-4 border border-border">
+                <p className="text-xs text-muted uppercase tracking-wider">Next Billing</p>
+                <p className="text-sm font-semibold text-foreground mt-1">
+                  {formatDate(sub.currentPeriodEnd)}
+                </p>
+              </div>
+            </div>
+
+            {/* Usage Section */}
+            {currentPlan?.limits && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Usage</h3>
+                <div className="space-y-3">
+                  <UsageBar
+                    label="Members"
+                    used={0}
+                    max={currentPlan.limits.maxMembers}
+                  />
+                  <UsageBar
+                    label="Branches"
+                    used={0}
+                    max={currentPlan.limits.maxBranches}
+                  />
+                  <UsageBar
+                    label="SMS Credits"
+                    used={0}
+                    max={currentPlan.limits.smsCredits}
+                  />
+                  <UsageBar
+                    label="Donation Transactions"
+                    used={0}
+                    max={currentPlan.limits.donationTransactions}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Included Features */}
+            {currentPlan?.features && (
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Included Features</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {currentPlan.features.map((feature: any) => (
+                    <div key={feature.key || feature.text} className="flex items-center gap-2">
+                      {feature.included ? (
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                      ) : (
+                        <XIcon className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0" />
+                      )}
+                      <span className={`text-sm ${feature.included ? 'text-foreground' : 'text-muted'}`}>
+                        {feature.text || feature.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* Available Plans */}
+      {allPlans.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Available Plans</h2>
+              <p className="text-sm text-muted">Compare plans and upgrade your subscription</p>
+            </div>
+
+            {/* Billing Cycle Toggle */}
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white dark:bg-gray-700 text-foreground shadow-sm'
+                    : 'text-muted hover:text-foreground'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle('annual')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  billingCycle === 'annual'
+                    ? 'bg-white dark:bg-gray-700 text-foreground shadow-sm'
+                    : 'text-muted hover:text-foreground'
+                }`}
+              >
+                Annual
+                <span className="ml-1 text-green-600 dark:text-green-400">Save 17%</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {allPlans
+              .filter((plan: SubscriptionPlanResponse) => plan.price !== null)
+              .map((plan: SubscriptionPlanResponse) => {
+                const isCurrentPlan = plan.id === currentPlanId;
+                const displayPrice = billingCycle === 'annual' && plan.annualPrice
+                  ? Math.round(plan.annualPrice / 12)
+                  : plan.price;
+
+                return (
+                  <Card
+                    key={plan.id}
+                    className={`relative ${plan.isPopular ? 'border-primary ring-1 ring-primary' : ''} ${isCurrentPlan ? 'bg-primary/5' : ''}`}
+                  >
+                    {plan.isPopular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span className="bg-primary text-white text-xs font-medium px-3 py-1 rounded-full">
+                          Most Popular
+                        </span>
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+                      <p className="text-xs text-muted mt-0.5">{plan.description}</p>
+
+                      <div className="mt-4 mb-4">
+                        {plan.price === 0 ? (
+                          <div className="text-3xl font-bold text-foreground">Free</div>
+                        ) : (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-bold text-foreground">
+                              {plan.currency} {displayPrice.toLocaleString()}
+                            </span>
+                            <span className="text-sm text-muted">/mo</span>
+                          </div>
+                        )}
+                        {billingCycle === 'annual' && plan.price > 0 && plan.annualPrice && (
+                          <p className="text-xs text-muted mt-1">
+                            {plan.currency} {plan.annualPrice.toLocaleString()}/year
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Limits */}
+                      <div className="space-y-2 mb-4 text-sm">
+                        <div className="flex items-center gap-2 text-foreground">
+                          <Users className="w-4 h-4 text-muted" />
+                          {plan.limits.maxMembers === -1 ? 'Unlimited' : plan.limits.maxMembers} Members
+                        </div>
+                        <div className="flex items-center gap-2 text-foreground">
+                          <Building className="w-4 h-4 text-muted" />
+                          {plan.limits.maxBranches === -1 ? 'Unlimited' : plan.limits.maxBranches} Branch{plan.limits.maxBranches !== 1 ? 'es' : ''}
+                        </div>
+                        <div className="flex items-center gap-2 text-foreground">
+                          <MessageSquare className="w-4 h-4 text-muted" />
+                          {plan.limits.smsCredits === 0 ? 'No' : plan.limits.smsCredits === -1 ? 'Custom' : plan.limits.smsCredits} SMS Credits
+                        </div>
+                      </div>
+
+                      {/* Key Features */}
+                      <div className="border-t border-border pt-3 space-y-1.5">
+                        {plan.features.slice(0, 6).map((feature: any) => (
+                          <div key={feature.key || feature.text} className="flex items-center gap-2">
+                            {feature.included ? (
+                              <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                            ) : (
+                              <XIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 shrink-0" />
+                            )}
+                            <span className={`text-xs ${feature.included ? 'text-foreground' : 'text-muted line-through'}`}>
+                              {feature.text || feature.name}
+                            </span>
+                          </div>
+                        ))}
+                        {plan.features.length > 6 && (
+                          <p className="text-xs text-muted pl-6">
+                            +{plan.features.length - 6} more features
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        {isCurrentPlan ? (
+                          <Button variant="outline" size="sm" className="w-full" disabled>
+                            Current Plan
+                          </Button>
+                        ) : (
+                          <Button
+                            variant={plan.isPopular ? 'primary' : 'outline'}
+                            size="sm"
+                            className="w-full"
+                            onClick={() => changePlanMutation.mutate(plan.id)}
+                            isLoading={changePlanMutation.isPending}
+                          >
+                            {currentPlanId && plan.price > (currentPlan?.price || 0)
+                              ? 'Upgrade'
+                              : plan.price === 0 ? 'Downgrade' : 'Switch Plan'
+                            }
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Billing History (placeholder) */}
+      <Card>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Billing History</h2>
+        <p className="text-sm text-muted mb-4">View your past invoices and payments.</p>
+        <div className="text-center py-6">
+          <CreditCard className="w-10 h-10 text-muted mx-auto mb-2" />
+          <p className="text-sm text-muted">No billing history available yet.</p>
+        </div>
+      </Card>
+    </div>
+  );
 }
 
 export default function SettingsPage() {
@@ -355,69 +698,12 @@ export default function SettingsPage() {
 
       {/* Tab 3: Subscription */}
       {activeTab === 'subscription' && (
-        <Card>
-          <h2 className="text-lg font-semibold text-foreground mb-1">Subscription</h2>
-          <p className="text-sm text-muted mb-6">Manage your subscription plan and billing.</p>
-
-          {isSubscriptionLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : isSubscriptionError ? (
-            <div className="text-center py-8">
-              <CreditCard className="w-12 h-12 text-muted mx-auto mb-3" />
-              <p className="text-foreground font-medium">No active subscription</p>
-              <p className="text-sm text-muted mt-1">
-                You do not have an active subscription plan.
-              </p>
-            </div>
-          ) : subscriptionData ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted">Plan</p>
-                  <p className="text-foreground font-medium">
-                    {subscriptionData.plan?.name || subscriptionData.subscription.planId}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted">Billing Cycle</p>
-                  <p className="text-foreground font-medium capitalize">
-                    {subscriptionData.subscription.billingCycle}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted">Status</p>
-                  <div className="mt-0.5">
-                    <Badge
-                      variant={
-                        subscriptionStatusVariant[subscriptionData.subscription.status] || 'muted'
-                      }
-                    >
-                      {subscriptionData.subscription.status.charAt(0).toUpperCase() +
-                        subscriptionData.subscription.status.slice(1).replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted">Current Period</p>
-                  <p className="text-foreground text-sm">
-                    {formatDate(subscriptionData.subscription.currentPeriodStart)} &mdash;{' '}
-                    {formatDate(subscriptionData.subscription.currentPeriodEnd)}
-                  </p>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() => toast('Subscription management coming soon')}
-                >
-                  Manage Subscription
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </Card>
+        <SubscriptionTab
+          organization={organization}
+          subscriptionData={subscriptionData}
+          isSubscriptionLoading={isSubscriptionLoading}
+          isSubscriptionError={isSubscriptionError}
+        />
       )}
     </div>
   );

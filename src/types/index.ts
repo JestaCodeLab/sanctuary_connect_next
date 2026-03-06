@@ -315,6 +315,10 @@ export interface CreateEventRequest {
   location?: string;
   organizerId?: string;
   maxCapacity?: number;
+  isRecurring?: boolean;
+  recurrencePattern?: 'weekly' | 'biweekly' | 'monthly';
+  recurrenceDay?: number;
+  recurrenceEndDate?: string;
 }
 
 export interface UpdateEventRequest {

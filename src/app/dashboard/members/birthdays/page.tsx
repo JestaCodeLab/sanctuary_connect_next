@@ -6,7 +6,6 @@ import { Cake, MessageSquare, Gift, Calendar } from 'lucide-react';
 import { membersApi } from '@/lib/api';
 import { Card } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
-import FeatureGate from '@/components/dashboard/FeatureGate';
 import type { MemberWithBirthday } from '@/types';
 
 function BirthdayCard({ member }: { member: MemberWithBirthday }) {
@@ -170,9 +169,5 @@ function BirthdaysContent() {
 }
 
 export default function BirthdaysPage() {
-  return (
-    <FeatureGate featureKey="birthday_notifications" featureName="Birthday Notifications">
-      <BirthdaysContent />
-    </FeatureGate>
-  );
+  return <BirthdaysContent />;
 }

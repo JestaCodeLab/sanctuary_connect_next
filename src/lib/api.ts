@@ -352,6 +352,10 @@ export const eventsApi = {
     const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
+  generateInstances: async (id: string): Promise<{ message: string; instances: ChurchEvent[] }> => {
+    const response = await api.post<{ message: string; instances: ChurchEvent[] }>(`/api/events/${id}/generate-instances`);
+    return response.data;
+  },
   generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }> => {
     const response = await api.post<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }>(`/api/events/${id}/qr-code`);
     return response.data;

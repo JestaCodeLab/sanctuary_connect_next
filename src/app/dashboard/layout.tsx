@@ -62,7 +62,7 @@ const sidebarLinks: SidebarLink[] = [
     icon: Users,
     children: [
       { label: 'All Members', href: '/dashboard/members' },
-      { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake, featureKey: 'birthday_notifications' },
+      { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake },
     ],
   },
   {
