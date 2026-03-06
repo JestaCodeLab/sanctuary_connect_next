@@ -3,7 +3,7 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Edit2, Calendar, Clock, MapPin, Users, Tag, Share2, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Edit2, Calendar, Clock, MapPin, Users, Tag, Share2, MessageSquare, Copy, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
@@ -142,6 +142,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </Button>
           </Link>
           <QRCodeDisplay eventId={event._id} eventTitle={event.title} />
+          <ShareEventSection eventId={event._id} eventTitle={event.title} existingShareToken={event.shareToken} />
           <Link href="/dashboard/events">
             <Button variant="outline" size="sm" leftIcon={<Edit2 className="w-4 h-4" />}>
               Edit
@@ -229,9 +230,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </dl>
           </Card>
         )}
-
-        {/* Share Event */}
-        <ShareEventSection eventId={id} eventTitle={event.title} existingShareToken={event.shareToken} />
       </div>
     </div>
   );
@@ -247,14 +245,17 @@ function ShareEventSection({
   existingShareToken?: string;
 }) {
   const { hasFeature } = useFeatureAccess();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(
     existingShareToken ? `${window.location.origin}/events/${existingShareToken}` : null
   );
+  const [copied, setCopied] = useState(false);
 
   const shareMutation = useMutation({
     mutationFn: () => eventsApi.generateShareLink(eventId),
     onSuccess: (data) => {
       setShareUrl(data.shareUrl);
+      setIsModalOpen(true);
       toast.success('Share link generated');
     },
     onError: () => {
@@ -262,49 +263,103 @@ function ShareEventSection({
     },
   });
 
+  const handleCopyLink = () => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success('Link copied to clipboard');
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleShare = () => {
+    if (shareUrl) {
+      setIsModalOpen(true);
+    } else {
+      shareMutation.mutate();
+    }
+  };
+
   if (!hasFeature('event_sharing')) {
     return null;
   }
 
   return (
-    <Card padding="lg">
-      <div className="flex items-center gap-2 mb-6">
-        <Share2 className="w-5 h-5 text-muted" />
-        <h2 className="text-lg font-semibold text-foreground">Share Event</h2>
-      </div>
+    <>
+      <Button
+        onClick={handleShare}
+        isLoading={shareMutation.isPending}
+        variant="outline"
+        size="sm"
+        leftIcon={<Share2 className="w-4 h-4" />}
+      >
+        Share
+      </Button>
 
-      {shareUrl ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <input
-              type="text"
-              value={shareUrl}
-              readOnly
-              className="flex-1 bg-transparent text-sm text-gray-600 dark:text-gray-300 outline-none"
-            />
-          </div>
-          <ShareButtons url={shareUrl} title={eventTitle} />
-          <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+      {/* Share Modal */}
+      {isModalOpen && shareUrl && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card padding="lg" className="max-w-lg w-full relative">
             <button
-              disabled
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 text-xs font-medium rounded-lg cursor-not-allowed"
-              title="Coming Soon"
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-muted hover:text-foreground"
             >
-              <MessageSquare className="w-4 h-4" />
-              Share via SMS (Coming Soon)
+              <X className="w-5 h-5" />
             </button>
-          </div>
+
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center mb-4">
+                <Share2 className="w-6 h-6 text-primary mr-2" />
+                <h2 className="text-xl font-semibold text-foreground">
+                  Share Event
+                </h2>
+              </div>
+              <p className="text-sm text-muted">
+                Share this link for {eventTitle}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Copy Link Section */}
+              <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-lg border border-border">
+                <input
+                  type="text"
+                  value={shareUrl}
+                  readOnly
+                  className="flex-1 bg-transparent text-sm text-foreground outline-none"
+                  onClick={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCopyLink}
+                  leftIcon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  variant={copied ? 'primary' : 'outline'}
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </Button>
+              </div>
+
+              {/* Share Buttons */}
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium text-foreground mb-3">Share via:</p>
+                <ShareButtons url={shareUrl} title={eventTitle} />
+              </div>
+
+              {/* Coming Soon Feature */}
+              <div className="border-t border-border pt-4">
+                <button
+                  disabled
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-muted text-xs font-medium rounded-lg cursor-not-allowed"
+                  title="Coming Soon"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Share via SMS (Coming Soon)
+                </button>
+              </div>
+            </div>
+          </Card>
         </div>
-      ) : (
-        <Button
-          onClick={() => shareMutation.mutate()}
-          isLoading={shareMutation.isPending}
-          variant="outline"
-          leftIcon={<Share2 className="w-4 h-4" />}
-        >
-          Generate Share Link
-        </Button>
       )}
-    </Card>
+    </>
   );
 }
