@@ -323,6 +323,31 @@ export const membersApi = {
     const response = await api.get<BirthdayResponse>(`/api/members/birthdays/upcoming?days=${days}`);
     return response.data;
   },
+  exportMembers: async (params: { format?: 'csv' | 'json'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' }): Promise<Blob | Member[]> => {
+    const queryParams = new URLSearchParams();
+    if (params.format) queryParams.append('format', params.format);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.period) queryParams.append('period', params.period);
+    
+    const queryString = queryParams.toString();
+    const url = `/api/members/export${queryString ? `?${queryString}` : ''}`;
+    
+    if (params.format === 'csv') {
+      const response = await api.get(url, { responseType: 'blob' });
+      return response.data;
+    }
+    const response = await api.get<Member[]>(url);
+    return response.data;
+  },
+  importMembers: async (data: { members: Record<string, unknown>[]; branchId?: string }): Promise<{ message: string; success: number; failed: number; errors: string[] }> => {
+    const response = await api.post('/api/members/import', data);
+    return response.data;
+  },
+  getImportTemplate: async (): Promise<Blob> => {
+    const response = await api.get('/api/members/import/template', { responseType: 'blob' });
+    return response.data;
+  },
 };
 
 // Events API

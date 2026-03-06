@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2, Calendar } from 'lucide-react';
+import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2, Calendar, Upload, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { membersApi } from '@/lib/api';
@@ -31,6 +31,7 @@ function formatDate(dateString: string): string {
 export default function MembersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [startDate, setStartDate] = useState('');
@@ -38,6 +39,22 @@ export default function MembersPage() {
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [dateFilterApplied, setDateFilterApplied] = useState<{ startDate: string; endDate: string }>({ startDate: '', endDate: '' });
+  
+  // Import/Export state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importData, setImportData] = useState<Record<string, unknown>[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
+  const [exportPeriod, setExportPeriod] = useState<'all' | 'monthly' | 'custom'>('all');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { data: members = [], isLoading, refetch } = useQuery({
     queryKey: ['members', dateFilterApplied],
@@ -68,6 +85,219 @@ export default function MembersPage() {
     },
   });
 
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: (data: { members: Record<string, unknown>[] }) => membersApi.importMembers(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast.success(result.message);
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportData([]);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to import members');
+    },
+  });
+
+  // Parse CSV file
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImportFile(file);
+    
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      toast.error('CSV file must have headers and at least one data row');
+      return;
+    }
+    
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const data: Record<string, unknown>[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+      const row: Record<string, unknown> = {};
+      headers.forEach((header, index) => {
+        const value = values[index]?.replace(/"/g, '').trim() || '';
+        row[header] = value || null;
+      });
+      if (row.firstName && row.lastName && row.email) {
+        data.push(row);
+      }
+    }
+    
+    setImportData(data);
+  };
+
+  // Parse CSV from file
+  const parseCSVFile = async (file: File) => {
+    setImportFile(file);
+    
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      toast.error('CSV file must have headers and at least one data row');
+      return;
+    }
+    
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const data: Record<string, unknown>[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+      const row: Record<string, unknown> = {};
+      headers.forEach((header, index) => {
+        const value = values[index]?.replace(/"/g, '').trim() || '';
+        row[header] = value || null;
+      });
+      if (row.firstName && row.lastName && row.email) {
+        data.push(row);
+      }
+    }
+    
+    setImportData(data);
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+    
+    await parseCSVFile(file);
+  };
+
+  // Download template
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await membersApi.getImportTemplate();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'member-import-template.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download template');
+    }
+  };
+
+  // Export members
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const params: { format?: 'csv' | 'json'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' } = {};
+      
+      if (exportFormat === 'csv') {
+        params.format = 'csv';
+      } else {
+        params.format = 'json';
+      }
+      
+      if (exportPeriod === 'monthly') {
+        params.period = 'monthly';
+      } else if (exportPeriod === 'custom') {
+        if (exportStartDate) params.startDate = exportStartDate;
+        if (exportEndDate) params.endDate = exportEndDate;
+      }
+      
+      if (exportFormat === 'csv') {
+        const blob = await membersApi.exportMembers(params);
+        const url = window.URL.createObjectURL(blob as Blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `members-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // PDF generation - create simple HTML table and print
+        const members = await membersApi.exportMembers({ ...params, format: 'json' }) as Member[];
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Members Export</title>
+                <style>
+                  body { font-family: Arial, sans-serif; padding: 20px; }
+                  h1 { text-align: center; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                  th { background-color: #f4f4f4; }
+                  tr:nth-child(even) { background-color: #f9f9f9; }
+                </style>
+              </head>
+              <body>
+                <h1>Members Directory</h1>
+                <p>Exported on: ${new Date().toLocaleDateString()}</p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                      <th>Gender</th>
+                      <th>Joined Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${members.map(m => `
+                      <tr>
+                        <td>${m.firstName} ${m.lastName}</td>
+                        <td>${m.email}</td>
+                        <td>${m.phone || '-'}</td>
+                        <td>${m.memberStatus}</td>
+                        <td>${m.gender || '-'}</td>
+                        <td>${m.membershipDate ? new Date(m.membershipDate).toLocaleDateString() : '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+                <script>window.print();</script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        }
+      }
+      
+      setShowExportModal(false);
+      toast.success('Export successful');
+    } catch {
+      toast.error('Failed to export members');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Client-side search and filter
   const filteredMembers = members.filter((member: Member) => {
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
@@ -77,6 +307,24 @@ export default function MembersPage() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const paginatedMembers = filteredMembers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
 
   // Compute stats
   const totalMembers = members.length;
@@ -143,13 +391,38 @@ export default function MembersPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Member Directory"
-        description="Manage your church members"
-        actionLabel="Add Member"
-        actionIcon={UserPlus}
-        onAction={() => router.push('/dashboard/members/new')}
-      />
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Member Directory</h1>
+          <p className="text-muted mt-1">Manage your church members</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImportModal(true)}
+            leftIcon={<Upload className="w-4 h-4" />}
+          >
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowExportModal(true)}
+            leftIcon={<Download className="w-4 h-4" />}
+          >
+            Export
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push('/dashboard/members/new')}
+            leftIcon={<UserPlus className="w-4 h-4" />}
+          >
+            Add Member
+          </Button>
+        </div>
+      </div>
 
       <StatsGrid stats={stats} />
 
@@ -160,7 +433,7 @@ export default function MembersPage() {
             <Input
               placeholder="Search members..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               leftIcon={<Search className="w-4 h-4" />}
             />
           </div>
@@ -169,7 +442,7 @@ export default function MembersPage() {
               {statusFilters.map((status) => (
                 <button
                   key={status}
-                  onClick={() => setStatusFilter(status)}
+                  onClick={() => handleStatusFilterChange(status)}
                   className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
                     statusFilter === status
                       ? 'bg-primary text-white'
@@ -291,7 +564,7 @@ export default function MembersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredMembers.map((member: Member) => (
+                {paginatedMembers.map((member: Member) => (
                   <tr
                     key={member._id}
                     className="hover:bg-background transition-colors"
@@ -374,8 +647,249 @@ export default function MembersPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+              <div className="text-sm text-muted">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredMembers.length)} of {filteredMembers.length} members
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 text-sm rounded-md font-medium transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-primary text-white'
+                            : 'text-muted hover:text-foreground hover:bg-card'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
+
+      {/* Import Modal */}
+      <Modal
+        isOpen={showImportModal}
+        onClose={() => { setShowImportModal(false); setImportFile(null); setImportData([]); }}
+        title="Import Members"
+        description="Upload a CSV file with member data"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border">
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-muted" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Download Template</p>
+                <p className="text-xs text-muted">Get the CSV template with required columns</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+              <Download className="w-4 h-4 mr-2" />
+              Template
+            </Button>
+          </div>
+          
+          <div 
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              isDragging 
+                ? 'border-primary bg-primary/5' 
+                : 'border-border hover:border-primary/50'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {importFile ? (
+              <div>
+                <FileText className="w-8 h-8 text-primary mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">{importFile.name}</p>
+                <p className="text-xs text-muted mt-1">{importData.length} valid records found</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setImportFile(null); setImportData([]); }}
+                  className="mt-2"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <Upload className="w-8 h-8 text-muted mx-auto mb-2" />
+                <p className="text-sm text-muted mb-2">Drag and drop your CSV file, or</p>
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Browse Files
+                </Button>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => { setShowImportModal(false); setImportFile(null); setImportData([]); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={importData.length === 0}
+              isLoading={importMutation.isPending}
+              onClick={() => importMutation.mutate({ members: importData })}
+            >
+              Import {importData.length} Members
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Export Modal */}
+      <Modal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Members"
+        description="Choose export format and date range"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Export Format</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setExportFormat('csv')}
+                className={`flex-1 px-4 py-3 text-sm rounded-lg border transition-colors ${
+                  exportFormat === 'csv'
+                    ? 'bg-primary text-white border-primary'
+                    : 'border-border text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                <FileText className="w-5 h-5 mx-auto mb-1" />
+                CSV
+              </button>
+              <button
+                onClick={() => setExportFormat('pdf')}
+                className={`flex-1 px-4 py-3 text-sm rounded-lg border transition-colors ${
+                  exportFormat === 'pdf'
+                    ? 'bg-primary text-white border-primary'
+                    : 'border-border text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                <FileText className="w-5 h-5 mx-auto mb-1" />
+                PDF
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
+            <div className="space-y-2">
+              <button
+                onClick={() => setExportPeriod('all')}
+                className={`w-full px-4 py-2 text-sm rounded-lg border text-left transition-colors ${
+                  exportPeriod === 'all'
+                    ? 'bg-primary/10 text-primary border-primary'
+                    : 'border-border text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                All Members
+              </button>
+              <button
+                onClick={() => setExportPeriod('monthly')}
+                className={`w-full px-4 py-2 text-sm rounded-lg border text-left transition-colors ${
+                  exportPeriod === 'monthly'
+                    ? 'bg-primary/10 text-primary border-primary'
+                    : 'border-border text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                This Month Only
+              </button>
+              <button
+                onClick={() => setExportPeriod('custom')}
+                className={`w-full px-4 py-2 text-sm rounded-lg border text-left transition-colors ${
+                  exportPeriod === 'custom'
+                    ? 'bg-primary/10 text-primary border-primary'
+                    : 'border-border text-muted hover:text-foreground hover:bg-card'
+                }`}
+              >
+                Custom Date Range
+              </button>
+            </div>
+          </div>
+
+          {exportPeriod === 'custom' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">From</label>
+                <input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">To</label>
+                <input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setShowExportModal(false)} disabled={isExporting}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleExport} isLoading={isExporting}>
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

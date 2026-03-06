@@ -55,9 +55,13 @@ export default function BranchesPage() {
     );
   });
 
-  // Get member count per branch
+  // Get member count per branch - handle both string and populated object branchId
   const getMemberCount = (branchId: string) => {
-    return members.filter((m: Member) => m.branchId === branchId).length;
+    return members.filter((m: Member) => {
+      if (!m.branchId) return false;
+      const memberBranchId = typeof m.branchId === 'string' ? m.branchId : m.branchId._id;
+      return memberBranchId === branchId;
+    }).length;
   };
 
   const {
@@ -244,91 +248,90 @@ export default function BranchesPage() {
           </div>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {filteredBranches.map((branch: Branch) => {
-            const memberCount = getMemberCount(branch._id);
-            const fullAddress = [branch.address, branch.suburb, branch.city, branch.region, branch.zipCode]
-              .filter(Boolean)
-              .join(', ');
-            
-            return (
-              <Card 
-                key={branch._id} 
-                padding="none"
-                className="overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="flex flex-col md:flex-row">
-                  {/* Left section - Icon and main info */}
-                  <div className="flex-1 p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-7 h-7 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-semibold text-foreground">
-                            {branch.name}
-                          </h3>
-                          {branch.isHeadOffice && (
-                            <Badge variant="warning">
-                              <span className="flex items-center gap-1">
-                                <Star className="w-3 h-3" />
-                                Head Office
-                              </span>
-                            </Badge>
-                          )}
+        <Card padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/30 border-b border-border">
+                <tr>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Branch Name</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Location</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Members</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Radius</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Type</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredBranches.map((branch: Branch) => {
+                  const memberCount = getMemberCount(branch._id);
+                  const location = [branch.city, branch.region].filter(Boolean).join(', ');
+                  
+                  return (
+                    <tr key={branch._id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-4 h-4 text-primary" />
+                          </div>
+                          <span className="text-sm font-medium text-foreground">{branch.name}</span>
                         </div>
-                        
-                        {fullAddress && (
-                          <p className="text-sm text-muted mt-1 flex items-center gap-1">
-                            <MapPin className="w-4 h-4 flex-shrink-0" />
-                            <span className="truncate">{fullAddress}</span>
-                          </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-sm text-muted">
+                          <MapPin className="w-3 h-3" />
+                          <span>{location || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Users className="w-3 h-3 text-blue-500" />
+                          <span className="font-medium text-foreground">{memberCount}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted">{branch.geofenceRadius || 200}m</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {branch.isHeadOffice ? (
+                          <Badge variant="warning">
+                            <span className="flex items-center gap-1">
+                              <Star className="w-3 h-3" />
+                              Head Office
+                            </span>
+                          </Badge>
+                        ) : (
+                          <Badge variant="muted">Branch</Badge>
                         )}
-
-                        {/* Stats row */}
-                        <div className="flex items-center gap-6 mt-4">
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-blue-500" />
-                            <span className="text-sm font-medium text-foreground">{memberCount}</span>
-                            <span className="text-sm text-muted">Members</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-medium text-foreground">{branch.geofenceRadius || 200}m</span>
-                            <span className="text-sm text-muted">Radius</span>
-                          </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditBranch(branch)}
+                            title="Edit branch"
+                            className="px-2"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/branches/${branch._id}`)}
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right section - Actions */}
-                  <div className="flex md:flex-col items-center justify-end gap-2 p-4 bg-background border-t md:border-t-0 md:border-l border-border">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/dashboard/branches/${branch._id}`)}
-                      className="flex items-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditBranch(branch)}
-                      className="flex items-center gap-2"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* Add / Edit Branch Modal */}

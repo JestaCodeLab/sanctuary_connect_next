@@ -247,18 +247,13 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Events Grid */}
+      {/* Events Table */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} padding="md" className="animate-pulse">
-              <div className="h-4 bg-background rounded w-3/4 mb-4" />
-              <div className="h-3 bg-background rounded w-full mb-2" />
-              <div className="h-3 bg-background rounded w-2/3 mb-4" />
-              <div className="h-3 bg-background rounded w-1/2" />
-            </Card>
-          ))}
-        </div>
+        <Card padding="lg">
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        </Card>
       ) : filteredEvents.length === 0 ? (
         <Card padding="lg">
           <EmptyState
@@ -270,105 +265,106 @@ export default function EventsPage() {
           />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
-            <Card
-              key={event._id}
-              padding="md"
-              className="hover:shadow-md transition-shadow relative"
-            >
-              {/* Status Badge */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {event.eventType && (
-                    <Badge variant="muted">
-                      {event.eventType}
-                    </Badge>
-                  )}
-                  {(event.isRecurring || event.parentEventId) && (
-                    <Badge variant="info">
-                      <Repeat className="w-3 h-3 mr-1 inline" />
-                      Recurring
-                    </Badge>
-                  )}
-                </div>
-                <Badge variant={statusBadgeVariant[event.status]}>
-                  {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                </Badge>
-              </div>
-
-              {/* Title */}
-              <h3 className="font-bold text-lg mb-1">
-                <Link
-                  href={`/dashboard/events/${event._id}`}
-                  className="text-foreground hover:text-primary transition-colors"
-                >
-                  {event.title}
-                </Link>
-              </h3>
-
-              {/* Description */}
-              {event.description && (
-                <p className="text-muted text-sm line-clamp-2 mb-4">
-                  {event.description}
-                </p>
-              )}
-
-              {/* Details */}
-              <div className="space-y-2 mt-4">
-                <div className="flex items-center gap-2 text-sm text-muted">
-                  <Calendar className="w-4 h-4 flex-shrink-0" />
-                  <span>
-                    {formatDate(event.startDate)} - {formatDate(event.endDate)}
-                  </span>
-                </div>
-
-                {event.location && (
-                  <div className="flex items-center gap-2 text-sm text-muted">
-                    <MapPin className="w-4 h-4 flex-shrink-0" />
-                    <span>{event.location}</span>
-                  </div>
-                )}
-
-                {event.maxCapacity && (
-                  <div className="flex items-center gap-2 text-sm text-muted">
-                    <Users className="w-4 h-4 flex-shrink-0" />
-                    <span>Capacity: {event.maxCapacity}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<Eye className="w-4 h-4" />}
-                  onClick={() => router.push(`/dashboard/events/${event._id}`)}
-                >
-                  View
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<Edit2 className="w-4 h-4" />}
-                  onClick={() => handleEdit(event)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<Trash2 className="w-4 h-4" />}
-                  onClick={() => setDeleteTarget(event)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                >
-                  Delete
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <Card padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/30 border-b border-border">
+                <tr>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Event</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Date</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Location</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Type</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Status</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredEvents.map((event) => (
+                  <tr key={event._id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <Link
+                            href={`/dashboard/events/${event._id}`}
+                            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                          >
+                            {event.title}
+                          </Link>
+                          {(event.isRecurring || event.parentEventId) && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Repeat className="w-3 h-3 text-blue-500" />
+                              <span className="text-xs text-muted">Recurring</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-foreground">{formatDate(event.startDate)}</div>
+                      <div className="text-xs text-muted">to {formatDate(event.endDate)}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {event.location ? (
+                        <div className="flex items-center gap-1 text-sm text-muted">
+                          <MapPin className="w-3 h-3" />
+                          <span>{event.location}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {event.eventType ? (
+                        <Badge variant="muted">{event.eventType}</Badge>
+                      ) : (
+                        <span className="text-sm text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusBadgeVariant[event.status]}>
+                        {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                          className="px-2"
+                          title="View event"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(event)}
+                          className="px-2"
+                          title="Edit event"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteTarget(event)}
+                          className="px-2 text-red-500 hover:text-red-700"
+                          title="Delete event"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* Create/Edit Event Modal */}
