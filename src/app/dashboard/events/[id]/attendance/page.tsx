@@ -3,7 +3,7 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, X, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input } from '@/components/ui';
 import { Badge, PageHeader, StatsGrid } from '@/components/dashboard';
@@ -27,6 +27,9 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkInType, setCheckInType] = useState<'member' | 'guest'>('member');
   const [guestInfo, setGuestInfo] = useState({ name: '', email: '', phone: '' });
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: event } = useQuery({
     queryKey: ['events', id],
@@ -61,6 +64,25 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       eventId: id,
       memberId: member._id,
     });
+  };
+
+  const handleExportAttendance = async () => {
+    setIsExporting(true);
+    try {
+      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setShowExportModal(false);
+      toast.success('Export successful');
+    } catch {
+      toast.error('Failed to export attendance report');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleGuestCheckIn = () => {
@@ -117,12 +139,21 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
           <h1 className="text-3xl font-bold text-foreground">{event?.title || 'Event Attendance'}</h1>
           <p className="text-sm text-muted mt-1">Individual check-in records for this event</p>
         </div>
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          leftIcon={<UserPlus className="w-4 h-4" />}
-        >
-          Manual Check-In
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowExportModal(true)}
+            leftIcon={<Download className="w-4 h-4" />}
+          >
+            Export Report
+          </Button>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            leftIcon={<UserPlus className="w-4 h-4" />}
+          >
+            Manual Check-In
+          </Button>
+        </div>
       </div>
 
       <StatsGrid stats={statsData} />
@@ -207,6 +238,55 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
           </div>
         )}
       </Card>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card padding="lg" className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-foreground">Export Attendance Report</h2>
+              <button onClick={() => setShowExportModal(false)} className="text-muted hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-2">Format</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setExportFormat('csv')}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    exportFormat === 'csv'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted hover:border-primary/50'
+                  }`}
+                >
+                  CSV
+                </button>
+                <button
+                  onClick={() => setExportFormat('pdf')}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    exportFormat === 'pdf'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted hover:border-primary/50'
+                  }`}
+                >
+                  PDF
+                </button>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleExportAttendance}
+              isLoading={isExporting}
+              leftIcon={<Download className="w-4 h-4" />}
+              className="w-full"
+            >
+              Export
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {/* Manual Check-In Modal */}
       {isModalOpen && (

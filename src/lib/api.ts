@@ -323,21 +323,17 @@ export const membersApi = {
     const response = await api.get<BirthdayResponse>(`/api/members/birthdays/upcoming?days=${days}`);
     return response.data;
   },
-  exportMembers: async (params: { format?: 'csv' | 'json'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' }): Promise<Blob | Member[]> => {
+  exportMembers: async (params: { format?: 'csv' | 'pdf'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' }): Promise<{ downloadUrl: string }> => {
     const queryParams = new URLSearchParams();
     if (params.format) queryParams.append('format', params.format);
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.period) queryParams.append('period', params.period);
-    
+
     const queryString = queryParams.toString();
     const url = `/api/members/export${queryString ? `?${queryString}` : ''}`;
-    
-    if (params.format === 'csv') {
-      const response = await api.get(url, { responseType: 'blob' });
-      return response.data;
-    }
-    const response = await api.get<Member[]>(url);
+
+    const response = await api.get<{ downloadUrl: string }>(url);
     return response.data;
   },
   importMembers: async (data: { members: Record<string, unknown>[]; branchId?: string }): Promise<{ message: string; success: number; failed: number; errors: string[] }> => {
@@ -470,6 +466,10 @@ export const attendanceApi = {
   },
   manualCheckIn: async (data: { eventId: string; memberId?: string; userId?: string; name?: string; email?: string; phone?: string; notes?: string }): Promise<{ message: string; record: any }> => {
     const response = await api.post<{ message: string; record: any }>('/api/attendance/check-in/manual', data);
+    return response.data;
+  },
+  exportEventAttendance: async (eventId: string, format: 'csv' | 'pdf' = 'csv'): Promise<{ downloadUrl: string }> => {
+    const response = await api.get<{ downloadUrl: string }>(`/api/attendance/event/${eventId}/export?format=${format}`);
     return response.data;
   },
 };

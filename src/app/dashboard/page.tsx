@@ -55,9 +55,14 @@ export default function DashboardPage() {
     queryFn: () => membersApi.getAll(),
   });
 
-  // Filter members by selected branch
+  // Filter members by selected branch (branchId can be string or {_id, name} object)
   const filteredMembers = selectedBranchId
-    ? members.filter((m: Member) => m.branchId === selectedBranchId)
+    ? members.filter((m: Member) => {
+        const memberBranchId = typeof m.branchId === 'string' 
+          ? m.branchId 
+          : (m.branchId as { _id: string; name: string } | undefined)?._id;
+        return memberBranchId === selectedBranchId;
+      })
     : members;
 
   // Get current branch name for display

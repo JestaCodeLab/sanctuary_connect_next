@@ -211,84 +211,27 @@ export default function MembersPage() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const params: { format?: 'csv' | 'json'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' } = {};
-      
-      if (exportFormat === 'csv') {
-        params.format = 'csv';
-      } else {
-        params.format = 'json';
-      }
-      
+      const params: { format?: 'csv' | 'pdf'; startDate?: string; endDate?: string; period?: 'monthly' | 'custom' } = {};
+
+      params.format = exportFormat === 'csv' ? 'csv' : 'pdf';
+
       if (exportPeriod === 'monthly') {
         params.period = 'monthly';
       } else if (exportPeriod === 'custom') {
         if (exportStartDate) params.startDate = exportStartDate;
         if (exportEndDate) params.endDate = exportEndDate;
       }
-      
-      if (exportFormat === 'csv') {
-        const blob = await membersApi.exportMembers(params);
-        const url = window.URL.createObjectURL(blob as Blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `members-export-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } else {
-        // PDF generation - create simple HTML table and print
-        const members = await membersApi.exportMembers({ ...params, format: 'json' }) as Member[];
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(`
-            <html>
-              <head>
-                <title>Members Export</title>
-                <style>
-                  body { font-family: Arial, sans-serif; padding: 20px; }
-                  h1 { text-align: center; }
-                  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                  th { background-color: #f4f4f4; }
-                  tr:nth-child(even) { background-color: #f9f9f9; }
-                </style>
-              </head>
-              <body>
-                <h1>Members Directory</h1>
-                <p>Exported on: ${new Date().toLocaleDateString()}</p>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                      <th>Status</th>
-                      <th>Gender</th>
-                      <th>Joined Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${members.map(m => `
-                      <tr>
-                        <td>${m.firstName} ${m.lastName}</td>
-                        <td>${m.email}</td>
-                        <td>${m.phone || '-'}</td>
-                        <td>${m.memberStatus}</td>
-                        <td>${m.gender || '-'}</td>
-                        <td>${m.membershipDate ? new Date(m.membershipDate).toLocaleDateString() : '-'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-                <script>window.print();</script>
-              </body>
-            </html>
-          `);
-          printWindow.document.close();
-        }
-      }
-      
+
+      const { downloadUrl } = await membersApi.exportMembers(params);
+
+      // Trigger download from the backend-generated file URL
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `members-export-${new Date().toISOString().split('T')[0]}.${params.format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
       setShowExportModal(false);
       toast.success('Export successful');
     } catch {
