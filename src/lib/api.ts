@@ -23,6 +23,7 @@ import type {
   UpdateMemberRequest,
   BirthdayResponse,
   ChurchEvent,
+  EventOccurrence,
   CreateEventRequest,
   UpdateEventRequest,
   Donation,
@@ -41,6 +42,18 @@ import type {
   CreateExpenseRequest,
   FinanceOverview,
   UserWithBranches,
+  SmsCredit,
+  SmsCreditTransaction,
+  SmsLog,
+  SendSingleSmsRequest,
+  SendBulkSmsRequest,
+  SendToMembersRequest,
+  SendToDepartmentRequest,
+  SendToBranchRequest,
+  SendToAllMembersRequest,
+  SmsAnalytics,
+  SmsCostCalculation,
+  AvailableMembersResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -388,16 +401,16 @@ export const eventsApi = {
     const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
-  generateInstances: async (id: string): Promise<{ message: string; instances: ChurchEvent[] }> => {
-    const response = await api.post<{ message: string; instances: ChurchEvent[] }>(`/api/events/${id}/generate-instances`);
+  getOccurrences: async (id: string, rangeDays: number = 30): Promise<EventOccurrence[]> => {
+    const response = await api.get<EventOccurrence[]>(`/api/events/${id}/occurrences?range=${rangeDays}`);
     return response.data;
   },
-  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }> => {
-    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }>(`/api/events/${id}/qr-code`);
+  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }> => {
+    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }>(`/api/events/${id}/qr-code`);
     return response.data;
   },
-  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }> => {
-    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string }>(`/api/events/${id}/qr-code`);
+  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }> => {
+    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }>(`/api/events/${id}/qr-code`);
     return response.data;
   },
 };
@@ -460,16 +473,25 @@ export const attendanceApi = {
     const response = await api.post<{ message: string; record: any }>('/api/attendance/check-in/qr', data);
     return response.data;
   },
-  getEventAttendanceRecords: async (eventId: string): Promise<{ records: any[]; stats: any }> => {
-    const response = await api.get<{ records: any[]; stats: any }>(`/api/attendance/event/${eventId}/records`);
+  getEventAttendanceRecords: async (eventId: string, occurrenceDate?: string): Promise<{ records: any[]; stats: any }> => {
+    const params = new URLSearchParams();
+    if (occurrenceDate) params.append('occurrenceDate', occurrenceDate);
+    const qs = params.toString();
+    const response = await api.get<{ records: any[]; stats: any }>(`/api/attendance/event/${eventId}/records${qs ? `?${qs}` : ''}`);
     return response.data;
   },
-  manualCheckIn: async (data: { eventId: string; memberId?: string; userId?: string; name?: string; email?: string; phone?: string; notes?: string }): Promise<{ message: string; record: any }> => {
+  manualCheckIn: async (data: { eventId: string; memberId?: string; userId?: string; name?: string; email?: string; phone?: string; notes?: string; occurrenceDate?: string }): Promise<{ message: string; record: any }> => {
     const response = await api.post<{ message: string; record: any }>('/api/attendance/check-in/manual', data);
     return response.data;
   },
-  exportEventAttendance: async (eventId: string, format: 'csv' | 'pdf' = 'csv'): Promise<{ downloadUrl: string }> => {
-    const response = await api.get<{ downloadUrl: string }>(`/api/attendance/event/${eventId}/export?format=${format}`);
+  deleteRecord: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/attendance/record/${id}`);
+    return response.data;
+  },
+  exportEventAttendance: async (eventId: string, format: 'csv' | 'pdf' = 'csv', occurrenceDate?: string): Promise<{ downloadUrl: string }> => {
+    const params = new URLSearchParams({ format });
+    if (occurrenceDate) params.append('occurrenceDate', occurrenceDate);
+    const response = await api.get<{ downloadUrl: string }>(`/api/attendance/event/${eventId}/export?${params.toString()}`);
     return response.data;
   },
 };
@@ -612,6 +634,169 @@ export const userBranchApi = {
   },
   removeBranch: async (orgId: string, userId: string, branchId: string): Promise<{ message: string }> => {
     const response = await api.delete<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/branches/${branchId}`);
+    return response.data;
+  },
+};
+
+// SMS API
+export const smsApi = {
+  // Credits management
+  getCreditsBalance: async (): Promise<SmsCredit> => {
+    const response = await api.get<SmsCredit>('/api/sms/credits/balance');
+    return response.data;
+  },
+  getCreditTransactions: async (page = 1, limit = 20): Promise<{
+    transactions: SmsCreditTransaction[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }> => {
+    const response = await api.get('/api/sms/credits/transactions', {
+      params: { page, limit },
+    });
+    return response.data;
+  },
+  purchaseCredits: async (amount: number, transactionId?: string, paymentMethod?: string): Promise<{
+    success: boolean;
+    message: string;
+    balance: number;
+  }> => {
+    const response = await api.post('/api/sms/credits/purchase', {
+      amount,
+      transactionId,
+      paymentMethod,
+    });
+    return response.data;
+  },
+
+  // Send SMS
+  sendSingle: async (data: SendSingleSmsRequest): Promise<{
+    success: boolean;
+    message: string;
+    smsLogId: string;
+    creditsUsed: number;
+    status: string;
+  }> => {
+    const response = await api.post('/api/sms/send/single', data);
+    return response.data;
+  },
+  sendBulk: async (data: SendBulkSmsRequest): Promise<{
+    success: boolean;
+    message: string;
+    smsLogId: string;
+    recipientCount: number;
+    successCount: number;
+    failCount: number;
+    creditsUsed: number;
+    status: string;
+  }> => {
+    const response = await api.post('/api/sms/send/bulk', data);
+    return response.data;
+  },
+  sendToMembers: async (data: SendToMembersRequest): Promise<{
+    success: boolean;
+    message: string;
+    recipientCount: number;
+    successCount: number;
+    failCount: number;
+    creditsUsed: number;
+  }> => {
+    const response = await api.post('/api/sms/send/members', data);
+    return response.data;
+  },
+  sendToDepartment: async (data: SendToDepartmentRequest): Promise<{
+    success: boolean;
+    message: string;
+    recipientCount: number;
+    successCount: number;
+    failCount: number;
+    creditsUsed: number;
+  }> => {
+    const response = await api.post('/api/sms/send/department', data);
+    return response.data;
+  },
+  sendToBranch: async (data: SendToBranchRequest): Promise<{
+    success: boolean;
+    message: string;
+    smsLogId: string;
+    recipientCount: number;
+    successCount: number;
+    failCount: number;
+    creditsUsed: number;
+  }> => {
+    const response = await api.post('/api/sms/send/branch', data);
+    return response.data;
+  },
+  sendToAll: async (data: SendToAllMembersRequest): Promise<{
+    success: boolean;
+    message: string;
+    recipientCount: number;
+    successCount: number;
+    failCount: number;
+    creditsUsed: number;
+  }> => {
+    const response = await api.post('/api/sms/send/all', data);
+    return response.data;
+  },
+
+  // SMS logs and analytics
+  getSmsLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    messageType?: string;
+  }): Promise<{
+    logs: SmsLog[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }> => {
+    const response = await api.get('/api/sms/logs', { params });
+    return response.data;
+  },
+  getSmsLogDetails: async (id: string): Promise<SmsLog> => {
+    const response = await api.get<SmsLog>(`/api/sms/logs/${id}`);
+    return response.data;
+  },
+  getAnalytics: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    period?: '7d' | '30d' | '90d';
+  }): Promise<SmsAnalytics> => {
+    const response = await api.get<SmsAnalytics>('/api/sms/analytics', { params });
+    return response.data;
+  },
+
+  // Delivery status updates
+  updateDeliveryStatus: async (logId: string): Promise<{
+    success: boolean;
+    message: string;
+    totalRecipients: number;
+    updatedCount: number;
+  }> => {
+    const response = await api.post(`/api/sms/logs/${logId}/update-status`);
+    return response.data;
+  },
+
+  batchUpdateDeliveryStatuses: async (logIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    totalLogs: number;
+    results: any[];
+  }> => {
+    const response = await api.post('/api/sms/logs/batch-update-status', { logIds });
+    return response.data;
+  },
+
+  // Utilities
+  getAvailableMembers: async (): Promise<AvailableMembersResponse> => {
+    const response = await api.get<AvailableMembersResponse>('/api/sms/members/available');
+    return response.data;
+  },
+  calculateCost: async (message: string, recipientCount: number): Promise<SmsCostCalculation> => {
+    const response = await api.post<SmsCostCalculation>('/api/sms/calculate-cost', {
+      message,
+      recipientCount,
+    });
     return response.data;
   },
 };

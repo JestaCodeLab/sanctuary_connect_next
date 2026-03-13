@@ -192,8 +192,8 @@ export interface Member {
   departments?: Array<string | { _id: string; name: string }>;
   firstName: string;
   lastName: string;
-  email: string;
-  phone?: string;
+  email?: string;
+  phone: string;
   dateOfBirth?: string;
   gender?: string;
   maritalStatus?: string;
@@ -230,8 +230,8 @@ export interface CreateMemberRequest {
   departments?: string[];
   firstName: string;
   lastName: string;
-  email: string;
-  phone?: string;
+  email?: string;
+  phone: string;
   dateOfBirth?: string;
   gender?: string;
   maritalStatus?: string;
@@ -295,14 +295,20 @@ export interface ChurchEvent {
   recurrencePattern?: 'weekly' | 'biweekly' | 'monthly';
   recurrenceDay?: number;
   recurrenceEndDate?: string;
-  parentEventId?: string;
   qrCode?: {
     token: string;
     dataUrl: string;
     expiresAt: string;
+    occurrenceDate?: string;
   };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EventOccurrence {
+  startDate: string;
+  endDate: string;
+  attendeeCount: number;
 }
 
 export interface CreateEventRequest {
@@ -592,3 +598,171 @@ export interface OnboardingState {
   subscription: SubscriptionState;
   organizationId: string | null;
 }
+
+// SMS Types
+export interface SmsRecipient {
+  phoneNumber: string;
+  name?: string;
+  memberId?: string;
+  status: 'pending' | 'submitted' | 'delivered' | 'failed' | 'undelivered';
+  sentAt?: string;
+  deliveredAt?: string;
+  failureReason?: string;
+  hubtelMessageId?: string;
+  deliveryReport?: string;
+}
+
+export interface SmsLog {
+  _id: string;
+  merchantId: string;
+  sentBy: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  messageType: 'single' | 'bulk' | 'scheduled';
+  category: 'welcome' | 'event_reminder' | 'event_confirmation' | 'birthday' | 'anniversary' | 
+    'first_timer_followup' | 'announcement' | 'invitation' | 'thank_you' | 'general' | 
+    'event' | 'reminder' | 'emergency' | 'other';
+  recipients: SmsRecipient[];
+  message: string;
+  senderID: string;
+  templateUsed?: string;
+  creditsUsed: number;
+  overallStatus: 'pending' | 'processing' | 'submitted' | 'delivered' | 'failed' | 'partial';
+  totalRecipients: number;
+  successfulDeliveries: number;
+  failedDeliveries: number;
+  pendingDeliveries: number;
+  targetGroup?: 'individual' | 'department' | 'branch' | 'all_members' | 'custom';
+  targetGroupDetails?: {
+    departmentId?: string;
+    branchId?: string;
+  };
+  scheduledFor?: string;
+  metadata?: Record<string, any>;
+  isPersonalized: boolean;
+  errors?: Array<{
+    message: string;
+    code?: string;
+    timestamp: string;
+    response?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  stats?: {
+    total: number;
+    delivered: number;
+    failed: number;
+    pending: number;
+    deliveryRate: string;
+  };
+}
+
+export interface SmsCredit {
+  balance: number;
+  totalPurchased: number;
+  totalUsed: number;
+  lastPurchase?: {
+    amount: number;
+    date: string;
+    transactionId: string;
+  };
+  autoRecharge?: {
+    enabled: boolean;
+    threshold: number;
+    amount: number;
+  };
+}
+
+export interface SmsCreditTransaction {
+  type: 'purchase' | 'usage' | 'refund' | 'bonus';
+  amount: number;
+  balance: number;
+  description?: string;
+  reference?: string;
+  createdAt: string;
+}
+
+export interface SendSingleSmsRequest {
+  phone: string;
+  message: string;
+  category?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SendBulkSmsRequest {
+  phones: string[];
+  message: string;
+  category?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SendToMembersRequest {
+  memberIds: string[];
+  message: string;
+  category?: string;
+}
+
+export interface SendToDepartmentRequest {
+  departmentId: string;
+  message: string;
+  category?: string;
+}
+
+export interface SendToBranchRequest {
+  branchId: string;
+  message: string;
+  category?: string;
+}
+
+export interface SendToAllMembersRequest {
+  message: string;
+  category?: string;
+}
+
+export interface SmsAnalytics {
+  totalSent: number;
+  totalDelivered: number;
+  totalFailed: number;
+  totalCreditsUsed: number;
+  totalCampaigns: number;
+  deliveryRate: string;
+  byCategory: Record<string, {
+    count: number;
+    sent: number;
+    delivered: number;
+    credits: number;
+  }>;
+  byType: Record<string, {
+    count: number;
+    sent: number;
+    delivered: number;
+  }>;
+  timeline: any[];
+}
+
+export interface SmsCostCalculation {
+  creditsNeeded: number;
+  messageLength: number;
+  segments: number;
+  recipientCount: number;
+  creditsPerRecipient: number;
+}
+
+export interface AvailableMembersResponse {
+  members: Array<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    department?: {
+      _id: string;
+      name: string;
+    };
+  }>;
+  count: number;
+}
+

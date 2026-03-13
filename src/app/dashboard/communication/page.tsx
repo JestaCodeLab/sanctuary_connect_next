@@ -5,15 +5,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { MessageSquare, Send, Mail, Smartphone, Users, Trash2 } from 'lucide-react';
+import { MessageSquare, Send, Mail, Smartphone, Users, Trash2, CreditCard } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, Modal, EmptyState } from '@/components/dashboard';
 import { Card, Button, Input, Select } from '@/components/ui';
-import { messagesApi } from '@/lib/api';
+import { messagesApi, smsApi } from '@/lib/api';
 import { messageSchema } from '@/lib/validations';
 import type { MessageFormData } from '@/lib/validations';
 import BranchField from '@/components/dashboard/BranchField';
 import type { Message } from '@/types';
+import Link from 'next/link';
 
 const statusBadgeVariant: Record<string, 'success' | 'muted' | 'info'> = {
   sent: 'success',
@@ -53,11 +54,40 @@ export default function CommunicationPage() {
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['messages'],
     queryFn: messagesApi.getAll,
   });
+
+  const { data: smsCredits } = useQuery({
+    queryKey: ['sms-credits'],
+    queryFn: smsApi.getCreditsBalance,
+  });
+
+  const handlePurchaseCredits = async () => {
+    const amount = parseInt(creditAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    setIsPurchasing(true);
+    try {
+      await smsApi.purchaseCredits(amount, `test-${Date.now()}`, 'manual');
+      toast.success(`Successfully added ${amount} SMS credits`);
+      queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
+      setShowCreditModal(false);
+      setCreditAmount('');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to purchase credits');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
 
   const {
     register,
@@ -119,7 +149,7 @@ export default function CommunicationPage() {
     { label: 'Messages Sent', value: sentCount, icon: MessageSquare },
     { label: 'Drafts', value: draftCount, icon: Mail },
     { label: 'Scheduled', value: scheduledCount, icon: Smartphone },
-    { label: 'Total Messages', value: messages.length, icon: Users },
+    { label: 'SMS Credits', value: smsCredits?.balance || 0, icon: CreditCard },
   ];
 
   const messageToDelete = deleteId
@@ -137,6 +167,71 @@ export default function CommunicationPage() {
       />
 
       <StatsGrid stats={stats} />
+
+      {/* Low Credits Warning */}
+      {smsCredits && smsCredits.balance < 10 && (
+        <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+              <div>
+                <h3 className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                  Low SMS Credits
+                </h3>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  You have {smsCredits.balance} credits remaining. Purchase more to continue sending SMS.
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => setShowCreditModal(true)} variant="outline" size="sm">
+              Add Credits
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/dashboard/communication/send-sms">
+          <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Smartphone className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">Send SMS</h3>
+                <p className="text-xs text-gray-500">Send bulk SMS messages</p>
+              </div>
+            </div>
+          </div>
+        </Link>
+        <Link href="/dashboard/communication/analytics">
+          <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">SMS Analytics</h3>
+                <p className="text-xs text-gray-500">View SMS logs & stats</p>
+              </div>
+            </div>
+          </div>
+        </Link>
+        <Link href="/dashboard/communication/templates">
+          <div className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 p-2 rounded-lg">
+                <Mail className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">Templates</h3>
+                <p className="text-xs text-gray-500">Manage message templates</p>
+              </div>
+            </div>
+          </div>
+        </Link>
+      </div>
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 mb-6 w-fit">
@@ -352,6 +447,53 @@ export default function CommunicationPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Purchase Credits Modal */}
+      {showCreditModal && (
+        <Modal
+          isOpen={showCreditModal}
+          onClose={() => {
+            setShowCreditModal(false);
+            setCreditAmount('');
+          }}
+          title="Purchase SMS Credits"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              Current balance: <span className="font-semibold text-foreground">{smsCredits?.balance || 0} credits</span>
+            </p>
+            <Input
+              label="Credits to Add"
+              type="number"
+              value={creditAmount}
+              onChange={(e) => setCreditAmount(e.target.value)}
+              placeholder="Enter number of credits (e.g., 100)"
+              min="1"
+            />
+            <p className="text-xs text-muted">
+              Note: This is a test purchase. In production, this would integrate with a payment gateway.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCreditModal(false);
+                  setCreditAmount('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePurchaseCredits}
+                isLoading={isPurchasing}
+                disabled={!creditAmount || parseInt(creditAmount) <= 0}
+              >
+                Add Credits
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

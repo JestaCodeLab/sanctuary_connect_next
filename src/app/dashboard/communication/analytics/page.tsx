@@ -1,55 +1,84 @@
 'use client';
 
-import { BarChart3, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
-import { PageHeader, StatsGrid, EmptyState } from '@/components/dashboard';
-import { Card } from '@/components/ui';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart3, TrendingUp, CheckCircle2, AlertCircle, MessageSquare, Send } from 'lucide-react';
+import { PageHeader, StatsGrid } from '@/components/dashboard';
+import SmsLogsTable from '@/components/dashboard/SmsLogsTable';
+import SmsAnalytics from '@/components/dashboard/SmsAnalytics';
+import { smsApi } from '@/lib/api';
+
+const filterTabs = ['SMS Logs', 'Analytics'] as const;
 
 export default function AnalyticsPage() {
+  const [activeFilter, setActiveFilter] = useState<string>('SMS Logs');
+
+  const { data: smsCredits } = useQuery({
+    queryKey: ['sms-credits'],
+    queryFn: smsApi.getCreditsBalance,
+  });
+
+  const { data: logsData } = useQuery({
+    queryKey: ['sms-logs', { page: 1, limit: 1000 }],
+    queryFn: () => smsApi.getSmsLogs({ page: 1, limit: 1000 }),
+  });
+
+  const logs = logsData?.logs || [];
+  
+  // Calculate stats from logs
+  const totalSent = logs.length;
+  const totalDelivered = logs.reduce((sum: number, log: any) => {
+    return sum + (log.recipients?.filter((r: any) => r.status === 'delivered').length || 0);
+  }, 0);
+  const totalFailed = logs.reduce((sum: number, log: any) => {
+    return sum + (log.recipients?.filter((r: any) => ['failed', 'undelivered'].includes(r.status)).length || 0);
+  }, 0);
+  const totalCreditsUsed = logs.reduce((sum: number, log: any) => sum + (log.creditsUsed || 0), 0);
+
   const stats = [
-    { label: 'Total Messages Sent', value: 0, icon: BarChart3 },
-    { label: 'Delivery Rate', value: '0%', icon: CheckCircle2 },
-    { label: 'Failed Messages', value: 0, icon: AlertCircle },
-    { label: 'Pending Messages', value: 0, icon: TrendingUp },
+    { label: 'Total Campaigns', value: totalSent, icon: MessageSquare },
+    { label: 'Messages Delivered', value: totalDelivered, icon: CheckCircle2 },
+    { label: 'Messages Failed', value: totalFailed, icon: AlertCircle },
+    { label: 'Credits Used', value: totalCreditsUsed, icon: Send },
   ];
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
-        title="Analytics"
+        title="SMS Analytics"
         description="Track and analyze SMS communication metrics"
       />
 
       <StatsGrid stats={stats} />
 
-      <Card>
-        <div className="flex flex-col items-center justify-center py-12">
-          <BarChart3 className="w-16 h-16 text-muted mb-4" />
-          <h3 className="text-lg font-semibold text-foreground">No Analytics Data Yet</h3>
-          <p className="text-muted text-sm mt-1">Send messages to start tracking analytics</p>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <div className="mb-4">
-            <h3 className="font-semibold text-foreground">Messages by Day</h3>
-            <p className="text-sm text-muted mt-1">Last 7 days</p>
-          </div>
-          <div className="flex items-center justify-center h-48">
-            <p className="text-muted text-sm">Chart will appear here</p>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="mb-4">
-            <h3 className="font-semibold text-foreground">Delivery Status</h3>
-            <p className="text-sm text-muted mt-1">Message distribution</p>
-          </div>
-          <div className="flex items-center justify-center h-48">
-            <p className="text-muted text-sm">Chart will appear here</p>
-          </div>
-        </Card>
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 mb-6 w-fit">
+        {filterTabs.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveFilter(tab)}
+            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+              activeFilter === tab
+                ? 'bg-primary text-white'
+                : 'text-muted hover:text-foreground hover:bg-card'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
+
+      {activeFilter === 'SMS Logs' && (
+        <div className="space-y-4">
+          <SmsLogsTable />
+        </div>
+      )}
+
+      {activeFilter === 'Analytics' && (
+        <div className="space-y-4">
+          <SmsAnalytics />
+        </div>
+      )}
     </div>
   );
 }

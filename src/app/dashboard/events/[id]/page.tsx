@@ -11,7 +11,7 @@ import ShareButtons from '@/components/dashboard/ShareButtons';
 import QRCodeDisplay from '@/components/dashboard/QRCodeDisplay';
 import { eventsApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
-import type { ChurchEvent } from '@/types';
+import type { ChurchEvent, EventOccurrence } from '@/types';
 
 const statusBadgeVariant: Record<ChurchEvent['status'], 'info' | 'success' | 'muted' | 'error'> = {
   scheduled: 'info',
@@ -77,6 +77,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const { data: event, isLoading } = useQuery({
     queryKey: ['events', id],
     queryFn: () => eventsApi.getById(id),
+  });
+
+  const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
+    queryKey: ['events', id, 'occurrences'],
+    queryFn: () => eventsApi.getOccurrences(id, 60),
+    enabled: !!event?.isRecurring,
   });
 
   if (isLoading) {
@@ -228,6 +234,33 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 <DetailField label="Recurrence End Date" value={formatDate(event.recurrenceEndDate)} />
               )}
             </dl>
+          </Card>
+        )}
+
+        {/* Upcoming Occurrences */}
+        {event.isRecurring && occurrences.length > 0 && (
+          <Card padding="lg">
+            <div className="flex items-center gap-2 mb-6">
+              <Calendar className="w-5 h-5 text-muted" />
+              <h2 className="text-lg font-semibold text-foreground">Upcoming Occurrences</h2>
+            </div>
+            <div className="space-y-2">
+              {occurrences.map((occ, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg border border-border"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-foreground">
+                      {formatDateTime(occ.startDate)}
+                    </span>
+                  </div>
+                  <Badge variant={occ.attendeeCount > 0 ? 'success' : 'muted'}>
+                    {occ.attendeeCount} attendee{occ.attendeeCount !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
       </div>

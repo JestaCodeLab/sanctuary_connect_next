@@ -80,9 +80,15 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
               Attendance QR Code
             </h2>
           </div>
-          <p className="text-sm text-muted mb-6">
+          <p className="text-sm text-muted mb-2">
             Scan this code to check in to {eventTitle}
           </p>
+          {qrData?.occurrenceDate && (
+            <p className="text-xs font-medium text-primary mb-4">
+              QR for {new Date(qrData.occurrenceDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+          {!qrData?.occurrenceDate && <div className="mb-4" />}
 
           {isLoading ? (
             <div className="flex items-center justify-center h-64">

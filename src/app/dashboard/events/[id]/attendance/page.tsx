@@ -3,13 +3,13 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, X, Download } from 'lucide-react';
+import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, X, Download, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input } from '@/components/ui';
 import { Badge, PageHeader, StatsGrid } from '@/components/dashboard';
 import MemberSearch from '@/components/dashboard/MemberSearch';
 import { attendanceApi, eventsApi, membersApi } from '@/lib/api';
-import type { Member } from '@/types';
+import type { Member, EventOccurrence } from '@/types';
 
 function formatDateTime(date: string): string {
   return new Date(date).toLocaleString('en-US', {
@@ -30,15 +30,23 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedOccurrence, setSelectedOccurrence] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: event } = useQuery({
     queryKey: ['events', id],
     queryFn: () => eventsApi.getById(id),
   });
 
+  const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
+    queryKey: ['events', id, 'occurrences'],
+    queryFn: () => eventsApi.getOccurrences(id, 90),
+    enabled: !!event?.isRecurring,
+  });
+
   const { data: attendanceData, isLoading, refetch } = useQuery({
-    queryKey: ['attendance', 'event', id],
-    queryFn: () => attendanceApi.getEventAttendanceRecords(id),
+    queryKey: ['attendance', 'event', id, selectedOccurrence],
+    queryFn: () => attendanceApi.getEventAttendanceRecords(id, selectedOccurrence || undefined),
   });
 
   const { data: members = [] } = useQuery<Member[]>({
@@ -59,17 +67,29 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => attendanceApi.deleteRecord(id),
+    onSuccess: () => {
+      toast.success('Record deleted');
+      refetch();
+    },
+    onError: () => {
+      toast.error('Failed to delete record');
+    },
+  });
+
   const handleMemberCheckIn = (member: Member) => {
     checkInMutation.mutate({
       eventId: id,
       memberId: member._id,
+      ...(selectedOccurrence ? { occurrenceDate: selectedOccurrence } : {}),
     });
   };
 
   const handleExportAttendance = async () => {
     setIsExporting(true);
     try {
-      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat);
+      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat, selectedOccurrence || undefined);
       const a = document.createElement('a');
       a.href = downloadUrl;
       a.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
@@ -95,6 +115,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       name: guestInfo.name,
       email: guestInfo.email,
       phone: guestInfo.phone,
+      ...(selectedOccurrence ? { occurrenceDate: selectedOccurrence } : {}),
     });
   };
 
@@ -156,6 +177,30 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
+      {/* Occurrence selector for recurring events */}
+      {event?.isRecurring && occurrences.length > 0 && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-foreground mb-2">Select Occurrence</label>
+          <select
+            value={selectedOccurrence}
+            onChange={(e) => setSelectedOccurrence(e.target.value)}
+            className="w-full max-w-xs px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+          >
+            <option value="">All Occurrences</option>
+            {occurrences.map((occ, i) => (
+              <option key={i} value={occ.startDate}>
+                {new Date(occ.startDate).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })} ({occ.attendeeCount} attendee{occ.attendeeCount !== 1 ? 's' : ''})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <StatsGrid stats={statsData} />
 
       <Card padding="lg">
@@ -180,6 +225,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
                   <th className="text-left text-sm font-medium text-muted py-3 px-4">Method</th>
                   <th className="text-left text-sm font-medium text-muted py-3 px-4">Check-In Time</th>
                   <th className="text-left text-sm font-medium text-muted py-3 px-4">Contact</th>
+                  <th className="text-right text-sm font-medium text-muted py-3 px-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,6 +275,17 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-muted">{contact || '—'}</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="px-2 text-red-500 hover:text-red-700"
+                          onClick={() => setDeleteTarget(record._id)}
+                          title="Delete record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -385,6 +442,39 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
                 </Button>
               </div>
             )}
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card padding="lg" className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Delete Record</h2>
+              <button onClick={() => setDeleteTarget(null)} className="text-muted hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted mb-6">
+              Are you sure you want to delete this check-in record? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
+                isLoading={deleteMutation.isPending}
+                onClick={() => {
+                  deleteMutation.mutate(deleteTarget, {
+                    onSuccess: () => setDeleteTarget(null),
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </div>
           </Card>
         </div>
       )}

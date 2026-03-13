@@ -19,7 +19,6 @@ import {
   ChevronDown,
   Building2,
   ClipboardCheck,
-  HandHeart,
   Cake,
   CalendarPlus,
   PieChart,
@@ -102,7 +101,7 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Phone },
     ],
   },
-  { label: 'Prayer & Testimony', href: '/dashboard/prayer-wall', icon: HandHeart },
+  // { label: 'Prayer & Testimony', href: '/dashboard/prayer-wall' },
   {
     label: 'Settings',
     href: '/dashboard/settings',

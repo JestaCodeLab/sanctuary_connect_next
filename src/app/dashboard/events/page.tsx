@@ -19,9 +19,11 @@ import {
   Repeat,
 } from 'lucide-react';
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import BranchField from '@/components/dashboard/BranchField';
 import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
+import { useBranchStore } from '@/store/branchStore';
 import type { ChurchEvent } from '@/types';
 
 type StatusFilter = 'all' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
@@ -70,6 +72,7 @@ function formatDate(date: string): string {
 export default function EventsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { selectedBranchId } = useBranchStore();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -131,6 +134,7 @@ export default function EventsPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<EventFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,6 +153,7 @@ export default function EventsPage() {
     setEditTarget(event);
     setModalMode('edit');
     reset({
+      branchId: event.branchId || '',
       title: event.title,
       description: event.description || '',
       eventType: event.eventType || '',
@@ -293,7 +298,7 @@ export default function EventsPage() {
                           >
                             {event.title}
                           </Link>
-                          {(event.isRecurring || event.parentEventId) && (
+                          {event.isRecurring && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <Repeat className="w-3 h-3 text-blue-500" />
                               <span className="text-xs text-muted">Recurring</span>
@@ -303,8 +308,17 @@ export default function EventsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm text-foreground">{formatDate(event.startDate)}</div>
-                      <div className="text-xs text-muted">to {formatDate(event.endDate)}</div>
+                      {event.isRecurring ? (
+                        <div className="text-sm text-foreground">
+                          Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay ?? 0]}
+                          <div className="text-xs text-muted">{event.recurrencePattern}</div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-sm text-foreground">{formatDate(event.startDate)}</div>
+                          <div className="text-xs text-muted">to {formatDate(event.endDate)}</div>
+                        </>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {event.location ? (
@@ -380,6 +394,15 @@ export default function EventsPage() {
         size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {!selectedBranchId && (
+            <BranchField
+              value={watch('branchId')}
+              onChange={(branchId) => setValue('branchId', branchId)}
+              error={errors.branchId?.message}
+              required
+            />
+          )}
+
           <Input
             label="Title"
             placeholder="Enter event title"

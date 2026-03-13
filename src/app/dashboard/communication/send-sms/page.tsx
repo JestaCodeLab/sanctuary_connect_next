@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import { PageHeader } from '@/components/dashboard';
 import { Card } from '@/components/ui';
-import { Send, AlertCircle, User, Users, Zap, Building2, Check, Loader2 } from 'lucide-react';
-import { membersApi } from '@/lib/api';
-import { departmentsApi } from '@/lib/api';
+import { Send, AlertCircle, User, Users, Zap, Building2, Check, Loader2, CreditCard } from 'lucide-react';
+import { membersApi, departmentsApi, smsApi } from '@/lib/api';
 import { useBranchStore } from '@/store/branchStore';
 import type { Member, Department } from '@/types';
+import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 type SendOption = 'single' | 'all' | 'department' | 'branch';
 
@@ -53,6 +54,7 @@ export default function SendSmsPage() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [category, setCategory] = useState('general');
 
   const branches = useBranchStore((state) => state.branches);
 
@@ -66,6 +68,11 @@ export default function SendSmsPage() {
     queryFn: () => departmentsApi.getAll(),
   });
 
+  const { data: smsCredits } = useQuery({
+    queryKey: ['sms-credits'],
+    queryFn: smsApi.getCreditsBalance,
+  });
+
   // Filter members based on search term
   const filteredMembers = members.filter((member: Member) => {
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
@@ -74,19 +81,57 @@ export default function SendSmsPage() {
   });
 
   const handleSend = async () => {
-    if (!recipientValue.trim() || !message.trim()) {
-      alert('Please fill in all fields');
+    if (!message.trim()) {
+      toast.error('Please enter a message');
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('Sending SMS via:', sendOption);
-      console.log('Recipient:', recipientValue);
-      console.log('Message:', message);
-      // TODO: Implement SMS sending API call
-    } catch (error) {
-      console.error('Error sending SMS:', error);
+      switch (sendOption) {
+        case 'single':
+          if (!recipientValue) {
+            toast.error('Please select a member');
+            return;
+          }
+          await smsApi.sendToMembers({
+            memberIds: [recipientValue],
+            message,
+            category,
+          });
+          break;
+        case 'all':
+          await smsApi.sendToAll({ message, category });
+          break;
+        case 'department':
+          if (!recipientValue) {
+            toast.error('Please select a department');
+            return;
+          }
+          await smsApi.sendToDepartment({ 
+            departmentId: recipientValue, 
+            message, 
+            category 
+          });
+          break;
+        case 'branch':
+          if (!recipientValue) {
+            toast.error('Please select a branch');
+            return;
+          }
+          await smsApi.sendToBranch({
+            branchId: recipientValue,
+            message,
+            category,
+          });
+          break;
+      }
+      toast.success('SMS sent successfully!');
+      setMessage('');
+      setRecipientValue('');
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.error || 'Failed to send SMS';
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -251,6 +296,51 @@ export default function SendSmsPage() {
         description="Send bulk SMS messages to members"
       />
 
+      {/* SMS Credits Banner */}
+      <div className={`rounded-lg border p-4 ${
+        smsCredits && smsCredits.balance < 10 
+          ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+          : 'bg-card border-border'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${
+              smsCredits && smsCredits.balance < 10
+                ? 'bg-yellow-100 dark:bg-yellow-900/40'
+                : 'bg-primary-light'
+            }`}>
+              <CreditCard className={`w-5 h-5 ${
+                smsCredits && smsCredits.balance < 10
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-primary'
+              }`} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm text-foreground">
+                SMS Credits Balance
+              </h3>
+              <p className={`text-2xl font-bold ${
+                smsCredits && smsCredits.balance < 10
+                  ? 'text-yellow-700 dark:text-yellow-300'
+                  : 'text-foreground'
+              }`}>
+                {smsCredits?.balance || 0}
+              </p>
+            </div>
+          </div>
+          <Link href="/dashboard/communication">
+            <Button variant="outline" size="sm">
+              Add Credits
+            </Button>
+          </Link>
+        </div>
+        {smsCredits && smsCredits.balance < 10 && (
+          <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
+            ⚠️ Low balance! Add more credits to continue sending SMS.
+          </p>
+        )}
+      </div>
+
       {/* Send Options */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {sendOptions.map((option) => (
@@ -282,7 +372,7 @@ export default function SendSmsPage() {
 
       {/* Form */}
       <Card>
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSend(); }}>
           {renderRecipientField()}
 
           <div>
@@ -309,8 +399,8 @@ export default function SendSmsPage() {
 
           <div className="flex gap-2 pt-2">
             <Button
-              onClick={handleSend}
-              disabled={isLoading || !recipientValue}
+              type="submit"
+              disabled={isLoading || !message.trim()}
               leftIcon={<Send className="w-4 h-4" />}
             >
               {isLoading ? 'Sending...' : 'Send SMS'}

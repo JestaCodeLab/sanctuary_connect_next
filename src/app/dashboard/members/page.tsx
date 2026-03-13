@@ -124,7 +124,7 @@ export default function MembersPage() {
         const value = values[index]?.replace(/"/g, '').trim() || '';
         row[header] = value || null;
       });
-      if (row.firstName && row.lastName && row.email) {
+      if (row.firstName && row.lastName && row.phone) {
         data.push(row);
       }
     }
@@ -153,7 +153,7 @@ export default function MembersPage() {
         const value = values[index]?.replace(/"/g, '').trim() || '';
         row[header] = value || null;
       });
-      if (row.firstName && row.lastName && row.email) {
+      if (row.firstName && row.lastName && row.phone) {
         data.push(row);
       }
     }
@@ -493,7 +493,7 @@ export default function MembersPage() {
                     Name
                   </th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">
-                    Phone
+                    Email
                   </th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">
                     Status
@@ -530,14 +530,14 @@ export default function MembersPage() {
                             {member.firstName} {member.lastName}
                           </Link>
                           <p className="text-xs text-muted">
-                            {member.email}
+                            {member.phone}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-foreground">
-                        {member.phone || '\u2014'}
+                        {member.email || '\u2014'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

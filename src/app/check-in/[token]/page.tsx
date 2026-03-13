@@ -71,8 +71,8 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     }
 
     if (checkInType === 'guest') {
-      if (!guestInfo.name) {
-        toast.error('Name is required');
+      if (!guestInfo.name || !guestInfo.phone) {
+        toast.error('Name and phone number are required');
         return;
       }
     }
@@ -128,13 +128,29 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             <p className="text-muted mb-6">
               You have successfully checked in to {eventData.title}
             </p>
+            {checkInResult?.memberId && (
+              <div className="mb-4 px-3 py-2 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                  Welcome back, {checkInResult.memberId.firstName}!
+                </p>
+              </div>
+            )}
+            {!checkInResult?.memberId && !checkInResult?.userId && (
+              <div className="mb-4 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
+                  Checked in as guest
+                </p>
+              </div>
+            )}
             <div className="bg-muted/20 rounded-lg p-4 text-left space-y-2 text-sm">
               <p>
                 <span className="font-medium text-foreground">Name:</span>{' '}
                 <span className="text-muted">
-                  {checkInResult?.name || 
-                   (checkInResult?.memberId && `${checkInResult.memberId.firstName} ${checkInResult.memberId.lastName}`) ||
-                   (checkInResult?.userId && `${checkInResult.userId.firstName} ${checkInResult.userId.lastName}`)}
+                  {checkInResult?.memberId
+                    ? `${checkInResult.memberId.firstName} ${checkInResult.memberId.lastName}`
+                    : checkInResult?.userId
+                    ? `${checkInResult.userId.firstName} ${checkInResult.userId.lastName}`
+                    : checkInResult?.name}
                 </span>
               </p>
               <p>
@@ -234,20 +250,21 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
               required
             />
             <Input
+              label="Phone Number"
+              type="tel"
+              placeholder="+1 (555) 000-0000"
+              value={guestInfo.phone}
+              onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+              leftIcon={<Phone className="w-4 h-4" />}
+              required
+            />
+            <Input
               label="Email (Optional)"
               type="email"
               placeholder="your@email.com"
               value={guestInfo.email}
               onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
               leftIcon={<Mail className="w-4 h-4" />}
-            />
-            <Input
-              label="Phone (Optional)"
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              value={guestInfo.phone}
-              onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
-              leftIcon={<Phone className="w-4 h-4" />}
             />
           </div>
 
@@ -256,8 +273,9 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             size="lg"
             onClick={handleCheckIn}
             disabled={
-              checkInMutation.isPending || 
-              !guestInfo.name || 
+              checkInMutation.isPending ||
+              !guestInfo.name ||
+              !guestInfo.phone ||
               (eventData.startDate && new Date(eventData.startDate) > new Date())
             }
           >
