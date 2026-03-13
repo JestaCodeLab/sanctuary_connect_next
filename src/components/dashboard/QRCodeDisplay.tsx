@@ -65,7 +65,7 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card padding="lg" className="max-w-md w-full relative">
+      <Card padding="lg" className="max-w-md w-full relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={() => setIsOpen(false)}
           className="absolute top-4 right-4 text-muted hover:text-foreground"
@@ -109,6 +109,14 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
                   className="w-64 h-64"
                 />
               </div>
+              
+              {qrData.token && (
+                <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-xs font-medium text-foreground mb-1">Check-In Token:</p>
+                  <p className="text-sm font-mono font-bold text-primary break-all">{qrData.token}</p>
+                  <p className="text-xs text-muted mt-1">Use this token to manually check in</p>
+                </div>
+              )}
               
               {qrData.checkInUrl && (
                 <div className="mb-4 p-3 bg-muted/20 rounded-lg">

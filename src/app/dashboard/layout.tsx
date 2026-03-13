@@ -31,6 +31,7 @@ import {
   Send,
   Mail,
   Phone,
+  Zap,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -39,6 +40,7 @@ import { useOrganizationStore } from '@/store/organizationStore';
 import { organizationApi, userBranchApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
 import BranchSelector from '@/components/dashboard/BranchSelector';
+import SubscriptionUsage from '@/components/dashboard/SubscriptionUsage';
 
 interface SidebarChild {
   label: string;
@@ -98,7 +100,7 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Analytics', href: '/dashboard/communication/analytics', icon: BarChart3 },
       { label: 'Send SMS', href: '/dashboard/communication/send-sms', icon: Send },
       { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
-      { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Phone },
+      // { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Phone },
     ],
   },
   // { label: 'Prayer & Testimony', href: '/dashboard/prayer-wall' },
@@ -109,6 +111,7 @@ const sidebarLinks: SidebarLink[] = [
     children: [
       { label: 'General', href: '/dashboard/settings' },
       { label: 'Users & Branches', href: '/dashboard/settings/users', icon: Users },
+      { label: 'Subscription', href: '/dashboard/settings/subscription', icon: Zap },
     ],
   },
 ];
@@ -242,48 +245,136 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+    // If store is still loading (rehydrating), don't do anything
+    if (isLoading) {
+      console.log('[Dashboard] Auth check: still loading');
+      return;
     }
+    
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      const msg = `[Dashboard] Auth check: NOT authenticated, redirecting to login. hasCheckedOnboarding=${hasCheckedOnboarding}`;
+      console.log(msg);
+      sessionStorage.setItem('lastDashboardLog', msg);
+      sessionStorage.setItem('authCheckTriggeredRedirect', 'true');
+      router.push('/login');
+      return;
+    }
+
+    const msg = `[Dashboard] Auth check: PASSED, authenticated. hasCheckedOnboarding=${hasCheckedOnboarding}`;
+    console.log(msg);
+    sessionStorage.setItem('lastDashboardLog', msg);
   }, [isAuthenticated, isLoading, router]);
 
   // Check if user has completed onboarding and load branches
   useEffect(() => {
+    // Prevent running multiple times
+    if (hasCheckedOnboarding) {
+      const msg = `[Dashboard] Already checked onboarding, skipping...`;
+      console.log(msg);
+      return;
+    }
+
+    const msg0 = `[Dashboard] checkOnboarding effect STARTED`;
+    console.log(msg0);
+    sessionStorage.setItem('lastDashboardLog', msg0);
+
     const checkOnboarding = async () => {
-      if (!isAuthenticated || isLoading) return;
+      if (!isAuthenticated || isLoading) {
+        const msg = `[Dashboard] Early return: isAuthenticated=${isAuthenticated}, isLoading=${isLoading}`;
+        console.log(msg);
+        sessionStorage.setItem('lastDashboardLog', msg);
+        return;
+      }
+
+      const msg1 = `[Dashboard] Checking onboarding... isAuthenticated=${isAuthenticated}, isLoading=${isLoading}`;
+      console.log(msg1);
+      sessionStorage.setItem('lastDashboardLog', msg1);
 
       try {
+        sessionStorage.setItem('orgApiPhase', 'calling');
         const orgData = await organizationApi.getMyOrganization();
+        sessionStorage.setItem('orgApiPhase', 'success');
+        
+        const msg2 = `[Dashboard] Got org data: onboardingComplete=${orgData.organization.onboardingComplete}`;
+        console.log(msg2);
+        sessionStorage.setItem('lastDashboardLog', msg2);
 
         if (!orgData.organization.onboardingComplete) {
           // Redirect to appropriate onboarding step
           const step = orgData.organization.onboardingStep || 1;
           const route = onboardingStepRoutes[step] || '/onboarding/identity';
+          sessionStorage.setItem('lastDashboardLog', `[Dashboard] Onboarding incomplete, redirecting to ${route}`);
           router.push(route);
         } else {
+          const msg3 = `[Dashboard] Setting organization and checking onboarding...`;
+          console.log(msg3);
+          sessionStorage.setItem('lastDashboardLog', msg3);
+
+          console.log('[Dashboard] Calling setCheckingOnboarding(false)');
           setCheckingOnboarding(false);
+          sessionStorage.setItem('lastDashboardLog', `[Dashboard] setCheckingOnboarding(false) called`);
+
+          console.log('[Dashboard] Calling setOrganization');
           setOrganization(orgData.organization);
+          sessionStorage.setItem('lastDashboardLog', `[Dashboard] setOrganization called`);
 
           // Load branches based on role
           if (user?.role === 'admin') {
-            // Admin gets all org branches
+            const msg = `[Dashboard] User is admin, loading ${orgData.branches?.length || 0} branches from org`;
+            console.log(msg);
+            sessionStorage.setItem('lastDashboardLog', msg);
+            console.log('[Dashboard] Calling setBranches');
             setBranches(orgData.branches);
+            const msg4 = `[Dashboard] setBranches called with admin branches`;
+            console.log(msg4);
+            sessionStorage.setItem('lastDashboardLog', msg4);
           } else {
+            const msg = `[Dashboard] User is ${user?.role}, calling getMyBranches()`;
+            console.log(msg);
+            sessionStorage.setItem('lastDashboardLog', msg);
             // Non-admin gets only assigned branches
             try {
+              sessionStorage.setItem('branchesApiPhase', 'calling');
               const myBranches = await userBranchApi.getMyBranches();
+              sessionStorage.setItem('branchesApiPhase', 'success');
+              const msg2 = `[Dashboard] Got ${myBranches?.length || 0} branches from getMyBranches()`;
+              console.log(msg2);
+              sessionStorage.setItem('lastDashboardLog', msg2);
+              console.log('[Dashboard] Calling setBranches');
               setBranches(myBranches);
-            } catch {
+              sessionStorage.setItem('lastDashboardLog', `[Dashboard] setBranches called with ${myBranches?.length || 0} branches`);
+            } catch (branchError: any) {
+              const msg2 = `[Dashboard] ERROR in getMyBranches(): ${branchError?.response?.status} - ${branchError?.message}`;
+              console.error(msg2);
+              sessionStorage.setItem('lastDashboardLog', msg2);
+              sessionStorage.setItem('branchesApiPhase', `error-${branchError?.response?.status}`);
               setBranches([]);
             }
           }
+
+          // Mark that we've checked onboarding
+          console.log('[Dashboard] Calling setHasCheckedOnboarding(true)');
+          setHasCheckedOnboarding(true);
+          sessionStorage.setItem('lastDashboardLog', `[Dashboard] setHasCheckedOnboarding(true) called`);
+          
+          const msgEnd = `[Dashboard] checkOnboarding effect ENDED - dashboard ready`;
+          console.log(msgEnd);
+          sessionStorage.setItem('lastDashboardLog', msgEnd);
+          sessionStorage.setItem('checkOnboardingStatus', 'complete');
         }
-      } catch (error) {
+      } catch (error: any) {
+        const msg3 = `[Dashboard] Error in checkOnboarding: status=${error?.response?.status}, message=${error?.message}`;
+        console.error(msg3);
+        sessionStorage.setItem('lastDashboardLog', msg3);
+        sessionStorage.setItem('orgApiPhase', `error-${error?.response?.status}`);
         // No organization found - redirect to start onboarding
         if (user?.role === 'member') {
+          sessionStorage.setItem('lastDashboardLog', `[Dashboard] Member with no org, redirecting to onboarding`);
           router.push('/onboarding/identity');
         } else {
           setCheckingOnboarding(false);
@@ -292,18 +383,26 @@ export default function DashboardLayout({
     };
 
     checkOnboarding();
-  }, [isAuthenticated, isLoading, user, router, setBranches, setOrganization]);
+  }, [isAuthenticated, isLoading, user?.role, hasCheckedOnboarding]);
 
-  // Close profile dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Monitor for auth changes
+    console.log('[Dashboard] Auth state updated:', {
+      isAuthenticated,
+      isLoading,
+      hasCheckedOnboarding,
+      userEmail: user?.email,
+      userRole: user?.role,
+    });
+    sessionStorage.setItem('authStateLog', JSON.stringify({
+      isAuthenticated,
+      isLoading,
+      hasCheckedOnboarding,
+      userEmail: user?.email,
+      userRole: user?.role,
+      timestamp: new Date().toISOString(),
+    }));
+  }, [isAuthenticated, isLoading, hasCheckedOnboarding, user?.email, user?.role]);
 
   const handleLogout = () => {
     logout();
@@ -319,8 +418,15 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
+    const msg = `[Dashboard] RENDER: Not authenticated after checks! Redirecting...`;
+    console.error(msg);
+    sessionStorage.setItem('lastDashboardLog', msg);
     return null;
   }
+
+  const msg = `[Dashboard] RENDER: Dashboard rendering, isAuthenticated=${isAuthenticated}`;
+  console.log(msg);
+  sessionStorage.setItem('lastDashboardLog', msg);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -379,7 +485,8 @@ export default function DashboardLayout({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/10 space-y-3">
+          <SubscriptionUsage />
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-medium">
               {user?.firstName?.[0]}{user?.lastName?.[0]}

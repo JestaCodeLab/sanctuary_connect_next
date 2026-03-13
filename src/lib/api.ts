@@ -96,12 +96,30 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiError>) => {
+  (error: AxiosError<any>) => {
     const status = error.response?.status;
-    const isAuthError = status === 401 || status === 403;
+    const errorCode = error.response?.data?.code;
+    
+    // Only treat 401 as auth failure - 403 is usually "feature not available" 
+    const isAuthError = status === 401;
     const isExpiredToken = error.response?.data?.error === 'Invalid or expired token';
 
     if (isAuthError && typeof window !== 'undefined') {
+      // Log the failing request for debugging
+      console.error('[API Interceptor] Auth error (401) detected:', {
+        status,
+        url: error.config?.url,
+        method: error.config?.method,
+        errorMessage: error.response?.data?.error || error.message,
+      });
+      sessionStorage.setItem('lastApiError', JSON.stringify({
+        status,
+        url: error.config?.url,
+        method: error.config?.method,
+        errorMessage: error.response?.data?.error || error.message,
+        timestamp: new Date().toISOString(),
+      }));
+
       // Clear all auth-related storage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -117,12 +135,27 @@ api.interceptors.response.use(
 
       if (!isOnAuthPage) {
         // Store a flag to show session expired message on login page
-        if (isExpiredToken || status === 403) {
+        if (isExpiredToken) {
           sessionStorage.setItem('sessionExpired', 'true');
         }
+        console.error('[API Interceptor] Redirecting to /login due to 401 auth error');
         window.location.href = '/login';
       }
+    } else if (status === 403) {
+      // 403 is typically feature-gated access - log it but don't logout
+      console.warn('[API Interceptor] Access denied (403):', {
+        url: error.config?.url,
+        errorCode,
+        errorMessage: error.response?.data?.error,
+      });
+      sessionStorage.setItem('last403Error', JSON.stringify({
+        url: error.config?.url,
+        errorCode,
+        errorMessage: error.response?.data?.error,
+        timestamp: new Date().toISOString(),
+      }));
     }
+    
     return Promise.reject(error);
   }
 );
@@ -236,6 +269,8 @@ export interface SubscriptionPlanResponse {
   limits: {
     maxMembers: number;
     maxBranches: number;
+    maxDepartments: number;
+    maxEvents: number;
     smsCredits: number;
     donationTransactions: number;
   };
@@ -299,6 +334,46 @@ export const subscriptionApi = {
 
   update: async (organizationId: string, data: Partial<CreateSubscriptionRequest>): Promise<SubscriptionResponse> => {
     const response = await api.put<SubscriptionResponse>(`/api/subscriptions/${organizationId}`, data);
+    return response.data;
+  },
+
+  initializePayment: async (organizationId: string, data: { planId: string; billingCycle: string }) => {
+    const response = await api.post(`/api/subscriptions/${organizationId}/initialize-payment`, data);
+    return response.data;
+  },
+
+  verifyUpgrade: async (organizationId: string, data: { reference: string; planId: string; billingCycle: string }) => {
+    const response = await api.post(`/api/subscriptions/${organizationId}/verify-payment`, data);
+    return response.data;
+  },
+
+  getLimits: async (organizationId: string) => {
+    const response = await api.get<{
+      planId: string;
+      planName: string;
+      limits: {
+        maxMembers: number;
+        maxBranches: number;
+        maxDepartments: number;
+        maxEvents: number;
+        smsCredits: number;
+        donationTransactions: number;
+      };
+      usage: {
+        membersCount: number;
+        branchesCount: number;
+        smsUsed: number;
+        donationTransactions: number;
+        departmentsCount?: number;
+        eventsCount?: number;
+      };
+      withinLimits: {
+        members: boolean;
+        branches: boolean;
+        sms: boolean;
+        transactions: boolean;
+      };
+    }>(`/api/subscriptions/${organizationId}/limits`);
     return response.data;
   },
 };
@@ -667,6 +742,37 @@ export const smsApi = {
     return response.data;
   },
 
+  initializePayment: async (credits: number): Promise<{
+    success: boolean;
+    reference: string;
+    credits: number;
+    pricePerCredit: number;
+    subtotal: number;
+    tax: number;
+    total: number;
+    currency: string;
+    message: string;
+  }> => {
+    const response = await api.post('/api/sms/credits/initialize-payment', {
+      credits,
+    });
+    return response.data;
+  },
+
+  verifyPayment: async (paystackReference: string): Promise<{
+    success: boolean;
+    message: string;
+    credits: number;
+    amount: number;
+    newBalance: number;
+    paystackReference: string;
+  }> => {
+    const response = await api.post('/api/sms/credits/verify-payment', {
+      paystackReference,
+    });
+    return response.data;
+  },
+
   // Send SMS
   sendSingle: async (data: SendSingleSmsRequest): Promise<{
     success: boolean;
@@ -797,6 +903,37 @@ export const smsApi = {
       message,
       recipientCount,
     });
+    return response.data;
+  },
+};
+
+// Settings API
+export const settingsApi = {
+  // Birthday settings
+  getBirthdaySettings: async (): Promise<{
+    birthdayMessageTemplate: string;
+    birthdayAutoSendEnabled: boolean;
+    churchName: string;
+  }> => {
+    const response = await api.get('/api/settings/birthday');
+    return response.data;
+  },
+  updateBirthdaySettings: async (data: {
+    birthdayMessageTemplate?: string;
+    birthdayAutoSendEnabled?: boolean;
+  }): Promise<{
+    message: string;
+    birthdayMessageTemplate: string;
+    birthdayAutoSendEnabled: boolean;
+  }> => {
+    const response = await api.put('/api/settings/birthday', data);
+    return response.data;
+  },
+  resetBirthdayTemplate: async (): Promise<{
+    message: string;
+    birthdayMessageTemplate: string;
+  }> => {
+    const response = await api.post('/api/settings/birthday/reset');
     return response.data;
   },
 };

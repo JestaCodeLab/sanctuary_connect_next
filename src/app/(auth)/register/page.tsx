@@ -86,7 +86,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-xl animate-slideUp">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin Account Registration</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Account Registration</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
               Join hundreds of churches managing their ministry with ease.
             </p>

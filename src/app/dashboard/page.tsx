@@ -70,9 +70,11 @@ export default function DashboardPage() {
     ? branches.find(b => b._id === selectedBranchId)?.name || 'Selected Branch'
     : 'All Branches';
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isError: eventsError } = useQuery({
     queryKey: ['events'],
     queryFn: () => eventsApi.getAll(),
+    retry: false, // Don't retry on 403 errors
+    enabled: true, // Always try, but handle errors gracefully
   });
 
   const { data: donations = [] } = useQuery({

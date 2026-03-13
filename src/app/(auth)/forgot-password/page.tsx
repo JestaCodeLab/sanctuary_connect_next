@@ -124,8 +124,8 @@ export default function ForgotPasswordPage() {
         {/* Contact Admin */}
         <p className="text-center mt-6 text-sm text-gray-500 dark:text-gray-400">
           Don&apos;t have an account?{' '}
-          <Link href="#" className="text-[#3AAFDC] hover:text-[#2D9AC7] font-medium">
-            Contact your administrator
+          <Link href="/register" className="text-[#3AAFDC] hover:text-[#2D9AC7] font-medium">
+            Register
           </Link>
         </p>
       </div>

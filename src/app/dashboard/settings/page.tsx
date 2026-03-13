@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon, Check, X as XIcon, Users, Building, MessageSquare, ArrowRight, BarChart3, Wallet } from 'lucide-react';
+import { Settings, Building2, User, CreditCard, Save, Upload, Image as ImageIcon, Check, X as XIcon, Users, Building, MessageSquare, ArrowRight, BarChart3, Wallet, AlertTriangle } from 'lucide-react';
+import { usePaystackPayment } from 'react-paystack';
 import { PageHeader, Badge } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import { organizationApi, subscriptionApi } from '@/lib/api';
 import type { SubscriptionPlanResponse } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useOrganizationStore } from '@/store/organizationStore';
+
+const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxx';
+const TAX_RATE = 0.1;
 
 type Tab = 'profile' | 'account' | 'subscription';
 
@@ -19,12 +23,6 @@ const currencyOptions = [
   { value: 'GBP', label: 'GBP - British Pound' },
   { value: 'EUR', label: 'EUR - Euro' },
   { value: 'NGN', label: 'NGN - Nigerian Naira' },
-];
-
-const paymentGatewayOptions = [
-  { value: 'stripe', label: 'Stripe' },
-  { value: 'paystack', label: 'Paystack' },
-  { value: 'none', label: 'None' },
 ];
 
 const roleBadgeVariant: Record<string, 'info' | 'success' | 'muted'> = {
@@ -113,6 +111,161 @@ function UsageCard({
   );
 }
 
+function PaystackUpgradeButton({
+  plan,
+  billingCycle,
+  organization,
+  userEmail,
+  currentPlanPrice,
+  isCurrentPlan,
+}: {
+  plan: SubscriptionPlanResponse;
+  billingCycle: 'monthly' | 'annual';
+  organization: any;
+  userEmail: string;
+  currentPlanPrice: number;
+  isCurrentPlan: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+
+  const isUpgrade = plan.price > currentPlanPrice;
+  const isDowngrade = plan.price < currentPlanPrice;
+
+  const planPrice = billingCycle === 'annual' && plan.annualPrice ? plan.annualPrice : plan.price;
+  const totalWithTax = Math.round(planPrice * (1 + TAX_RATE));
+  const amountInPesewas = totalWithTax * 100;
+
+  const config = {
+    reference: `upgrade_${organization._id}_${plan.id}_${Date.now()}`,
+    email: userEmail,
+    amount: amountInPesewas,
+    currency: 'GHS',
+    publicKey: PAYSTACK_PUBLIC_KEY,
+    metadata: {
+      custom_fields: [
+        { display_name: 'Organization', variable_name: 'organization_id', value: organization._id },
+        { display_name: 'Plan', variable_name: 'plan_id', value: plan.id },
+        { display_name: 'Billing Cycle', variable_name: 'billing_cycle', value: billingCycle },
+      ],
+    },
+  };
+
+  const initializePayment = usePaystackPayment(config);
+
+  const downgradeMutation = useMutation({
+    mutationFn: () =>
+      subscriptionApi.update(organization._id, { planId: plan.id, billingCycle }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      toast.success(`Downgraded to ${plan.name}`);
+      setShowDowngradeConfirm(false);
+    },
+    onError: () => {
+      toast.error('Failed to change plan');
+    },
+  });
+
+  const handleUpgradeClick = () => {
+    if (plan.price === 0) {
+      // Downgrade to free — show confirmation
+      setShowDowngradeConfirm(true);
+      return;
+    }
+
+    if (isDowngrade) {
+      setShowDowngradeConfirm(true);
+      return;
+    }
+
+    // Upgrade — trigger Paystack payment
+    setIsProcessing(true);
+    initializePayment({
+      onSuccess: async (response: { reference: string }) => {
+        try {
+          await subscriptionApi.verifyUpgrade(organization._id, {
+            reference: response.reference,
+            planId: plan.id,
+            billingCycle,
+          });
+          queryClient.invalidateQueries({ queryKey: ['subscription'] });
+          toast.success(`Upgraded to ${plan.name}!`);
+        } catch {
+          toast.error('Payment received but verification failed. Please contact support.');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      onClose: () => {
+        setIsProcessing(false);
+      },
+    });
+  };
+
+  if (isCurrentPlan) {
+    return (
+      <Button variant="outline" size="sm" className="w-full" disabled>
+        Current Plan
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant={plan.isPopular ? 'primary' : 'outline'}
+        size="sm"
+        className="w-full"
+        onClick={handleUpgradeClick}
+        isLoading={isProcessing || downgradeMutation.isPending}
+      >
+        {isUpgrade ? 'Upgrade' : plan.price === 0 ? 'Downgrade' : 'Switch Plan'}
+        <ArrowRight className="w-4 h-4 ml-1" />
+      </Button>
+
+      {/* Downgrade Confirmation Modal */}
+      {showDowngradeConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Confirm Downgrade</h3>
+            </div>
+            <p className="text-sm text-muted mb-2">
+              Are you sure you want to switch to <strong>{plan.name}</strong>?
+            </p>
+            {plan.price === 0 ? (
+              <p className="text-sm text-muted mb-6">
+                Your plan will change immediately. You may lose access to premium features.
+              </p>
+            ) : (
+              <p className="text-sm text-muted mb-6">
+                Your plan will change at the end of your current billing period.
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowDowngradeConfirm(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={downgradeMutation.isPending}
+                onClick={() => downgradeMutation.mutate()}
+              >
+                Confirm Downgrade
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SubscriptionTab({
   organization,
   subscriptionData,
@@ -125,23 +278,11 @@ function SubscriptionTab({
   isSubscriptionError: boolean;
 }) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   const { data: allPlans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: subscriptionApi.getPlans,
-  });
-
-  const changePlanMutation = useMutation({
-    mutationFn: (planId: string) =>
-      subscriptionApi.update(organization._id, { planId, billingCycle }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription'] });
-      toast.success('Subscription updated successfully');
-    },
-    onError: () => {
-      toast.error('Failed to update subscription');
-    },
   });
 
   const currentPlanId = subscriptionData?.subscription?.planId;
@@ -372,25 +513,14 @@ function SubscriptionTab({
                       </div>
 
                       <div className="mt-4">
-                        {isCurrentPlan ? (
-                          <Button variant="outline" size="sm" className="w-full" disabled>
-                            Current Plan
-                          </Button>
-                        ) : (
-                          <Button
-                            variant={plan.isPopular ? 'primary' : 'outline'}
-                            size="sm"
-                            className="w-full"
-                            onClick={() => changePlanMutation.mutate(plan.id)}
-                            isLoading={changePlanMutation.isPending}
-                          >
-                            {currentPlanId && plan.price > (currentPlan?.price || 0)
-                              ? 'Upgrade'
-                              : plan.price === 0 ? 'Downgrade' : 'Switch Plan'
-                            }
-                            <ArrowRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        )}
+                        <PaystackUpgradeButton
+                          plan={plan}
+                          billingCycle={billingCycle}
+                          organization={organization}
+                          userEmail={user?.email || ''}
+                          currentPlanPrice={currentPlan?.price || 0}
+                          isCurrentPlan={isCurrentPlan}
+                        />
                       </div>
                     </div>
                   </Card>
@@ -400,14 +530,49 @@ function SubscriptionTab({
         </div>
       )}
 
-      {/* Billing History (placeholder) */}
+      {/* Billing History */}
       <Card>
         <h2 className="text-lg font-semibold text-foreground mb-1">Billing History</h2>
         <p className="text-sm text-muted mb-4">View your past invoices and payments.</p>
-        <div className="text-center py-6">
-          <CreditCard className="w-10 h-10 text-muted mx-auto mb-2" />
-          <p className="text-sm text-muted">No billing history available yet.</p>
-        </div>
+        {sub?.paymentHistory && sub.paymentHistory.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 text-xs text-muted font-medium">Date</th>
+                  <th className="text-left py-2 text-xs text-muted font-medium">Type</th>
+                  <th className="text-left py-2 text-xs text-muted font-medium">Plan</th>
+                  <th className="text-left py-2 text-xs text-muted font-medium">Channel</th>
+                  <th className="text-right py-2 text-xs text-muted font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sub.paymentHistory.map((payment: any, idx: number) => (
+                  <tr key={payment.reference || idx} className="border-b border-border last:border-0">
+                    <td className="py-3 text-foreground">
+                      {payment.paidAt ? formatDate(payment.paidAt) : '—'}
+                    </td>
+                    <td className="py-3">
+                      <Badge variant={payment.type === 'upgrade' ? 'info' : payment.type === 'initial' ? 'success' : 'muted'}>
+                        {payment.type?.charAt(0).toUpperCase() + payment.type?.slice(1) || 'Payment'}
+                      </Badge>
+                    </td>
+                    <td className="py-3 text-foreground capitalize">{payment.planId || '—'}</td>
+                    <td className="py-3 text-muted capitalize">{payment.channel || '—'}</td>
+                    <td className="py-3 text-right font-medium text-foreground">
+                      {formatCurrency(payment.amount / 100, payment.currency || 'GHS')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <CreditCard className="w-10 h-10 text-muted mx-auto mb-2" />
+            <p className="text-sm text-muted">No billing history available yet.</p>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -424,7 +589,6 @@ export default function SettingsPage() {
   const [churchName, setChurchName] = useState('');
   const [legalName, setLegalName] = useState('');
   const [currency, setCurrency] = useState('');
-  const [paymentGateway, setPaymentGateway] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
@@ -453,7 +617,6 @@ export default function SettingsPage() {
       setChurchName(organization.churchName || '');
       setLegalName(organization.legalName || '');
       setCurrency(organization.currency || '');
-      setPaymentGateway(organization.paymentGateway || '');
       setLogoUrl(organization.logoUrl || '');
       setLogoPreview(organization.logoUrl || '');
       setOrganization(organization);
@@ -462,7 +625,7 @@ export default function SettingsPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: { churchName: string; legalName: string; currency: string; paymentGateway: string; logoUrl: string }) =>
+    mutationFn: (data: { churchName: string; legalName: string; currency: string; logoUrl: string }) =>
       organizationApi.update(organization!._id, data),
     onSuccess: (updatedOrg) => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
@@ -489,7 +652,7 @@ export default function SettingsPage() {
       toast('Logo upload would happen here in production');
     }
     
-    updateMutation.mutate({ churchName, legalName, currency, paymentGateway, logoUrl: finalLogoUrl });
+    updateMutation.mutate({ churchName, legalName, currency, logoUrl: finalLogoUrl });
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -652,13 +815,6 @@ export default function SettingsPage() {
               onChange={(e) => setCurrency(e.target.value)}
               options={currencyOptions}
               placeholder="Select currency"
-            />
-            <Select
-              label="Payment Gateway"
-              value={paymentGateway}
-              onChange={(e) => setPaymentGateway(e.target.value)}
-              options={paymentGatewayOptions}
-              placeholder="Select payment gateway"
             />
             <div className="flex justify-end pt-2">
               <Button

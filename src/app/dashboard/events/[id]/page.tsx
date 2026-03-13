@@ -71,6 +71,38 @@ function DetailField({ label, value }: { label: string; value?: string | number 
   );
 }
 
+// Helper function to compute the correct event status based on current time
+function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
+  // Respect cancelled status
+  if (event.status === 'cancelled') {
+    return 'cancelled';
+  }
+
+  const now = new Date();
+  const startDate = new Date(event.startDate);
+  const endDate = new Date(event.endDate);
+
+  if (event.isRecurring) {
+    // For recurring events, check if the series has ended
+    if (event.recurrenceEndDate) {
+      const recurrenceEnd = new Date(event.recurrenceEndDate);
+      if (recurrenceEnd < now) {
+        return 'completed';
+      }
+    }
+    return event.status; // Keep current status for active recurring events
+  }
+
+  // For non-recurring events
+  if (endDate < now) {
+    return 'completed';
+  } else if (startDate <= now && endDate >= now) {
+    return 'ongoing';
+  } else {
+    return 'scheduled';
+  }
+}
+
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
@@ -128,8 +160,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{event.title}</h1>
-            <Badge variant={statusBadgeVariant[event.status]}>
-              {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+            <Badge variant={statusBadgeVariant[getActualStatus(event)]}>
+              {getActualStatus(event).charAt(0).toUpperCase() + getActualStatus(event).slice(1)}
             </Badge>
             {event.eventType && (
               <Badge variant="muted">

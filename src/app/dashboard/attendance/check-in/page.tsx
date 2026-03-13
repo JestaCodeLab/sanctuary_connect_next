@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { QrCode, CheckCircle, XCircle, User, Mail, Phone } from 'lucide-react';
@@ -10,10 +10,14 @@ import PageHeader from '@/components/dashboard/PageHeader';
 import { attendanceApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
-export default function QRCheckInPage() {
+interface QRCheckInPageProps {
+  initialToken?: string;
+}
+
+export default function QRCheckInPage({ initialToken }: QRCheckInPageProps) {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [qrToken, setQrToken] = useState('');
+  const [qrToken, setQrToken] = useState(initialToken || '');
   const [checkInType, setCheckInType] = useState<'member' | 'guest'>('member');
   const [guestInfo, setGuestInfo] = useState({
     name: '',
@@ -59,16 +63,22 @@ export default function QRCheckInPage() {
     checkInMutation.mutate(data);
   };
 
-  const handleScanFromCamera = () => {
-    toast('Camera QR scanning coming soon!');
-    // TODO: Integrate with a QR scanner library like react-qr-reader
-  };
+  // Auto-submit if initial token is provided
+  useEffect(() => {
+    if (initialToken && user) {
+      // Wait a moment for the component to render, then auto-check in
+      const timer = setTimeout(() => {
+        handleCheckIn();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [initialToken, user, handleCheckIn]);
 
   return (
     <div className="max-w-2xl mx-auto">
       <PageHeader
         title="QR Check-In"
-        description="Scan or enter QR code to check in to an event"
+        description="Enter or paste the QR token to check in to an event"
       />
 
       {/* Instructions */}
@@ -158,26 +168,15 @@ export default function QRCheckInPage() {
               leftIcon={<QrCode className="w-4 h-4" />}
             />
             <p className="text-xs text-muted">
-              💡 The QR token is displayed in the event QR code. You can manually type it or use camera scanning.
+              💡 The QR token is displayed in the event QR code. You can manually type it below.
             </p>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleScanFromCamera}
-                className="flex-1"
-                leftIcon={<QrCode className="w-4 h-4" />}
-              >
-                Scan with Camera (Coming Soon)
-              </Button>
-              <Button
-                onClick={handleCheckIn}
-                isLoading={checkInMutation.isPending}
-                className="flex-1"
-                leftIcon={<CheckCircle className="w-4 h-4" />}
-              >
-                Check In
-              </Button>
-            </div>
+            <Button
+              onClick={handleCheckIn}
+              isLoading={checkInMutation.isPending}
+              leftIcon={<CheckCircle className="w-4 h-4" />}
+            >
+              Check In
+            </Button>
           </div>
         </Card>
 

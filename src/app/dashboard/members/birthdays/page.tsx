@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone } from 'lucide-react';
-import { membersApi, smsApi } from '@/lib/api';
-import { Card, Button } from '@/components/ui';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone, Settings, RotateCcw, Save } from 'lucide-react';
+import { membersApi, smsApi, settingsApi } from '@/lib/api';
+import { Card, Button, Input } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
 import type { MemberWithBirthday } from '@/types';
 import toast from 'react-hot-toast';
@@ -115,6 +115,11 @@ function BirthdaysContent() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [sendingAll, setSendingAll] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customTemplate, setCustomTemplate] = useState('');
+  const [autoSendEnabled, setAutoSendEnabled] = useState(true);
+
+  const queryClient = useQueryClient();
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -128,6 +133,46 @@ function BirthdaysContent() {
   const { data, isLoading } = useQuery({
     queryKey: ['birthdays', 365],
     queryFn: () => membersApi.getBirthdays(365),
+  });
+
+  // Fetch birthday settings
+  const { data: settings } = useQuery({
+    queryKey: ['birthdaySettings'],
+    queryFn: () => settingsApi.getBirthdaySettings(),
+  });
+
+  // Update local state when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      setCustomTemplate(settings.birthdayMessageTemplate);
+      setAutoSendEnabled(settings.birthdayAutoSendEnabled);
+    }
+  }, [settings]);
+
+  // Update birthday settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: (data: { birthdayMessageTemplate?: string; birthdayAutoSendEnabled?: boolean }) =>
+      settingsApi.updateBirthdaySettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['birthdaySettings'] });
+      toast.success('Birthday settings updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to update settings');
+    },
+  });
+
+  // Reset template mutation
+  const resetTemplateMutation = useMutation({
+    mutationFn: () => settingsApi.resetBirthdayTemplate(),
+    onSuccess: (data) => {
+      setCustomTemplate(data.birthdayMessageTemplate);
+      queryClient.invalidateQueries({ queryKey: ['birthdaySettings'] });
+      toast.success('Template reset to default');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to reset template');
+    },
   });
 
   const todayBirthdays = data?.today ?? [];
@@ -159,14 +204,12 @@ function BirthdaysContent() {
   const handleSendBirthdaySms = async (member: MemberWithBirthday) => {
     setSendingTo(member._id);
     try {
-      const isToday = member.daysUntilBirthday === 0;
-      const message = isToday
-        ? `Happy Birthday ${member.firstName}! 🎉🎂 Wishing you a wonderful day filled with joy and blessings as you turn ${member.age}. May God's grace continue to shine upon you!`
-        : `Hi ${member.firstName}! Just a reminder that your birthday is coming up in ${member.daysUntilBirthday} day${member.daysUntilBirthday > 1 ? 's' : ''}. We're looking forward to celebrating with you! 🎂`;
-
+      // Use custom template or fallback
+      const template = customTemplate || `Happy Birthday {{firstName}}! 🎉🎂 Wishing you a wonderful day filled with joy and blessings as you turn {{age}}. May God's grace continue to shine upon you!`;
+      
       await smsApi.sendToMembers({
         memberIds: [member._id],
-        message,
+        message: template,
         category: 'birthday',
       });
 
@@ -184,10 +227,11 @@ function BirthdaysContent() {
     setSendingAll(true);
     try {
       const memberIds = todayBirthdays.map(m => m._id);
+      const template = customTemplate || `Happy Birthday {{firstName}}! 🎉🎂 Wishing you a wonderful day filled with joy and blessings as you turn {{age}}. May God's grace continue to shine upon you!`;
       
       await smsApi.sendToMembers({
         memberIds,
-        message: `Happy Birthday {{firstName}}! 🎉🎂 Wishing you a wonderful day filled with joy and blessings as you turn {{age}}. May God's grace continue to shine upon you!`,
+        message: template,
         category: 'birthday',
       });
 
@@ -199,12 +243,148 @@ function BirthdaysContent() {
     }
   };
 
+  const handleSaveSettings = () => {
+    updateSettingsMutation.mutate({
+      birthdayMessageTemplate: customTemplate,
+      birthdayAutoSendEnabled: autoSendEnabled,
+    });
+  };
+
+  const handleResetTemplate = () => {
+    resetTemplateMutation.mutate();
+  };
+
+  const handleToggleAutoSend = (enabled: boolean) => {
+    setAutoSendEnabled(enabled);
+    // Automatically save the toggle change
+    updateSettingsMutation.mutate({
+      birthdayAutoSendEnabled: enabled,
+    });
+  };
+
   return (
     <div>
       <PageHeader
         title="Birthdays"
         description="Track and celebrate member birthdays"
       />
+
+      {/* Birthday Settings */}
+      <Card className="mb-6 border-primary/20">
+        <div className="p-4">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center justify-between w-full"
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Birthday Automation Settings</h3>
+            </div>
+            <span className="text-sm text-muted">
+              {showSettings ? 'Hide' : 'Show'}
+            </span>
+          </button>
+
+          {showSettings && (
+            <div className="mt-4 space-y-4">
+              {/* Auto-Send Toggle */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Auto-Send Birthday SMS</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    Automatically send birthday greetings at 9:00 AM daily
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={autoSendEnabled}
+                    onChange={(e) => handleToggleAutoSend(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {/* Custom Message Template */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Birthday Message Template
+                </label>
+                <textarea
+                  value={customTemplate}
+                  onChange={(e) => setCustomTemplate(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter your custom birthday message..."
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="text-xs text-muted">Available variables:</span>
+                  <button
+                    onClick={() => setCustomTemplate(prev => prev + '{{firstName}}')}
+                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+                  >
+                    {'{{firstName}}'}
+                  </button>
+                  <button
+                    onClick={() => setCustomTemplate(prev => prev + '{{lastName}}')}
+                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+                  >
+                    {'{{lastName}}'}
+                  </button>
+                  <button
+                    onClick={() => setCustomTemplate(prev => prev + '{{age}}')}
+                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+                  >
+                    {'{{age}}'}
+                  </button>
+                  <button
+                    onClick={() => setCustomTemplate(prev => prev + '{{churchName}}')}
+                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+                  >
+                    {'{{churchName}}'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview */}
+              {customTemplate && settings?.churchName && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Preview:</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    {customTemplate
+                      .replace(/\{\{firstName\}\}/g, 'John')
+                      .replace(/\{\{lastName\}\}/g, 'Doe')
+                      .replace(/\{\{age\}\}/g, '25')
+                      .replace(/\{\{churchName\}\}/g, settings.churchName)}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSaveSettings}
+                  disabled={updateSettingsMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Settings
+                </Button>
+                <Button
+                  onClick={handleResetTemplate}
+                  disabled={resetTemplateMutation.isPending}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset to Default
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Today's Birthdays */}
       {todayBirthdays.length > 0 && (

@@ -69,6 +69,38 @@ function formatDate(date: string): string {
   });
 }
 
+// Helper function to compute the correct event status based on current time
+function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
+  // Respect cancelled status
+  if (event.status === 'cancelled') {
+    return 'cancelled';
+  }
+
+  const now = new Date();
+  const startDate = new Date(event.startDate);
+  const endDate = new Date(event.endDate);
+
+  if (event.isRecurring) {
+    // For recurring events, check if the series has ended
+    if (event.recurrenceEndDate) {
+      const recurrenceEnd = new Date(event.recurrenceEndDate);
+      if (recurrenceEnd < now) {
+        return 'completed';
+      }
+    }
+    return event.status; // Keep current status for active recurring events
+  }
+
+  // For non-recurring events
+  if (endDate < now) {
+    return 'completed';
+  } else if (startDate <= now && endDate >= now) {
+    return 'ongoing';
+  } else {
+    return 'scheduled';
+  }
+}
+
 export default function EventsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -186,9 +218,11 @@ export default function EventsPage() {
 
   // Computed stats
   const totalEvents = events.length;
-  const upcomingCount = events.filter((e) => e.status === 'scheduled').length;
-  const ongoingCount = events.filter((e) => e.status === 'ongoing').length;
-  const completedCount = events.filter((e) => e.status === 'completed').length;
+  // Use actual status calculation for stats
+  const eventsWithActualStatus = events.map(e => ({ ...e, status: getActualStatus(e) }));
+  const upcomingCount = eventsWithActualStatus.filter((e) => e.status === 'scheduled').length;
+  const ongoingCount = eventsWithActualStatus.filter((e) => e.status === 'ongoing').length;
+  const completedCount = eventsWithActualStatus.filter((e) => e.status === 'completed').length;
 
   const stats = [
     { label: 'Total Events', value: totalEvents, icon: Calendar },
@@ -199,7 +233,8 @@ export default function EventsPage() {
 
   // Client-side filtering
   const filteredEvents = events.filter((event) => {
-    const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
+    const actualStatus = getActualStatus(event);
+    const matchesStatus = statusFilter === 'all' || actualStatus === statusFilter;
     const matchesSearch =
       searchText.trim() === '' ||
       event.title.toLowerCase().includes(searchText.toLowerCase());
@@ -284,7 +319,9 @@ export default function EventsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredEvents.map((event) => (
+                {filteredEvents.map((event) => {
+                  const actualStatus = getActualStatus(event);
+                  return (
                   <tr key={event._id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -338,8 +375,8 @@ export default function EventsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={statusBadgeVariant[event.status]}>
-                        {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                      <Badge variant={statusBadgeVariant[actualStatus]}>
+                        {actualStatus.charAt(0).toUpperCase() + actualStatus.slice(1)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -374,7 +411,8 @@ export default function EventsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

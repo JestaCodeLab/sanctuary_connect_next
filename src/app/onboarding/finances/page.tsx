@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
-  CreditCard,
   ArrowLeft,
   ArrowRight,
   Plus,
-  Check,
   Link2,
   Lock,
   Building
@@ -24,23 +22,6 @@ const steps = [
   { id: 4, name: 'Team' },
 ];
 
-const paymentGateways = [
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    description: 'Industry standard for global payments. Supports Apple Pay, Google Pay, and cards.',
-    badge: 'Popular',
-    badgeColor: 'bg-blue-100 text-blue-700',
-  },
-  {
-    id: 'paystack',
-    name: 'Paystack',
-    description: 'Modern payments for Africa. Easy integration and localized payment methods.',
-    badge: 'Africa',
-    badgeColor: 'bg-teal-100 text-teal-700',
-  },
-];
-
 const defaultFundBuckets = [
   { id: 'tithes', name: 'Tithes', description: 'The standard fund for church operations and staff.', checked: true },
   { id: 'offerings', name: 'Offerings', description: 'Unrestricted gifts for general use.', checked: true },
@@ -50,9 +31,8 @@ const defaultFundBuckets = [
 
 export default function OnboardingFinancesPage() {
   const router = useRouter();
-  const { organizationId, finances, setFinances, setStep } = useOnboardingStore();
+  const { organizationId, setFinances, setStep } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedGateway, setSelectedGateway] = useState<string | null>(finances.paymentGateway);
   const [fundBuckets, setFundBuckets] = useState(defaultFundBuckets);
 
   useEffect(() => {
@@ -75,9 +55,9 @@ export default function OnboardingFinancesPage() {
 
     setIsLoading(true);
     try {
-      // Update organization with payment gateway and onboarding step
+      // Update organization with onboarding step (Paystack is the default gateway)
       await organizationApi.update(organizationId, {
-        paymentGateway: selectedGateway || undefined,
+        paymentGateway: 'paystack',
         onboardingStep: 4,
       });
 
@@ -93,7 +73,7 @@ export default function OnboardingFinancesPage() {
 
       // Update store
       setFinances({
-        paymentGateway: selectedGateway,
+        paymentGateway: 'paystack',
         fundBuckets: selectedBuckets.map(b => b.id),
       });
 
@@ -138,59 +118,6 @@ export default function OnboardingFinancesPage() {
       </div>
 
       <div className="space-y-8">
-        {/* Payment Gateway Section */}
-        <Card padding="lg">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-lg flex items-center justify-center">
-              <CreditCard className="w-4 h-4 text-[#3AAFDC]" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">1. Payment Gateway</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Select your preferred payment processor to start accepting online donations safely and securely.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {paymentGateways.map((gateway) => (
-              <button
-                key={gateway.id}
-                type="button"
-                onClick={() => setSelectedGateway(gateway.id)}
-                className={`p-5 rounded-xl border-2 text-left transition-all ${
-                  selectedGateway === gateway.id
-                    ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/20'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${gateway.badgeColor}`}>
-                      {gateway.badge}
-                    </span>
-                  </div>
-                  {selectedGateway === gateway.id && (
-                    <Check className="w-5 h-5 text-[#3AAFDC]" />
-                  )}
-                </div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100">{gateway.name}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{gateway.description}</p>
-                <Button
-                  variant={selectedGateway === gateway.id ? 'primary' : 'outline'}
-                  size="sm"
-                  className="mt-4 w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedGateway(gateway.id);
-                    toast.success(`${gateway.name} selected`);
-                  }}
-                >
-                  Connect {gateway.name} Account
-                </Button>
-              </button>
-            ))}
-          </div>
-        </Card>
-
         {/* Fund Buckets Section */}
         <Card padding="lg">
           <div className="flex items-center gap-3 mb-6">
@@ -198,7 +125,7 @@ export default function OnboardingFinancesPage() {
               <span className="text-[#3AAFDC] font-bold text-sm">$</span>
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">2. Initial Fund Buckets</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">1. Initial Fund Buckets</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Where should donations go? Select the default categories you want to offer your members.</p>
             </div>
           </div>
@@ -241,7 +168,7 @@ export default function OnboardingFinancesPage() {
               <Building className="w-4 h-4 text-[#3AAFDC]" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">3. Payout & Reconciliation</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">2. Payout & Reconciliation</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Link your church&apos;s primary bank account for automated payouts and effortless reconciliation.</p>
             </div>
           </div>
