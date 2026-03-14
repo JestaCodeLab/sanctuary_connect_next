@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle2, Zap, ArrowUpRight, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Zap, ArrowUpRight, Info, Check, X } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { subscriptionApi } from '@/lib/api';
@@ -202,7 +202,13 @@ export default function SubscriptionPage() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <h2 className="text-lg font-semibold text-foreground">Usage Breakdown</h2>
-          <Info className="w-4 h-4 text-muted" />
+          <div className="group relative cursor-help">
+            <Info className="w-4 h-4 text-muted hover:text-foreground transition-colors" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-foreground text-background text-xs rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              Current usage vs plan limits
+              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground"></div>
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
@@ -232,6 +238,41 @@ export default function SubscriptionPage() {
           </div>
         )}
       </div>
+
+      {/* Features Section */}
+      {limits && (limits as any).planFeatures && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Plan Features</h2>
+            <div className="group relative cursor-help">
+              <Info className="w-4 h-4 text-muted hover:text-foreground transition-colors" />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-foreground text-background text-xs rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                Features included in your plan
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground"></div>
+              </div>
+            </div>
+          </div>
+
+          <Card className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(limits as any).planFeatures.map((feature: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                  {feature.included ? (
+                    <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <X className="w-5 h-5 text-muted flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${feature.included ? 'text-foreground' : 'text-muted'}`}>
+                      {feature.name}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Upgrade Section */}
       {limits && limits.planId !== 'sanctuary' && (

@@ -32,6 +32,7 @@ import {
   Mail,
   Phone,
   Zap,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -60,50 +61,53 @@ interface SidebarLink {
 
 const sidebarLinks: SidebarLink[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Branches', href: '/dashboard/branches', icon: Building2, hideWhenBranchSelected: true },
+  { label: 'Branches', href: '/dashboard/branches', icon: Building2, hideWhenBranchSelected: true, featureKey: 'branches' },
   { label: 'Departments', href: '/dashboard/departments', icon: Network, featureKey: 'department_management' },
   {
     label: 'Members',
     href: '/dashboard/members',
     icon: Users,
+    featureKey: 'member_directory',
     children: [
       { label: 'All Members', href: '/dashboard/members' },
-      { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake },
+      { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake, featureKey: 'birthday_notifications' },
     ],
   },
   {
     label: 'Events',
     href: '/dashboard/events',
     icon: Calendar,
+    featureKey: 'event_management',
     children: [
       { label: 'All Events', href: '/dashboard/events' },
       { label: 'New Event', href: '/dashboard/events/new', icon: CalendarPlus },
     ],
   },
-  { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck },
+  { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, featureKey: 'attendance_tracking' },
   {
     label: 'Finance',
     href: '/dashboard/finance',
     icon: DollarSign,
+    featureKey: 'financial_reporting',
     children: [
       { label: 'Overview', href: '/dashboard/finance', icon: PieChart },
       { label: 'Income', href: '/dashboard/finance/income', icon: TrendingUp },
       { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
+      { label: 'Transactions', href: '/dashboard/finance/transactions', icon: ArrowLeftRight },
     ],
   },
   {
     label: 'Communication',
     href: '/dashboard/communication',
     icon: MessageSquare,
+    featureKey: 'sms_credits',
     children: [
-      { label: 'Analytics', href: '/dashboard/communication/analytics', icon: BarChart3 },
+      { label: 'Analytics', href: '/dashboard/communication/analytics', icon: BarChart3, featureKey: 'advanced_analytics' },
       { label: 'Send SMS', href: '/dashboard/communication/send-sms', icon: Send },
       { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
-      // { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Phone },
     ],
   },
-  // { label: 'Prayer & Testimony', href: '/dashboard/prayer-wall' },
   {
     label: 'Settings',
     href: '/dashboard/settings',
@@ -424,10 +428,6 @@ export default function DashboardLayout({
     return null;
   }
 
-  const msg = `[Dashboard] RENDER: Dashboard rendering, isAuthenticated=${isAuthenticated}`;
-  console.log(msg);
-  sessionStorage.setItem('lastDashboardLog', msg);
-
   return (
     <div className="min-h-screen bg-background flex">
       {/* Mobile sidebar overlay */}
@@ -487,6 +487,7 @@ export default function DashboardLayout({
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-white/10 space-y-3">
           <SubscriptionUsage />
+          <div className="pt-3"></div>
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-medium">
               {user?.firstName?.[0]}{user?.lastName?.[0]}

@@ -357,42 +357,6 @@ function SubscriptionTab({
                 </p>
               </div>
             </div>
-
-            {/* Usage Section */}
-            {currentPlan?.limits && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-4 h-4 text-muted" />
-                  <h3 className="text-sm font-semibold text-foreground">Usage Overview</h3>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <UsageCard
-                    icon={Users}
-                    label="Members"
-                    used={sub.usage?.membersCount ?? 0}
-                    max={currentPlan.limits.maxMembers}
-                  />
-                  <UsageCard
-                    icon={Building}
-                    label="Branches"
-                    used={sub.usage?.branchesCount ?? 0}
-                    max={currentPlan.limits.maxBranches}
-                  />
-                  <UsageCard
-                    icon={MessageSquare}
-                    label="SMS Credits"
-                    used={sub.usage?.smsUsed ?? 0}
-                    max={currentPlan.limits.smsCredits}
-                  />
-                  <UsageCard
-                    icon={Wallet}
-                    label="Transactions"
-                    used={sub.usage?.donationTransactions ?? 0}
-                    max={currentPlan.limits.donationTransactions}
-                  />
-                </div>
-              </div>
-            )}
           </>
         )}
       </Card>

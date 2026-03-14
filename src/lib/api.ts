@@ -142,18 +142,29 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     } else if (status === 403) {
-      // 403 is typically feature-gated access - log it but don't logout
-      console.warn('[API Interceptor] Access denied (403):', {
+      // 403 is typically feature-gated access - redirect to feature-blocked page
+      const featureKey = error.response?.data?.featureKey || 'unknown';
+      const currentPlan = error.response?.data?.currentPlan || 'unknown';
+      const requiredPlan = error.response?.data?.requiredPlan || 'Growth';
+      
+      console.warn('[API Interceptor] Access denied (403) - Feature gated:', {
         url: error.config?.url,
-        errorCode,
-        errorMessage: error.response?.data?.error,
+        featureKey,
+        currentPlan,
+        requiredPlan,
       });
-      sessionStorage.setItem('last403Error', JSON.stringify({
-        url: error.config?.url,
-        errorCode,
-        errorMessage: error.response?.data?.error,
-        timestamp: new Date().toISOString(),
-      }));
+      
+      if (typeof window !== 'undefined') {
+        const isOnBlockedPage = window.location.pathname.startsWith('/feature-blocked');
+        if (!isOnBlockedPage) {
+          const params = new URLSearchParams({
+            feature: featureKey,
+            plan: currentPlan,
+            required: requiredPlan,
+          });
+          window.location.href = `/feature-blocked?${params.toString()}`;
+        }
+      }
     }
     
     return Promise.reject(error);
@@ -374,6 +385,48 @@ export const subscriptionApi = {
         transactions: boolean;
       };
     }>(`/api/subscriptions/${organizationId}/limits`);
+    return response.data;
+  },
+};
+
+// Transactions API
+export const transactionsApi = {
+  getAll: async (params?: {
+    type?: string;
+    direction?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.direction) queryParams.append('direction', params.direction);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/finance/transactions?${queryString}` : '/api/finance/transactions';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await api.get(`/api/finance/transactions/${id}`);
+    return response.data;
+  },
+
+  getSummary: async (params?: { type?: string; startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/finance/transactions/summary?${queryString}` : '/api/finance/transactions/summary';
+    const response = await api.get(url);
     return response.data;
   },
 };

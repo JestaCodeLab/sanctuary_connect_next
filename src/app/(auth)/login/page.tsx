@@ -28,9 +28,8 @@ export default function LoginPage() {
   const { setUser } = useAuthStore();
   const { restoreFromBackend } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [debugLog, setDebugLog] = useState<string | null>(null);
 
-  // Check for session expiration message and debug logs
+  // Check for session expiration message
   useEffect(() => {
     const sessionExpired = sessionStorage.getItem('sessionExpired');
     if (sessionExpired) {
@@ -39,13 +38,6 @@ export default function LoginPage() {
         id: 'session-expired',
       });
       sessionStorage.removeItem('sessionExpired');
-    }
-    
-    // Get and display debug log if available
-    const lastLog = sessionStorage.getItem('lastDashboardLog');
-    if (lastLog) {
-      setDebugLog(lastLog);
-      console.log('Debug log from dashboard:', lastLog);
     }
   }, []);
 
@@ -144,12 +136,6 @@ export default function LoginPage() {
 
       <div className="min-h-[calc(100vh-140px)] flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md animate-slideUp">
-        {/* Debug Log Display */}
-        {debugLog && (
-          <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200">
-            <strong>Debug:</strong> {debugLog}
-          </div>
-        )}
         
         {/* Title */}
         <div className="text-center mb-8">
