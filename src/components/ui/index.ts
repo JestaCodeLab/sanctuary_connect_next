@@ -7,6 +7,8 @@ export type { InputProps } from './Input';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export type { CardProps, CardHeaderProps, CardTitleProps, CardDescriptionProps, CardContentProps, CardFooterProps } from './Card';
 
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './Dialog';
+
 export { default as Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 

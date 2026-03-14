@@ -1,6 +1,7 @@
 'use client';
 
 import { SmsLog } from '@/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 
 
 interface SmsLogDetailsDialogProps {
