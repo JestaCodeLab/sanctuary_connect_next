@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, ArrowRight, Zap } from 'lucide-react';
@@ -55,7 +56,7 @@ const PLAN_RECOMMENDATIONS: Record<string, string> = {
   ascend: 'Sanctuary',
 };
 
-export default function FeatureBlockedPage() {
+function FeatureBlockedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organization } = useOrganizationStore();
@@ -133,5 +134,17 @@ export default function FeatureBlockedPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FeatureBlockedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted">Loading...</div>
+      </div>
+    }>
+      <FeatureBlockedContent />
+    </Suspense>
   );
 }
