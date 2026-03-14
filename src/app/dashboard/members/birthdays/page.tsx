@@ -135,6 +135,12 @@ function BirthdaysContent() {
     queryFn: () => membersApi.getBirthdays(365),
   });
 
+  // Fetch SMS credit balance
+  const { data: smsCredit } = useQuery({
+    queryKey: ['smsCreditsBalance'],
+    queryFn: () => smsApi.getCreditsBalance(),
+  });
+
   // Fetch birthday settings
   const { data: settings } = useQuery({
     queryKey: ['birthdaySettings'],
@@ -268,6 +274,22 @@ function BirthdaysContent() {
         title="Birthdays"
         description="Track and celebrate member birthdays"
       />
+
+      {/* SMS Credits Balance */}
+      <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+        <div className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">SMS Credits Balance</p>
+            <p className="text-xs text-muted mt-0.5">Available credits for sending birthday messages</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {smsCredit?.balance ?? '—'}
+            </p>
+            <p className="text-xs text-muted">credits</p>
+          </div>
+        </div>
+      </Card>
 
       {/* Birthday Settings */}
       <Card className="mb-6 border-primary/20">

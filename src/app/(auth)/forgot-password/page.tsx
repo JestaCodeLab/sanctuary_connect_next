@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
@@ -9,10 +10,20 @@ import { Mail, ArrowLeft, KeyRound } from 'lucide-react';
 import { Button, Input, Card } from '@/components/ui';
 import { forgotPasswordSchema, ForgotPasswordFormData } from '@/lib/validations';
 import { authApi } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (user && user.id) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const {
     register,

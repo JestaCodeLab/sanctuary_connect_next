@@ -20,3 +20,5 @@ export type { CheckboxProps } from './Checkbox';
 export { default as Logo } from './Logo';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as ImageUpload } from './ImageUpload';
+export { default as NotificationBell } from './NotificationBell';
+export { default as NotificationPanel } from './NotificationPanel';

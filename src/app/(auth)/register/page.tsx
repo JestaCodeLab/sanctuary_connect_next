@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,9 +15,16 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setPendingEmail } = useAuthStore();
+  const { setPendingEmail, user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [password, setPassword] = useState('');
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (user && user.id) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const {
     register,

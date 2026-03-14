@@ -142,27 +142,47 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     } else if (status === 403) {
-      // 403 is typically feature-gated access - redirect to feature-blocked page
+      // 403 can be feature-gated access or subscription issues
+      const code = error.response?.data?.code;
       const featureKey = error.response?.data?.featureKey || 'unknown';
-      const currentPlan = error.response?.data?.currentPlan || 'unknown';
-      const requiredPlan = error.response?.data?.requiredPlan || 'Growth';
+      const errorMessage = error.response?.data?.error || 'Access Denied';
       
-      console.warn('[API Interceptor] Access denied (403) - Feature gated:', {
+      console.warn('[API Interceptor] Access denied (403):', {
         url: error.config?.url,
+        code,
         featureKey,
-        currentPlan,
-        requiredPlan,
+        errorMessage,
+        fullResponse: error.response?.data,
       });
       
       if (typeof window !== 'undefined') {
         const isOnBlockedPage = window.location.pathname.startsWith('/feature-blocked');
-        if (!isOnBlockedPage) {
-          const params = new URLSearchParams({
-            feature: featureKey,
-            plan: currentPlan,
-            required: requiredPlan,
+        const isOnOnboarding = window.location.pathname.startsWith('/onboarding');
+        
+        // If NO_SUB (no subscription), redirect to subscription onboarding
+        if (code === 'NO_SUB' && !isOnOnboarding) {
+          console.warn('[API Interceptor] No subscription found - redirecting to onboarding/subscription');
+          window.location.href = '/onboarding/subscription';
+        }
+        // Handle INSUFFICIENT_SMS_CREDITS specifically
+        else if (code === 'INSUFFICIENT_SMS_CREDITS' && !isOnBlockedPage) {
+          console.warn('[API Interceptor] Insufficient SMS credits:', {
+            currentBalance: error.response?.data?.currentBalance,
+            required: error.response?.data?.required,
+            shortfall: error.response?.data?.shortfall,
           });
-          window.location.href = `/feature-blocked?${params.toString()}`;
+          // Store SMS credit error info for display
+          sessionStorage.setItem('smsCreditsError', JSON.stringify(error.response?.data));
+          // Could redirect to a SMS purchase page instead, or show in-page error
+          // For now, store as featureKey 'sms_credits' to show upgrade path
+          sessionStorage.setItem('featureBlockedFeatureKey', 'sms_credits');
+          window.location.href = '/feature-blocked';
+        }
+        // Otherwise, redirect to feature-blocked page (for FEATURE_GATED or other 403s)
+        else if (!isOnBlockedPage && code !== 'NO_SUB') {
+          // Store only the feature key in sessionStorage
+          sessionStorage.setItem('featureBlockedFeatureKey', featureKey);
+          window.location.href = '/feature-blocked';
         }
       }
     }

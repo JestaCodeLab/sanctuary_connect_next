@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import NotificationBell from '@/components/ui/NotificationBell';
 import {
   LayoutDashboard,
   Users,
@@ -33,6 +34,9 @@ import {
   Phone,
   Zap,
   ArrowLeftRight,
+  AlertCircle,
+  Settings2,
+  UserCheck,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -83,7 +87,16 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'New Event', href: '/dashboard/events/new', icon: CalendarPlus },
     ],
   },
-  { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, featureKey: 'attendance_tracking' },
+  {
+    label: 'Attendance',
+    href: '/dashboard/attendance',
+    icon: ClipboardCheck,
+    featureKey: 'attendance_tracking',
+    children: [
+      { label: 'Check-in', href: '/dashboard/attendance', icon: UserCheck },
+      { label: 'Shepherd Alerts', href: '/dashboard/attendance/shepherd-alerts', icon: AlertCircle, featureKey: 'ai_shepherd_alerts' },
+    ],
+  },
   {
     label: 'Finance',
     href: '/dashboard/finance',
@@ -94,7 +107,6 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Income', href: '/dashboard/finance/income', icon: TrendingUp },
       { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
-      { label: 'Transactions', href: '/dashboard/finance/transactions', icon: ArrowLeftRight },
     ],
   },
   {
@@ -108,6 +120,7 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
     ],
   },
+  { label: 'Transactions', href: '/dashboard/transactions', icon: ArrowLeftRight },
   {
     label: 'Settings',
     href: '/dashboard/settings',
@@ -529,10 +542,7 @@ export default function DashboardLayout({
             <BranchSelector />
             <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
             <ThemeToggle />
-            <button className="p-2 rounded-lg text-muted hover:bg-background hover:text-foreground relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>
-            </button>
+            <NotificationBell />
             <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
             {/* Profile Dropdown */}

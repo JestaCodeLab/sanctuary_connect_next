@@ -14,6 +14,17 @@ const FEATURE_LABELS: Record<string, string> = {
   financial_reporting: 'Financial Reporting',
 };
 
+const FEATURE_REQUIREMENTS: Record<string, string> = {
+  birthday_notifications: 'any paid plan (Growth, Ascend, or Sanctuary)',
+  department_management: 'Growth plan or higher',
+  event_sharing: 'Growth plan or higher',
+  advanced_financial_reporting: 'Ascend plan or higher',
+  event_management: 'Ascend plan or higher',
+  attendance_tracking: 'Growth plan or higher',
+  financial_reporting: 'Growth plan or higher',
+  ai_shepherd_alerts: 'Growth plan or higher',
+};
+
 interface UpgradePromptProps {
   featureKey: string;
   featureName?: string;
@@ -26,6 +37,7 @@ export default function UpgradePrompt({
   currentPlan,
 }: UpgradePromptProps) {
   const displayName = featureName || FEATURE_LABELS[featureKey] || featureKey;
+  const requirement = FEATURE_REQUIREMENTS[featureKey] || 'a higher plan';
 
   return (
     <div className="flex items-center justify-center min-h-[400px] p-6">
@@ -37,8 +49,7 @@ export default function UpgradePrompt({
           {displayName}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 mb-6">
-          This feature is not available on your {currentPlan || 'current plan'}.
-          Upgrade to unlock {displayName.toLowerCase()} and more.
+          This feature is available on {requirement}. Upgrade your plan to unlock {displayName.toLowerCase()} and more.
         </p>
         <Link
           href="/dashboard/settings"

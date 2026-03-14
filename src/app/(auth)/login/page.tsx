@@ -25,9 +25,16 @@ const onboardingStepRoutes: Record<number, string> = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { setUser, user } = useAuthStore();
   const { restoreFromBackend } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (user && user.id) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   // Check for session expiration message
   useEffect(() => {
