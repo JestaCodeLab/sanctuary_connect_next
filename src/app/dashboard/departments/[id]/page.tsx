@@ -67,6 +67,13 @@ function DepartmentDetailContent({ id }: { id: string }) {
 
   const memberIds = (department.members || []).map((m: Member) => m._id);
 
+  // Calculate member stats by status
+  const members = department.members || [];
+  const activeCount = members.filter((m: Member) => m.memberStatus === 'active').length;
+  const inactiveCount = members.filter((m: Member) => m.memberStatus === 'inactive').length;
+  const visitingCount = members.filter((m: Member) => m.memberStatus === 'visiting').length;
+  const transferredCount = members.filter((m: Member) => m.memberStatus === 'transferred').length;
+
   const statusColors: Record<string, 'success' | 'error' | 'info' | 'warning'> = {
     active: 'success',
     inactive: 'error',
@@ -107,6 +114,54 @@ function DepartmentDetailContent({ id }: { id: string }) {
           </div>
         </div>
       </Card>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Members</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{members.length}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Active</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{activeCount}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Visiting</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{visitingCount}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Inactive</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{inactiveCount}</p>
+            </div>
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-red-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
 
       {/* Add Member */}
       <Card className="mb-6 p-6">
