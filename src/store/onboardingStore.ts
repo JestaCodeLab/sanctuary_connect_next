@@ -108,6 +108,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
     }),
     {
       name: 'onboarding-storage',
+      skipHydration: true,
     }
   )
 );

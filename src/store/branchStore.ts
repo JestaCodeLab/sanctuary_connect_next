@@ -44,6 +44,7 @@ export const useBranchStore = create<BranchState>()(
     }),
     {
       name: 'branch-storage',
+      skipHydration: true,
       partialize: (state) => ({
         selectedBranchId: state.selectedBranchId,
       }),

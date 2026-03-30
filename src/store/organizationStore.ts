@@ -47,6 +47,7 @@ export const useOrganizationStore = create<OrganizationState>()(
     }),
     {
       name: 'organization-storage',
+      skipHydration: true,
     }
   )
 );
