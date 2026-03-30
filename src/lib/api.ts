@@ -368,6 +368,11 @@ export const subscriptionApi = {
     return response.data;
   },
 
+  initializeCheckout: async (data: { organizationId: string; planId: string; billingCycle: string; paymentMethod: string; amount: number }) => {
+    const response = await api.post('/api/subscriptions/initialize-checkout', data);
+    return response.data;
+  },
+
   initializePayment: async (organizationId: string, data: { planId: string; billingCycle: string }) => {
     const response = await api.post(`/api/subscriptions/${organizationId}/initialize-payment`, data);
     return response.data;
@@ -976,6 +981,80 @@ export const smsApi = {
       message,
       recipientCount,
     });
+    return response.data;
+  },
+
+  // SMS Templates
+  getTemplates: async (): Promise<Array<{
+    _id: string;
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+    usageCount: number;
+    createdAt: string;
+    variables?: string[];
+  }>> => {
+    const response = await api.get('/api/sms/templates');
+    return response.data;
+  },
+  getTemplate: async (id: string): Promise<{
+    _id: string;
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+    variables: string[];
+    usageCount: number;
+    createdAt: string;
+  }> => {
+    const response = await api.get(`/api/sms/templates/${id}`);
+    return response.data;
+  },
+  createTemplate: async (data: {
+    name: string;
+    message: string;
+    description?: string;
+    category?: string;
+  }): Promise<{
+    _id: string;
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+    variables: string[];
+  }> => {
+    const response = await api.post('/api/sms/templates', data);
+    return response.data;
+  },
+  updateTemplate: async (id: string, data: Partial<{
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+  }>): Promise<{
+    _id: string;
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+    variables: string[];
+  }> => {
+    const response = await api.put(`/api/sms/templates/${id}`, data);
+    return response.data;
+  },
+  deleteTemplate: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/api/sms/templates/${id}`);
+    return response.data;
+  },
+  duplicateTemplate: async (id: string): Promise<{
+    _id: string;
+    name: string;
+    message: string;
+    description: string;
+    category: string;
+  }> => {
+    const response = await api.post(`/api/sms/templates/${id}/duplicate`);
     return response.data;
   },
 };

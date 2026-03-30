@@ -44,8 +44,10 @@ import { useBranchStore } from '@/store/branchStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { organizationApi, userBranchApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
+import { useSessionWarning } from '@/lib/hooks/useSessionWarning';
 import BranchSelector from '@/components/dashboard/BranchSelector';
 import SubscriptionUsage from '@/components/dashboard/SubscriptionUsage';
+import { SessionWarningModal } from '@/components/SessionWarningModal';
 
 interface SidebarChild {
   label: string;
@@ -259,6 +261,7 @@ export default function DashboardLayout({
   const { selectedBranchId, setBranches } = useBranchStore();
   const { setOrganization, logoUrl, organization } = useOrganizationStore();
   const { hasFeature, isLoading: featureLoading } = useFeatureAccess();
+  const { showWarning, timeRemaining, formattedTime, refreshSession, handleLogout: handleSessionLogout, isRefreshing } = useSessionWarning();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -443,6 +446,15 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Session Warning Modal */}
+      <SessionWarningModal
+        isOpen={showWarning}
+        timeRemaining={formattedTime}
+        onStayLoggedIn={refreshSession}
+        onLogout={handleSessionLogout}
+        isRefreshing={isRefreshing}
+      />
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div

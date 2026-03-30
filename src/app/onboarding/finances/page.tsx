@@ -3,37 +3,34 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Plus,
-  Link2,
-  Lock,
-  Building
-} from 'lucide-react';
-import { Button, Card, Checkbox, ProgressBar } from '@/components/ui';
+import { ArrowLeft, ArrowRight, Lock } from 'lucide-react';
+import { Button, Card, ProgressBar } from '@/components/ui';
 import { organizationApi } from '@/lib/api';
 import { useOnboardingStore } from '@/store/onboardingStore';
 
 const steps = [
   { id: 1, name: 'Identity' },
   { id: 2, name: 'Branches' },
-  { id: 3, name: 'Finances' },
-  { id: 4, name: 'Team' },
+  { id: 3, name: 'Currency' },
+  { id: 4, name: 'Plan' },
 ];
 
-const defaultFundBuckets = [
-  { id: 'tithes', name: 'Tithes', description: 'The standard fund for church operations and staff.', checked: true },
-  { id: 'offerings', name: 'Offerings', description: 'Unrestricted gifts for general use.', checked: true },
-  { id: 'building', name: 'Building Fund', description: 'Specifically for renovations and new campus construction.', checked: false },
-  { id: 'missions', name: 'Global Missions', description: 'Support for missionaries and international outreach programs.', checked: false },
+const SUPPORTED_CURRENCIES = [
+  { code: 'GHS', name: 'Ghana Cedi', symbol: '₵' },
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
 ];
 
-export default function OnboardingFinancesPage() {
+export default function OnboardingCurrencyPage() {
   const router = useRouter();
-  const { organizationId, setFinances, setStep } = useOnboardingStore();
+  const { organizationId, setStep } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [fundBuckets, setFundBuckets] = useState(defaultFundBuckets);
+  const [selectedCurrency, setSelectedCurrency] = useState('GHS');
 
   useEffect(() => {
     if (!organizationId) {
@@ -42,46 +39,22 @@ export default function OnboardingFinancesPage() {
     setStep(3);
   }, [organizationId, router, setStep]);
 
-  const toggleFundBucket = (id: string) => {
-    setFundBuckets(buckets =>
-      buckets.map(bucket =>
-        bucket.id === id ? { ...bucket, checked: !bucket.checked } : bucket
-      )
-    );
-  };
-
   const handleSubmit = async () => {
     if (!organizationId) return;
 
     setIsLoading(true);
     try {
-      // Update organization with onboarding step (Paystack is the default gateway)
+      // Update organization with currency and advance to next step
       await organizationApi.update(organizationId, {
-        paymentGateway: 'paystack',
+        currency: selectedCurrency,
         onboardingStep: 4,
       });
 
-      // Create fund buckets
-      const selectedBuckets = fundBuckets.filter(b => b.checked);
-      for (const bucket of selectedBuckets) {
-        await organizationApi.createFundBucket(organizationId, {
-          name: bucket.name,
-          description: bucket.description,
-          enabled: true,
-        });
-      }
-
-      // Update store
-      setFinances({
-        paymentGateway: 'paystack',
-        fundBuckets: selectedBuckets.map(b => b.id),
-      });
-
-      toast.success('Financial setup saved!');
+      toast.success(`Currency set to ${selectedCurrency}!`);
       router.push('/onboarding/subscription');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      toast.error(err.response?.data?.error || 'Failed to save financial settings.');
+      toast.error(err.response?.data?.error || 'Failed to save currency selection.');
     } finally {
       setIsLoading(false);
     }
@@ -98,98 +71,66 @@ export default function OnboardingFinancesPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
-              Step 3 of 5: Financial Setup
+              Step 3 of 5: Organization Currency
             </span>
           </div>
           <span className="text-sm text-[#3AAFDC]">60%</span>
         </div>
         <ProgressBar progress={60} size="md" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          Setting the foundation for your church&apos;s generosity.
+          Choose the primary currency for your organization.
         </p>
       </div>
 
       {/* Title */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Financial Ecosystem</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Select Organization Currency</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Configure your currency, connect payment processors, and define your initial fund categories to start accepting donations.
+          Payments are powered by <span className="font-semibold">Paystack</span>, supporting all major currencies. You can change this later in settings.
         </p>
       </div>
 
-      <div className="space-y-8">
-        {/* Fund Buckets Section */}
+      <div className="space-y-6">
+        {/* Currency Selection */}
         <Card padding="lg">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-lg flex items-center justify-center">
-              <span className="text-[#3AAFDC] font-bold text-sm">$</span>
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">1. Initial Fund Buckets</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Where should donations go? Select the default categories you want to offer your members.</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {fundBuckets.map((bucket) => (
-              <div
-                key={bucket.id}
-                className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
-                  bucket.checked ? 'border-[#3AAFDC] bg-[#E8F6FB]/50 dark:bg-[#3AAFDC]/10' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <button
+                key={currency.code}
+                type="button"
+                onClick={() => setSelectedCurrency(currency.code)}
+                className={`p-4 rounded-xl border-2 transition-all text-center ${
+                  selectedCurrency === currency.code
+                    ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/20'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}
-                onClick={() => toggleFundBucket(bucket.id)}
               >
-                <Checkbox
-                  checked={bucket.checked}
-                  onChange={() => toggleFundBucket(bucket.id)}
-                />
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{bucket.name}</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{bucket.description}</p>
+                <div className="font-bold text-lg text-[#3AAFDC] mb-1">{currency.symbol}</div>
+                <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                  {currency.code}
                 </div>
-              </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {currency.name}
+                </div>
+              </button>
             ))}
-
-            <button
-              type="button"
-              className="flex items-center gap-2 text-[#3AAFDC] hover:text-[#2D9AC7] text-sm font-medium mt-4"
-              onClick={() => toast.error('Custom funds available after initial setup')}
-            >
-              <Plus className="w-4 h-4" />
-              Add Custom Fund
-            </button>
           </div>
         </Card>
 
-        {/* Bank Account Section */}
-        <Card padding="lg">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-lg flex items-center justify-center">
-              <Building className="w-4 h-4 text-[#3AAFDC]" />
+        {/* Payment Info */}
+        <Card padding="lg" className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <div className="flex gap-3">
+            <div className="flex-shrink-0 flex items-start pt-0.5">
+              <Lock className="w-5 h-5 text-[#3AAFDC]" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">2. Payout & Reconciliation</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Link your church&apos;s primary bank account for automated payouts and effortless reconciliation.</p>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                Secure Payments Included
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Your organization will receive payments in {selectedCurrency} using Paystack&apos;s secure payment processing. No additional setup required.
+              </p>
             </div>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-8 text-center">
-            <Link2 className="w-10 h-10 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">No account linked yet</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
-              Connect your bank securely via Plaid to automate your financial workflow and track deposits in real-time.
-            </p>
-            <Button
-              variant="primary"
-              leftIcon={<Lock className="w-4 h-4" />}
-              onClick={() => toast.error('Bank connection available after initial setup')}
-            >
-              Connect Secure Bank Account
-            </Button>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 flex items-center justify-center gap-1">
-              <Lock className="w-3 h-3" />
-              256-bit Encrypted
-            </p>
           </div>
         </Card>
 
@@ -200,7 +141,7 @@ export default function OnboardingFinancesPage() {
             onClick={() => router.push('/onboarding/branches')}
             leftIcon={<ArrowLeft className="w-4 h-4" />}
           >
-            Back: Admin Settings
+            Back: Branches
           </Button>
           <Button
             size="lg"
@@ -208,21 +149,8 @@ export default function OnboardingFinancesPage() {
             onClick={handleSubmit}
             rightIcon={<ArrowRight className="w-4 h-4" />}
           >
-            Save & Continue
+            Continue to Plans
           </Button>
-        </div>
-      </div>
-
-      {/* Security Footer */}
-      <div className="mt-8 text-center">
-        <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center justify-center gap-1">
-          <Lock className="w-3 h-3" />
-          Your financial data is protected with enterprise-grade encryption.
-        </p>
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs">
-          <a href="#" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Terms of Service</a>
-          <a href="#" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Privacy Policy</a>
-          <a href="#" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Security Whitepaper</a>
         </div>
       </div>
     </div>

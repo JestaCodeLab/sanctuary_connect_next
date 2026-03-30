@@ -80,6 +80,7 @@ export default function SendSmsPage() {
     reference: string;
   } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('card');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const branches = useBranchStore((state) => state.branches);
 
@@ -103,6 +104,11 @@ export default function SendSmsPage() {
   const { data: smsCredits } = useQuery({
     queryKey: ['sms-credits'],
     queryFn: smsApi.getCreditsBalance,
+  });
+
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+    queryKey: ['sms-templates'],
+    queryFn: smsApi.getTemplates,
   });
 
   // Calculate payment quote
@@ -174,6 +180,16 @@ export default function SendSmsPage() {
     const phone = member.phone?.toLowerCase() || '';
     return fullName.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm.toLowerCase());
   });
+
+  // Handle template selection
+  const handleTemplateSelect = (templateId: string) => {
+    const template = templates.find((t: any) => t._id === templateId);
+    if (template) {
+      setMessage(template.message);
+      setCategory(template.category);
+      setSelectedTemplate(templateId);
+    }
+  };
 
   const handleSend = async () => {
     if (!message.trim()) {
@@ -471,6 +487,39 @@ export default function SendSmsPage() {
       <Card>
         <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSend(); }}>
           {renderRecipientField()}
+
+          {/* Template Selector */}
+          {templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-3">
+                Use Template (Optional)
+              </label>
+              <select
+                value={selectedTemplate || ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleTemplateSelect(e.target.value);
+                  } else {
+                    setSelectedTemplate(null);
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              >
+                <option value="">Select a template...</option>
+                {templates.map((template: any) => (
+                  <option key={template._id} value={template._id}>
+                    {template.name} ({template.message.length}/160)
+                  </option>
+                ))}
+              </select>
+              {selectedTemplate && (
+                <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-xs text-muted mb-1">Template preview:</p>
+                  <p className="text-sm text-foreground font-mono">{message}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-foreground mb-3">

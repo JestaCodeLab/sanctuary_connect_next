@@ -7,11 +7,8 @@ import {
   Church,
   MapPin,
   DollarSign,
-  Edit2,
   ArrowLeft,
   Rocket,
-  Mail,
-  UserPlus,
   Check,
   CreditCard,
   Sparkles,
@@ -32,30 +29,12 @@ export default function OnboardingReviewPage() {
   const { identity, branches, finances, subscription, organizationId, reset } = useOnboardingStore();
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
 
   useEffect(() => {
     if (!organizationId) {
       router.push('/onboarding/identity');
     }
   }, [organizationId, router]);
-
-  const handleInvite = () => {
-    if (!inviteEmail) {
-      toast.error('Please enter an email address');
-      return;
-    }
-
-    if (invitedEmails.includes(inviteEmail)) {
-      toast.error('This email has already been invited');
-      return;
-    }
-
-    setInvitedEmails([...invitedEmails, inviteEmail]);
-    setInviteEmail('');
-    toast.success('Invitation sent!');
-  };
 
   const handleLaunch = async () => {
     if (!organizationId) return;
@@ -72,6 +51,11 @@ export default function OnboardingReviewPage() {
       reset();
 
       toast.success('Your dashboard is ready! Welcome to Sanctuary Connect!');
+      
+      // Add a small delay to ensure backend persistence before redirecting
+      // This prevents the dashboard from checking onboarding before the update is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       router.push('/dashboard');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
@@ -136,13 +120,7 @@ export default function OnboardingReviewPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Identity Card */}
-        <Card padding="md" className="relative">
-          <button
-            onClick={() => router.push('/onboarding/identity')}
-            className="absolute top-4 right-4 text-gray-400 hover:text-[#3AAFDC]"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <Card padding="md">
           <div className="flex items-center gap-2 mb-4">
             <Church className="w-5 h-5 text-[#3AAFDC]" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Identity</h3>
@@ -165,13 +143,7 @@ export default function OnboardingReviewPage() {
         </Card>
 
         {/* Branches Card */}
-        <Card padding="md" className="relative">
-          <button
-            onClick={() => router.push('/onboarding/branches')}
-            className="absolute top-4 right-4 text-gray-400 hover:text-[#3AAFDC]"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <Card padding="md">
           <div className="flex items-center gap-2 mb-4">
             <MapPin className="w-5 h-5 text-[#3AAFDC]" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Branches ({branches.length || 1})</h3>
@@ -200,13 +172,7 @@ export default function OnboardingReviewPage() {
         </Card>
 
         {/* Finances Card */}
-        <Card padding="md" className="relative">
-          <button
-            onClick={() => router.push('/onboarding/finances')}
-            className="absolute top-4 right-4 text-gray-400 hover:text-[#3AAFDC]"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <Card padding="md">
           <div className="flex items-center gap-2 mb-4">
             <DollarSign className="w-5 h-5 text-[#3AAFDC]" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Finances</h3>
@@ -245,13 +211,7 @@ export default function OnboardingReviewPage() {
         </Card>
 
         {/* Subscription Card */}
-        <Card padding="md" className="relative">
-          <button
-            onClick={() => router.push('/onboarding/subscription')}
-            className="absolute top-4 right-4 text-gray-400 hover:text-[#3AAFDC]"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+        <Card padding="md">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard className="w-5 h-5 text-[#3AAFDC]" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Plan</h3>
@@ -278,57 +238,6 @@ export default function OnboardingReviewPage() {
           </div>
         </Card>
       </div>
-
-      {/* Invite Team Section */}
-      <Card padding="lg" className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <UserPlus className="w-5 h-5 text-[#3AAFDC]" />
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Invite your team</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Collaboration is key. Add your fellow administrators or pastors to get started together.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <Input
-              type="email"
-              placeholder="email@church.org"
-              leftIcon={<Mail className="w-5 h-5" />}
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-            />
-          </div>
-          <Button
-            leftIcon={<UserPlus className="w-4 h-4" />}
-            onClick={handleInvite}
-          >
-            Invite
-          </Button>
-        </div>
-
-        {invitedEmails.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {invitedEmails.map((email) => (
-              <div
-                key={email}
-                className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg"
-              >
-                <Check className="w-4 h-4 text-green-500" />
-                {email}
-                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">Invited</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-          Invited members will receive an email to set up their password.
-        </p>
-      </Card>
 
       {/* Actions */}
       <div className="flex items-center justify-between">

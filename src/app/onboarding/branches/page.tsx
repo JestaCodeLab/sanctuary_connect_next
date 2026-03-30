@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { MapPin, Plus, ArrowLeft, ArrowRight, Lightbulb, Building2, Map, Outdent, X, Check } from 'lucide-react';
+import { MapPin, Plus, ArrowLeft, ArrowRight, Lightbulb, Building2, Outdent, X, Check } from 'lucide-react';
 import { Button, Input, Card, ProgressBar } from '@/components/ui';
+import { MapWithGeofence } from '@/components/ui/MapWithGeofence';
 import { branchSchema, BranchFormData } from '@/lib/validations';
-import { organizationApi } from '@/lib/api';
+import { organizationApi, subscriptionApi } from '@/lib/api';
 import { useOnboardingStore } from '@/store/onboardingStore';
 
 const steps = [
@@ -48,11 +49,20 @@ export default function OnboardingBranchesPage() {
   const [radius, setRadius] = useState(100);
   const [showAddBranch, setShowAddBranch] = useState(false);
   const [newBranchRadius, setNewBranchRadius] = useState(100);
+  const [mapLat, setMapLat] = useState(5.6037); // Default: Accra
+  const [mapLng, setMapLng] = useState(-0.1871);
+  const [selectedLat, setSelectedLat] = useState(5.6037); // User-selected coordinates
+  const [selectedLng, setSelectedLng] = useState(-0.1871);
+  const [newBranchLat, setNewBranchLat] = useState(5.6037);
+  const [newBranchLng, setNewBranchLng] = useState(-0.1871);
+  const [maxBranches, setMaxBranches] = useState(1); // Defaults to seed plan limit
+  const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Head office form
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<BranchFormData>({
     resolver: zodResolver(branchSchema),
@@ -62,9 +72,16 @@ export default function OnboardingBranchesPage() {
       city: '',
       zipCode: '',
       radius: 100,
+      latitude: selectedLat,
+      longitude: selectedLng,
       isHeadOffice: true,
     },
   });
+
+  // Watch form values to display on map
+  const watchedAddress = watch('address');
+  const watchedCity = watch('city');
+  const watchedName = watch('name');
 
   // Additional branch form
   const {
@@ -85,11 +102,124 @@ export default function OnboardingBranchesPage() {
   });
 
   useEffect(() => {
+    const fetchSubscriptionLimits = async () => {
+      if (!organizationId) return;
+      try {
+        const data = await subscriptionApi.get(organizationId);
+        const limit = data.plan?.limits?.maxBranches || 1;
+        setMaxBranches(limit);
+        console.log('📊 Subscription fetched:', { planId: data.plan?.id, maxBranches: limit });
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+        setMaxBranches(1);
+      }
+    };
+    fetchSubscriptionLimits();
+  }, [organizationId]);
+
+  useEffect(() => {
     if (!organizationId) {
       router.push('/onboarding/identity');
     }
     setStep(2);
   }, [organizationId, router, setStep]);
+
+  // Geocode address when it changes (debounced)
+  useEffect(() => {
+    if (geocodeTimeoutRef.current) {
+      clearTimeout(geocodeTimeoutRef.current);
+    }
+
+    console.log('🗺️ Geocoding trigger:', { watchedAddress, watchedCity });
+    
+    // Only geocode if we have address
+    if (watchedAddress) {
+      geocodeTimeoutRef.current = setTimeout(async () => {
+        try {
+          // Build query: address + city (if different) + country
+          let query = watchedAddress;
+          
+          // Add city if it's different from address (avoid duplicates)
+          if (watchedCity && !watchedAddress.includes(watchedCity)) {
+            query += `, ${watchedCity}`;
+          }
+          
+          // Always add Ghana as the country for better results
+          query += ', Ghana';
+          
+          console.log('🌐 Calling Nominatim API for:', query);
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=gh`,
+            {
+              headers: {
+                'User-Agent': 'SanctuaryConnect-App',
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          let results = await response.json();
+          console.log('📍 Geocoding results:', results);
+          
+          // If no results for full address, try just the city
+          if (!results || results.length === 0) {
+            console.log('⚠️ No results for full address, trying city only:', watchedCity);
+            
+            if (watchedCity) {
+              const cityQuery = `${watchedCity}, Ghana`;
+              const cityResponse = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityQuery)}&limit=1&countrycodes=gh`,
+                {
+                  headers: {
+                    'User-Agent': 'SanctuaryConnect-App',
+                  },
+                }
+              );
+              
+              if (cityResponse.ok) {
+                results = await cityResponse.json();
+                console.log('📍 City geocoding results:', results);
+              }
+            }
+          }
+          
+          if (results && results.length > 0) {
+            const { lat, lon } = results[0];
+            const latitude = parseFloat(lat);
+            const longitude = parseFloat(lon);
+            
+            console.log('✅ Found location:', { latitude, longitude, address: results[0].display_name });
+            
+            setMapLat(latitude);
+            setMapLng(longitude);
+            
+            toast.success(`Located: ${results[0].display_name.split(',')[0]}`);
+          } else {
+            console.log('⚠️ No geocoding results found for:', query);
+            toast.error('Address not found in Ghana. Using city location.');
+            
+            // Default to Accra if everything fails
+            setMapLat(5.6037);
+            setMapLng(-0.1871);
+          }
+        } catch (error) {
+          console.error('❌ Geocoding error:', error);
+          toast.error('Error finding location. Using default.');
+          // Keep default location on error
+        }
+      }, 800); // Wait 800ms after user stops typing
+    }
+
+    return () => {
+      if (geocodeTimeoutRef.current) {
+        clearTimeout(geocodeTimeoutRef.current);
+      }
+    };
+  }, [watchedAddress, watchedCity]);
 
   // Save head office and proceed
   const onSubmit = async (data: BranchFormData) => {
@@ -106,8 +236,12 @@ export default function OnboardingBranchesPage() {
 
     setIsLoading(true);
     try {
+      console.log('📍 Saving head office with coordinates:', { lat: selectedLat, lng: selectedLng, radius });
+      
       const branch = await organizationApi.createBranch(organizationId, {
         ...data,
+        latitude: selectedLat,
+        longitude: selectedLng,
         radius,
         isHeadOffice: true,
       });
@@ -133,8 +267,12 @@ export default function OnboardingBranchesPage() {
 
     setIsSavingBranch(true);
     try {
+      console.log('📍 Adding branch with coordinates:', { lat: newBranchLat, lng: newBranchLng, radius: newBranchRadius });
+      
       const branch = await organizationApi.createBranch(organizationId, {
         ...data,
+        latitude: newBranchLat,
+        longitude: newBranchLng,
         radius: newBranchRadius,
         isHeadOffice: false,
       });
@@ -144,6 +282,8 @@ export default function OnboardingBranchesPage() {
       resetBranchForm();
       setShowAddBranch(false);
       setNewBranchRadius(100);
+      setNewBranchLat(5.6037);
+      setNewBranchLng(-0.1871);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || 'Failed to add branch.');
@@ -186,7 +326,7 @@ export default function OnboardingBranchesPage() {
 
       {/* Title */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Where is your community located?</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Where is your organization located?</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
           Register your head office and set your attendance geofence.
         </p>
@@ -238,23 +378,36 @@ export default function OnboardingBranchesPage() {
               {/* Interactive Map Placeholder */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Interactive Geofence Map
+                  Interactive Geofence Map - Click to set exact location
                 </label>
                 <div className="relative h-64 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden">
-                  {/* Map Placeholder */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <Map className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-2" />
-                      <p className="text-sm text-gray-400 dark:text-gray-500">Map integration coming soon</p>
-                      <p className="text-xs text-gray-300 dark:text-gray-600">Location will be geocoded from address</p>
-                    </div>
-                  </div>
-
-                  {/* Radius Badge */}
-                  <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm">
-                    <span className="text-sm font-medium text-[#3AAFDC]">{radius} Meters</span>
-                  </div>
+                  <MapWithGeofence
+                    latitude={mapLat}
+                    longitude={mapLng}
+                    radius={radius}
+                    address={`${watchedAddress || 'Location'}, ${watchedCity || 'Accra, Ghana'}`}
+                    isInteractive={true}
+                    onLocationChange={(lat, lng, reversedAddress) => {
+                      setSelectedLat(lat);
+                      setSelectedLng(lng);
+                      console.log('📍 Head office location selected:', { lat, lng, reversedAddress });
+                      
+                      // Update form fields if we got a real address (not the fallback "Location Set")
+                      if (reversedAddress && reversedAddress !== 'Location Set') {
+                        // Update the form address field
+                        const addressInput = document.querySelector('input[name="address"]') as HTMLInputElement;
+                        if (addressInput) {
+                          addressInput.value = reversedAddress;
+                          // Trigger form update
+                          addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }
+                    }}
+                  />
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Selected: {selectedLat.toFixed(6)}, {selectedLng.toFixed(6)}
+                </p>
               </div>
 
               {/* Radius Slider */}
@@ -279,8 +432,23 @@ export default function OnboardingBranchesPage() {
                 </div>
               </div>
 
-              {/* Other Branches Section */}
-              {identity.structure === 'multi' && (
+              {/* Upgrade Message for Single-Branch Plans */}
+              {maxBranches === 1 && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Building2 className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Want multiple branches?</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
+                        Your current plan supports 1 branch. Upgrade to Growth or Professional plan in Step 4 (Finance) to add more locations.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Other Branches Section - Only show if plan allows multiple branches */}
+              {maxBranches > 1 && (
                 <div className="pt-4 border-t dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-medium text-gray-900 dark:text-gray-100">Other Branches</h3>

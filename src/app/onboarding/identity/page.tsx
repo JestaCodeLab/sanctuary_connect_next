@@ -25,7 +25,6 @@ export default function OnboardingIdentityPage() {
   const { identity, setIdentity, setOrganizationId, organizationId } = useOnboardingStore();
   const { user, setUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedStructure, setSelectedStructure] = useState<'single' | 'multi'>(identity.structure);
   const [logoUrl, setLogoUrl] = useState<string | null>(identity.logoUrl);
 
   const {
@@ -38,54 +37,104 @@ export default function OnboardingIdentityPage() {
     defaultValues: {
       churchName: identity.churchName || '',
       legalName: identity.legalName || '',
-      structure: identity.structure || 'single',
+      structure: 'multi',
     },
   });
 
   const churchName = watch('churchName');
 
   const onSubmit = async (data: OrganizationIdentityFormData) => {
+    // Prevent double-submission
+    if (isLoading) {
+      console.log('🛑 Submit already in progress, ignoring double-click');
+      return;
+    }
+
     setIsLoading(true);
+    console.log('📝 Starting onboarding step 1 submission...', { organizationId, hasLogo: !!logoUrl });
     try {
       // Save to store
       setIdentity({
         churchName: data.churchName,
         legalName: data.legalName || data.churchName,
-        structure: selectedStructure,
+        structure: 'multi',
         logoUrl: logoUrl,
       });
 
       const orgData = {
         churchName: data.churchName,
         legalName: data.legalName,
-        structure: selectedStructure,
         logoUrl: logoUrl || undefined,
       };
+      console.log('📦 Organization payload:', orgData);
 
       if (organizationId) {
         // Update existing organization (user is resuming onboarding)
+        console.log('♻️ Updating existing organization:', organizationId);
         await organizationApi.update(organizationId, {
           ...orgData,
           onboardingStep: 2,
         });
+        toast.success('Church identity updated!');
       } else {
         // Create new organization
-        const response = await organizationApi.create(orgData);
+        console.log('✨ Creating new organization...');
+        try {
+          const response = await organizationApi.create(orgData);
+          console.log('✅ Organization created:', response._id);
 
-        // Save the new token with admin role
-        if (response.token && user) {
-          const updatedUser = { ...user, role: 'admin' as const };
-          setUser(updatedUser, response.token);
-          localStorage.setItem('token', response.token);
+          // Save the new token with admin role
+          if (response.token && user) {
+            const updatedUser = { ...user, role: 'admin' as const };
+            setUser(updatedUser, response.token);
+            localStorage.setItem('token', response.token);
+            console.log('🔐 Token updated with admin role');
+          }
+
+          setOrganizationId(response._id);
+
+          // Update onboarding step to 2 (branches)
+          await organizationApi.update(response._id, { onboardingStep: 2 });
+          toast.success('Church identity saved!');
+        } catch (createError: unknown) {
+          const err = createError as { response?: { data?: { code?: string; error?: string; existingOrganization?: { id: string; churchName: string; onboardingStep: number } } } };
+          console.error('❌ Organization creation error:', err.response?.data);
+          
+          // If org already exists, use the returned org to resume
+          if (err.response?.data?.code === 'ORG_ALREADY_EXISTS') {
+            const existingOrg = err.response.data.existingOrganization;
+            if (existingOrg) {
+              console.log('♻️ Organization already exists, resuming from step:', existingOrg.onboardingStep);
+              setOrganizationId(existingOrg.id);
+              
+              // Verify identity details match what's in backend
+              const identityMatch = {
+                churchName: existingOrg.churchName === data.churchName,
+              };
+              console.log('✅ Verifying identity match:', identityMatch);
+              
+              // Update onboarding step to 2 if not already there, and sync any changes
+              if (existingOrg.onboardingStep < 2 || !identityMatch.churchName) {
+                console.log('📝 Syncing org details to step 2...');
+                await organizationApi.update(existingOrg.id, {
+                  ...orgData,
+                  onboardingStep: 2,
+                });
+              }
+              
+              setIsLoading(false);
+              console.log('✅ Navigating to branches page...');
+              toast.success('Resuming your setup...');
+              router.push('/onboarding/branches');
+              return;
+            }
+          }
+          
+          // Re-throw if not a handled error
+          throw createError;
         }
-
-        setOrganizationId(response._id);
-
-        // Update onboarding step to 2 (branches)
-        await organizationApi.update(response._id, { onboardingStep: 2 });
       }
 
-      toast.success('Church identity saved!');
       router.push('/onboarding/branches');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
@@ -144,68 +193,6 @@ export default function OnboardingIdentityPage() {
               value={logoUrl}
               onChange={setLogoUrl}
             />
-
-            {/* Organization Structure */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Organization Structure
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setSelectedStructure('single')}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    selectedStructure === 'single'
-                      ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/20'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedStructure === 'single' ? 'border-[#3AAFDC]' : 'border-gray-300 dark:border-gray-500'
-                    }`}>
-                      {selectedStructure === 'single' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#3AAFDC]" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-[#3AAFDC]" />
-                        <span className="font-medium text-gray-900 dark:text-gray-100">Single Location</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">One main campus for all activities.</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedStructure('multi')}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    selectedStructure === 'multi'
-                      ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/20'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedStructure === 'multi' ? 'border-[#3AAFDC]' : 'border-gray-300 dark:border-gray-500'
-                    }`}>
-                      {selectedStructure === 'multi' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#3AAFDC]" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                        <span className="font-medium text-gray-900 dark:text-gray-100">Multi-Branch</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Multiple campuses under one name.</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
 
             {/* Actions */}
             <div className="flex justify-end pt-4">
