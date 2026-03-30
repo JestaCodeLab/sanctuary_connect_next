@@ -25,10 +25,6 @@ const options: UploadWidgetConfig = {
       crop: true,
       cropShape: 'rect',
       cropRatio: 1,
-      maxDimensions: {
-        width: 2048,
-        height: 2048,
-      },
     },
   },
   styles: {
