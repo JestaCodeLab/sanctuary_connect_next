@@ -39,7 +39,6 @@ const options: UploadWidgetConfig = {
       fullScreenHeight: 800,
     },
   },
-  layout: 'fullscreen',
   showFinishButton: true,
   showRemoveButton: true,
 };
