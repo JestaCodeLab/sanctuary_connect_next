@@ -127,19 +127,21 @@ api.interceptors.response.use(
       localStorage.removeItem('branch-storage');
 
       // Only redirect if not already on auth pages
-      const isOnAuthPage = window.location.pathname.startsWith('/login') ||
-                           window.location.pathname.startsWith('/register') ||
-                           window.location.pathname.startsWith('/forgot-password') ||
-                           window.location.pathname.startsWith('/reset-password') ||
-                           window.location.pathname.startsWith('/verify-email');
+      if (typeof window !== 'undefined') {
+        const isOnAuthPage = window.location.pathname.startsWith('/login') ||
+                             window.location.pathname.startsWith('/register') ||
+                             window.location.pathname.startsWith('/forgot-password') ||
+                             window.location.pathname.startsWith('/reset-password') ||
+                             window.location.pathname.startsWith('/verify-email');
 
-      if (!isOnAuthPage) {
-        // Store a flag to show session expired message on login page
-        if (isExpiredToken) {
-          sessionStorage.setItem('sessionExpired', 'true');
+        if (!isOnAuthPage) {
+          // Store a flag to show session expired message on login page
+          if (isExpiredToken) {
+            sessionStorage.setItem('sessionExpired', 'true');
+          }
+          console.error('[API Interceptor] Redirecting to /login due to 401 auth error');
+          window.location.href = '/login';
         }
-        console.error('[API Interceptor] Redirecting to /login due to 401 auth error');
-        window.location.href = '/login';
       }
     } else if (status === 403) {
       // 403 can be feature-gated access or subscription issues
