@@ -159,25 +159,22 @@ export function ImageUpload({
               </div>
 
               <div className="p-6">
-                <UploadDropzone
-                  options={options}
-                  onUpdate={handleUpdate}
-                  onComplete={() => {}}
-                  width="100%"
-                  height="300px"
-                >
-                  {() => (
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center bg-gray-50 dark:bg-gray-800/50">
-                      <Upload className="w-12 h-12 text-[#3AAFDC] mx-auto mb-3" />
-                      <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                        Drop your new logo here
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        or click to browse
-                      </p>
-                    </div>
-                  )}
-                </UploadDropzone>
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center bg-gray-50 dark:bg-gray-800/50 min-h-[300px] flex items-center justify-center">
+                  <UploadDropzone
+                    options={options}
+                    onUpdate={handleUpdate}
+                    onComplete={() => {}}
+                  />
+                  <div className="absolute text-center pointer-events-none">
+                    <Upload className="w-12 h-12 text-[#3AAFDC] mx-auto mb-3" />
+                    <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                      Drop your new logo here
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      or click to browse
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -194,33 +191,25 @@ export function ImageUpload({
           {label}
         </label>
       )}
-      <UploadDropzone
-        options={options}
-        onUpdate={handleUpdate}
-        onComplete={() => {}}
-        width="100%"
-        height="280px"
-      >
-        {({ onClick }: { onClick: () => void }) => (
-          <div
-            onClick={onClick}
-            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-[#3AAFDC] hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all cursor-pointer bg-gray-50 dark:bg-gray-800/50"
-          >
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3AAFDC]/10 rounded-xl mb-4">
-              <Upload className="w-8 h-8 text-[#3AAFDC]" />
-            </div>
-            <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Upload your logo
-            </p>
-            <p className="text-base text-gray-600 dark:text-gray-400 mb-3">
-              Drag and drop your logo here or <span className="text-[#3AAFDC] font-semibold">click to browse</span>
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
-              {description}
-            </p>
-          </div>
-        )}
-      </UploadDropzone>
+      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-[#3AAFDC] hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all cursor-pointer bg-gray-50 dark:bg-gray-800/50 min-h-[280px] flex flex-col items-center justify-center">
+        <UploadDropzone
+          options={options}
+          onUpdate={handleUpdate}
+          onComplete={() => {}}
+        />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3AAFDC]/10 rounded-xl mb-4">
+          <Upload className="w-8 h-8 text-[#3AAFDC]" />
+        </div>
+        <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+          Upload your logo
+        </p>
+        <p className="text-base text-gray-600 dark:text-gray-400 mb-3">
+          Drag and drop your logo here or <span className="text-[#3AAFDC] font-semibold">click to browse</span>
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-500">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
