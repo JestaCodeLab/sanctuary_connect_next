@@ -96,7 +96,7 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<any>) => {
+  async (error: AxiosError<any>) => {
     const status = error.response?.status;
     const errorCode = error.response?.data?.code;
     
