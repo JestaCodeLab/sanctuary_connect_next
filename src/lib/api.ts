@@ -126,6 +126,14 @@ api.interceptors.response.use(
       localStorage.removeItem('auth-storage');
       localStorage.removeItem('branch-storage');
 
+      // Update Zustand auth state to reflect logout
+      try {
+        const { useAuthStore } = await import('@/store/authStore');
+        useAuthStore.getState().logout();
+      } catch (e) {
+        console.warn('Failed to update auth store:', e);
+      }
+
       // Only redirect if not already on auth pages
       if (typeof window !== 'undefined') {
         const isOnAuthPage = window.location.pathname.startsWith('/login') ||

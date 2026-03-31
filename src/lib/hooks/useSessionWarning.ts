@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { jwtDecode } from 'jwt-decode';
@@ -12,6 +13,7 @@ interface DecodedToken {
 }
 
 export const useSessionWarning = () => {
+  const router = useRouter();
   const { token, logout } = useAuthStore();
   const [showWarning, setShowWarning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
@@ -65,7 +67,11 @@ export const useSessionWarning = () => {
   const handleLogout = useCallback(() => {
     logout();
     setShowWarning(false);
-  }, [logout]);
+    // Redirect to login page
+    if (typeof window !== 'undefined') {
+      router.push('/login');
+    }
+  }, [logout, router]);
 
   // Monitor token expiration
   useEffect(() => {
@@ -80,16 +86,20 @@ export const useSessionWarning = () => {
         setShowWarning(true);
         setTimeRemaining(timeLeft);
       } else if (timeLeft === 0) {
-        // Token has expired
+        // Token has expired - logout and redirect
         setShowWarning(false);
         logout();
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('sessionExpired', 'true');
+          router.push('/login');
+        }
       } else {
         setShowWarning(false);
       }
     }, 1000); // Check every second
 
     return () => clearInterval(interval);
-  }, [token, getTimeUntilExpiry, logout]);
+  }, [token, getTimeUntilExpiry, logout, router]);
 
   // Format time remaining for display
   const formatTimeRemaining = useCallback((ms: number): string => {
