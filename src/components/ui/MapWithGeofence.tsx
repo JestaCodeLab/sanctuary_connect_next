@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Satellite, MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
 // Dynamically import Map components to avoid SSR issues
 const MapContainer = dynamic(
@@ -57,12 +56,17 @@ export function MapWithGeofence({
     
     // Fix Leaflet marker icon in Next.js dynamic import
     if (typeof window !== 'undefined') {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      });
+      try {
+        const L = require('leaflet');
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        });
+      } catch (e) {
+        console.warn('Leaflet not ready yet');
+      }
     }
   }, []);
 
