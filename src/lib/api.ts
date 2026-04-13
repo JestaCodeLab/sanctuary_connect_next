@@ -103,15 +103,21 @@ api.interceptors.response.use(
     // Only treat 401 as auth failure - 403 is usually "feature not available" 
     const isAuthError = status === 401;
     const isExpiredToken = error.response?.data?.error === 'Invalid or expired token';
+    
+    // Don't handle 401 for login/register endpoints to avoid redirect loops
+    const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
+                          error.config?.url?.includes('/auth/register');
 
-    if (isAuthError && typeof window !== 'undefined') {
-      // Log the failing request for debugging
-      console.error('[API Interceptor] Auth error (401) detected:', {
-        status,
-        url: error.config?.url,
-        method: error.config?.method,
-        errorMessage: error.response?.data?.error || error.message,
-      });
+    if (isAuthError && !isAuthEndpoint && typeof window !== 'undefined') {
+      // Log the failing request for debugging (only in development)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[API Interceptor] Auth error (401) detected:', {
+          status,
+          url: error.config?.url,
+          method: error.config?.method,
+          errorMessage: error.response?.data?.error || error.message,
+        });
+      }
       sessionStorage.setItem('lastApiError', JSON.stringify({
         status,
         url: error.config?.url,
@@ -147,7 +153,9 @@ api.interceptors.response.use(
           if (isExpiredToken) {
             sessionStorage.setItem('sessionExpired', 'true');
           }
-          console.error('[API Interceptor] Redirecting to /login due to 401 auth error');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[API Interceptor] Redirecting to /login due to 401 auth error');
+          }
           window.location.href = '/login';
         }
       }

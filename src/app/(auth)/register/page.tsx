@@ -15,16 +15,26 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setPendingEmail, user } = useAuthStore();
+  const { setPendingEmail, user, isAuthenticated, token } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [password, setPassword] = useState('');
 
   // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (user && user.id) {
-      router.push('/dashboard');
+    if (isAuthenticated && user && user.id && token) {
+      const dashboardUrl = user.role === 'superadmin' ? '/superadmin/dashboard' : '/dashboard';
+      router.replace(dashboardUrl);
     }
-  }, [user, router]);
+  }, [isAuthenticated, user, token, router]);
+
+  // Don't render form if already authenticated
+  if (isAuthenticated && user && user.id && token) {
+    return (
+      <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   const {
     register,

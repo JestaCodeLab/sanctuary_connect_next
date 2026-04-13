@@ -257,7 +257,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isLoading, logout } = useAuthStore();
+  const { user, isAuthenticated, isLoading, logout, checkTokenExpiration } = useAuthStore();
   const { selectedBranchId, setBranches } = useBranchStore();
   const { setOrganization, logoUrl, organization } = useOrganizationStore();
   const { hasFeature, isLoading: featureLoading } = useFeatureAccess();
@@ -281,14 +281,34 @@ export default function DashboardLayout({
       console.log(msg);
       sessionStorage.setItem('lastDashboardLog', msg);
       sessionStorage.setItem('authCheckTriggeredRedirect', 'true');
-      router.push('/login');
+      router.replace('/login');
+      return;
+    }
+    
+    // Only check token expiration if authenticated
+    const expired = checkTokenExpiration();
+    if (expired) {
+      console.log('[Dashboard] Token expired, redirecting to login');
+      router.replace('/login');
       return;
     }
 
     const msg = `[Dashboard] Auth check: PASSED, authenticated. hasCheckedOnboarding=${hasCheckedOnboarding}`;
     console.log(msg);
     sessionStorage.setItem('lastDashboardLog', msg);
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, checkTokenExpiration]);
+
+  // Periodic token expiration check (every 30 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const expired = checkTokenExpiration();
+      if (expired) {
+        router.replace('/login');
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [checkTokenExpiration, router]);
 
   // Check if user has completed onboarding and load branches
   useEffect(() => {

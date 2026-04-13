@@ -25,16 +25,9 @@ const onboardingStepRoutes: Record<number, string> = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, user } = useAuthStore();
+  const { setUser, user, isAuthenticated, token } = useAuthStore();
   const { restoreFromBackend } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
-
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (user && user.id) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
 
   // Check for session expiration message
   useEffect(() => {
@@ -61,6 +54,24 @@ export default function LoginPage() {
     },
   });
 
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user && user.id && token) {
+      // Immediately redirect without waiting
+      const dashboardUrl = user.role === 'superadmin' ? '/superadmin/dashboard' : '/dashboard';
+      router.replace(dashboardUrl);
+    }
+  }, [isAuthenticated, user, token, router]);
+
+  // Don't render form if already authenticated
+  if (isAuthenticated && user && user.id && token) {
+    return (
+      <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
@@ -74,6 +85,13 @@ export default function LoginPage() {
 
       // Update auth store
       setUser(response.user, response.token);
+
+      // Superadmin has no org — skip org check entirely
+      if (response.user.role === 'superadmin') {
+        toast.success('Welcome back!');
+        router.push('/superadmin/dashboard');
+        return;
+      }
 
       // Check if user has an organization with incomplete onboarding
       try {
@@ -93,7 +111,6 @@ export default function LoginPage() {
         }
       } catch {
         // No organization found - user is new or hasn't started onboarding
-        // Check if user role is 'member' (hasn't created org yet)
         if (response.user.role === 'member') {
           toast.success('Welcome! Let\'s set up your organization.');
           router.push('/onboarding/identity');

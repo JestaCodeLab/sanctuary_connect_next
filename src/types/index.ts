@@ -5,7 +5,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'admin' | 'pastor' | 'staff' | 'member';
+  role: 'superadmin' | 'admin' | 'pastor' | 'staff' | 'member';
   status: 'active' | 'inactive' | 'suspended';
   verified: boolean;
   organizationId?: string;
