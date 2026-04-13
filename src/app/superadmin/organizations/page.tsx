@@ -32,6 +32,10 @@ const EMPTY_FORM = {
   adminLastName: '',
   currency: 'GHS',
   organizationalStructure: 'single-branch',
+  // Subscription fields
+  planId: 'seed',
+  billingCycle: 'monthly',
+  currentPeriodEnd: '',
 };
 
 export default function OrganizationsPage() {
@@ -49,6 +53,7 @@ export default function OrganizationsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [formStep, setFormStep] = useState(1); // 1: Org Info, 2: Admin User, 3: Subscription
   
   const limit = 20;
 
@@ -77,12 +82,34 @@ export default function OrganizationsPage() {
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
+    setFormStep(1);
     setShowForm(true);
   };
 
   const closeForm = () => {
     setShowForm(false);
     setForm(EMPTY_FORM);
+    setFormStep(1);
+  };
+
+  const nextStep = () => {
+    // Validation for each step
+    if (formStep === 1) {
+      if (!form.churchName) {
+        flash('Church name is required.', true);
+        return;
+      }
+    } else if (formStep === 2) {
+      if (!form.adminEmail || !form.adminPassword || !form.adminFirstName || !form.adminLastName) {
+        flash('All admin fields are required.', true);
+        return;
+      }
+    }
+    setFormStep(formStep + 1);
+  };
+
+  const prevStep = () => {
+    setFormStep(formStep - 1);
   };
 
   const save = async () => {
@@ -92,8 +119,30 @@ export default function OrganizationsPage() {
     }
     setSaving(true);
     try {
-      await api.post('/api/superadmin/organizations', form);
-      flash('Organization created successfully.');
+      // Create organization
+      const orgResponse = await api.post('/api/superadmin/organizations', {
+        churchName: form.churchName,
+        legalName: form.legalName,
+        adminEmail: form.adminEmail,
+        adminPassword: form.adminPassword,
+        adminFirstName: form.adminFirstName,
+        adminLastName: form.adminLastName,
+        currency: form.currency,
+        organizationalStructure: form.organizationalStructure,
+      });
+      
+      const orgId = orgResponse.data.organization._id;
+      
+      // Create subscription
+      await api.post('/api/superadmin/subscriptions', {
+        orgId,
+        planId: form.planId,
+        status: 'active',
+        billingCycle: form.billingCycle,
+        currentPeriodEnd: form.currentPeriodEnd || undefined,
+      });
+      
+      flash('Organization and subscription created successfully.');
       closeForm();
       fetchOrgs();
     } catch (err: any) {
@@ -268,123 +317,244 @@ export default function OrganizationsPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Create New Organization</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Create New Organization</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Step {formStep} of 3: {formStep === 1 ? 'Organization Details' : formStep === 2 ? 'Admin User' : 'Subscription Plan'}
+                </p>
+              </div>
               <button onClick={closeForm} className="p-1 rounded-lg hover:bg-background">
                 <X className="w-5 h-5 text-muted" />
               </button>
             </div>
 
+            {/* Error/Success Message inside modal */}
+            {msg && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${isError ? 'bg-error/10 text-error' : 'bg-success/10 text-success'}`}>
+                <CheckCircle className="w-4 h-4" /> {msg}
+              </div>
+            )}
+
+            {/* Progress indicator */}
+            <div className="flex items-center gap-2">
+              <div className={`flex-1 h-1.5 rounded-full ${formStep >= 1 ? 'bg-primary' : 'bg-muted'}`} />
+              <div className={`flex-1 h-1.5 rounded-full ${formStep >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+              <div className={`flex-1 h-1.5 rounded-full ${formStep >= 3 ? 'bg-primary' : 'bg-muted'}`} />
+            </div>
+
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Church Name *</label>
-                  <input
-                    type="text"
-                    value={form.churchName}
-                    onChange={(e) => setForm({ ...form, churchName: e.target.value })}
-                    placeholder="e.g. Grace Chapel"
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Legal Name</label>
-                  <input
-                    type="text"
-                    value={form.legalName}
-                    onChange={(e) => setForm({ ...form, legalName: e.target.value })}
-                    placeholder="e.g. Grace Chapel International"
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                  />
-                </div>
-              </div>
+              {/* Step 1: Organization Details */}
+              {formStep === 1 && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Church Name *</label>
+                      <input
+                        type="text"
+                        value={form.churchName}
+                        onChange={(e) => setForm({ ...form, churchName: e.target.value })}
+                        placeholder="e.g. Grace Chapel"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Legal Name</label>
+                      <input
+                        type="text"
+                        value={form.legalName}
+                        onChange={(e) => setForm({ ...form, legalName: e.target.value })}
+                        placeholder="e.g. Grace Chapel International"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
+                  </div>
 
-              <div className="border-t border-border pt-3">
-                <h3 className="text-sm font-medium text-foreground mb-3">Admin User</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">First Name *</label>
-                    <input
-                      type="text"
-                      value={form.adminFirstName}
-                      onChange={(e) => setForm({ ...form, adminFirstName: e.target.value })}
-                      placeholder="e.g. John"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Currency</label>
+                      <select
+                        value={form.currency}
+                        onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      >
+                        <option value="GHS">GHS (Ghanaian Cedi)</option>
+                        <option value="USD">USD (US Dollar)</option>
+                        <option value="NGN">NGN (Nigerian Naira)</option>
+                        <option value="KES">KES (Kenyan Shilling)</option>
+                        <option value="ZAR">ZAR (South African Rand)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Structure</label>
+                      <select
+                        value={form.organizationalStructure}
+                        onChange={(e) => setForm({ ...form, organizationalStructure: e.target.value })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      >
+                        <option value="single-branch">Single Branch</option>
+                        <option value="multi-branch">Multi Branch</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Last Name *</label>
-                    <input
-                      type="text"
-                      value={form.adminLastName}
-                      onChange={(e) => setForm({ ...form, adminLastName: e.target.value })}
-                      placeholder="e.g. Smith"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Email *</label>
-                    <input
-                      type="email"
-                      value={form.adminEmail}
-                      onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
-                      placeholder="admin@church.org"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Password *</label>
-                    <input
-                      type="password"
-                      value={form.adminPassword}
-                      onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
-                      placeholder="Strong password"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
 
-              <div className="border-t border-border pt-3">
-                <h3 className="text-sm font-medium text-foreground mb-3">Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Currency</label>
-                    <select
-                      value={form.currency}
-                      onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    >
-                      <option value="GHS">GHS</option>
-                      <option value="USD">USD</option>
-                      <option value="NGN">NGN</option>
-                      <option value="KES">KES</option>
-                      <option value="ZAR">ZAR</option>
-                    </select>
+              {/* Step 2: Admin User */}
+              {formStep === 2 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        value={form.adminFirstName}
+                        onChange={(e) => setForm({ ...form, adminFirstName: e.target.value })}
+                        placeholder="e.g. John"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Last Name *</label>
+                      <input
+                        type="text"
+                        value={form.adminLastName}
+                        onChange={(e) => setForm({ ...form, adminLastName: e.target.value })}
+                        placeholder="e.g. Smith"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Structure</label>
-                    <select
-                      value={form.organizationalStructure}
-                      onChange={(e) => setForm({ ...form, organizationalStructure: e.target.value })}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
-                    >
-                      <option value="single-branch">Single Branch</option>
-                      <option value="multi-branch">Multi Branch</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Email *</label>
+                      <input
+                        type="email"
+                        value={form.adminEmail}
+                        onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
+                        placeholder="admin@church.org"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Password *</label>
+                      <input
+                        type="password"
+                        value={form.adminPassword}
+                        onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
+                        placeholder="Strong password"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Step 3: Subscription */}
+              {formStep === 3 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-2">Subscription Plan</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {PLANS.map((plan) => (
+                        <button
+                          key={plan}
+                          onClick={() => setForm({ ...form, planId: plan })}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            form.planId === plan
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold capitalize">{plan}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Billing Cycle</label>
+                      <select
+                        value={form.billingCycle}
+                        onChange={(e) => setForm({ ...form, billingCycle: e.target.value })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      >
+                        <option value="monthly">Monthly</option>
+                        <option value="annual">Annual</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">
+                        Period End Date (optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={form.currentPeriodEnd}
+                        onChange={(e) => setForm({ ...form, currentPeriodEnd: e.target.value })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold mb-2">Summary</h3>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Church:</span>
+                        <span className="font-medium">{form.churchName || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Admin:</span>
+                        <span className="font-medium">{form.adminFirstName && form.adminLastName ? `${form.adminFirstName} ${form.adminLastName}` : '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Plan:</span>
+                        <span className="font-medium capitalize">{form.planId}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Billing:</span>
+                        <span className="font-medium capitalize">{form.billingCycle}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={closeForm}
-                className="flex-1 px-4 py-2 rounded-lg border border-border text-sm hover:bg-background">
-                Cancel
-              </button>
-              <button onClick={save} disabled={saving}
-                className="flex-1 px-4 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90 disabled:opacity-50">
-                {saving ? 'Creating...' : 'Create Organization'}
-              </button>
+              {formStep > 1 && (
+                <button
+                  onClick={prevStep}
+                  className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-background"
+                >
+                  Back
+                </button>
+              )}
+              {formStep < 3 ? (
+                <button
+                  onClick={nextStep}
+                  className="px-6 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90"
+                >
+                  Next
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={closeForm}
+                    className="flex-1 px-4 py-2 rounded-lg border border-border text-sm hover:bg-background"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={save}
+                    disabled={saving}
+                    className="flex-1 px-4 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {saving ? 'Creating...' : 'Create Organization'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
