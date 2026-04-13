@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, AlertCircle, Users, CreditCard, MessageSquare,
-  CheckCircle, Building2, Calendar, Network, Plus, Pencil, Trash2, X,
+  CheckCircle, Building2, Calendar, Network, Plus, Pencil, Trash2, X, GitBranch,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -64,6 +64,9 @@ export default function OrgDetailPage() {
   const [actionMsg, setActionMsg] = useState('');
   const [actionIsError, setActionIsError] = useState(false);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'branches' | 'departments' | 'members'>('overview');
+
   // Organization edit state
   const [showEditForm, setShowEditForm] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -81,6 +84,26 @@ export default function OrgDetailPage() {
   const [subCycle, setSubCycle] = useState('monthly');
   const [subEnd, setSubEnd] = useState('');
   const [subSaving, setSubSaving] = useState(false);
+
+  // Branches state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [showBranchForm, setShowBranchForm] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<any>(null);
+  const [branchForm, setBranchForm] = useState({ name: '', location: '', isHeadquarters: false });
+
+  // Departments state
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [showDeptForm, setShowDeptForm] = useState(false);
+  const [editingDept, setEditingDept] = useState<any>(null);
+  const [deptForm, setDeptForm] = useState({ name: '', branchId: '' });
+
+  // Members state
+  const [members, setMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [showMemberForm, setShowMemberForm] = useState(false);
+  const [editingMember, setEditingMember] = useState<any>(null);
 
   const fetchData = () => {
     setLoading(true);
@@ -204,6 +227,135 @@ export default function OrgDetailPage() {
     }
   };
 
+  // Fetch branches for this organization
+  const fetchBranches = async () => {
+    setBranchesLoading(true);
+    try {
+      const res = await api.get(`/api/superadmin/branches?orgId=${id}`);
+      setBranches(res.data.branches || []);
+    } catch {
+      showMessage('Failed to load branches.', true);
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
+
+  // Fetch departments for this organization
+  const fetchDepartments = async () => {
+    setDepartmentsLoading(true);
+    try {
+      const res = await api.get(`/api/superadmin/departments?orgId=${id}`);
+      setDepartments(res.data.departments || []);
+    } catch {
+      showMessage('Failed to load departments.', true);
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  };
+
+  // Fetch members for this organization
+  const fetchMembers = async () => {
+    setMembersLoading(true);
+    try {
+      const res = await api.get(`/api/superadmin/members?orgId=${id}`);
+      setMembers(res.data.members || []);
+    } catch {
+      showMessage('Failed to load members.', true);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  // Fetch data when switching tabs
+  useEffect(() => {
+    if (activeTab === 'branches') fetchBranches();
+    else if (activeTab === 'departments') fetchDepartments();
+    else if (activeTab === 'members') fetchMembers();
+  }, [activeTab]);
+
+  // Branch CRUD
+  const saveBranch = async () => {
+    if (!branchForm.name) {
+      showMessage('Branch name is required.', true);
+      return;
+    }
+    try {
+      if (editingBranch) {
+        await api.patch(`/api/superadmin/branches/${editingBranch._id}`, branchForm);
+      } else {
+        await api.post('/api/superadmin/branches', { ...branchForm, orgId: id });
+      }
+      showMessage(`Branch ${editingBranch ? 'updated' : 'created'} successfully.`);
+      setShowBranchForm(false);
+      setEditingBranch(null);
+      setBranchForm({ name: '', location: '', isHeadquarters: false });
+      fetchBranches();
+      fetchData(); // Refresh branch count
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to save branch.', true);
+    }
+  };
+
+  const deleteBranch = async (branchId: string, branchName: string) => {
+    if (!window.confirm(`Delete branch "${branchName}"?`)) return;
+    try {
+      await api.delete(`/api/superadmin/branches/${branchId}`);
+      showMessage('Branch deleted successfully.');
+      fetchBranches();
+      fetchData();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to delete branch.', true);
+    }
+  };
+
+  // Department CRUD
+  const saveDepartment = async () => {
+    if (!deptForm.name || !deptForm.branchId) {
+      showMessage('Department name and branch are required.', true);
+      return;
+    }
+    try {
+      if (editingDept) {
+        await api.patch(`/api/superadmin/departments/${editingDept._id}`, deptForm);
+      } else {
+        await api.post('/api/superadmin/departments', { ...deptForm, orgId: id });
+      }
+      showMessage(`Department ${editingDept ? 'updated' : 'created'} successfully.`);
+      setShowDeptForm(false);
+      setEditingDept(null);
+      setDeptForm({ name: '', branchId: '' });
+      fetchDepartments();
+      fetchData();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to save department.', true);
+    }
+  };
+
+  const deleteDepartment = async (deptId: string, deptName: string) => {
+    if (!window.confirm(`Delete department "${deptName}"?`)) return;
+    try {
+      await api.delete(`/api/superadmin/departments/${deptId}`);
+      showMessage('Department deleted successfully.');
+      fetchDepartments();
+      fetchData();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to delete department.', true);
+    }
+  };
+
+  // Member delete (no create - organizations create their own members)
+  const deleteMember = async (memberId: string, memberName: string) => {
+    if (!window.confirm(`Delete member "${memberName}"?`)) return;
+    try {
+      await api.delete(`/api/superadmin/members/${memberId}`);
+      showMessage('Member deleted successfully.');
+      fetchMembers();
+      fetchData();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to delete member.', true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -254,11 +406,60 @@ export default function OrgDetailPage() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatTile label="Members" value={memberCount} icon={Users} />
-        <StatTile label="Branches" value={branchCount} icon={Building2} />
+        <StatTile label="Branches" value={branchCount} icon={GitBranch} />
         <StatTile label="Departments" value={departmentCount} icon={Network} />
         <StatTile label="Events" value={eventCount} icon={Calendar} />
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-border">
+        <nav className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('branches')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'branches'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Branches ({branchCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('departments')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'departments'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Departments ({departmentCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('members')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'members'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Members ({memberCount})
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+      <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Org Info */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
@@ -496,6 +697,326 @@ export default function OrgDetailPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Branches Tab */}
+      {activeTab === 'branches' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Branches</h2>
+            <button
+              onClick={() => {
+                setShowBranchForm(true);
+                setEditingBranch(null);
+                setBranchForm({ name: '', location: '', isHeadquarters: false });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" /> Add Branch
+            </button>
+          </div>
+
+          {branchesLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : branches.length === 0 ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <GitBranch className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No branches yet</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/30 border-b border-border">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Name</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Location</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Type</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branches.map((branch) => (
+                    <tr key={branch._id} className="border-b border-border last:border-0 hover:bg-muted/10">
+                      <td className="px-4 py-3 text-sm text-foreground">{branch.name}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{branch.location || '—'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {branch.isHeadquarters && (
+                          <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">HQ</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingBranch(branch);
+                            setBranchForm({
+                              name: branch.name,
+                              location: branch.location || '',
+                              isHeadquarters: branch.isHeadquarters || false,
+                            });
+                            setShowBranchForm(true);
+                          }}
+                          className="text-primary hover:underline text-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteBranch(branch._id, branch.name)}
+                          className="text-error hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Branch Form Modal */}
+          {showBranchForm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{editingBranch ? 'Edit' : 'Add'} Branch</h3>
+                  <button onClick={() => setShowBranchForm(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={branchForm.name}
+                      onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={branchForm.location}
+                      onChange={(e) => setBranchForm({ ...branchForm, location: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={branchForm.isHeadquarters}
+                      onChange={(e) => setBranchForm({ ...branchForm, isHeadquarters: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <label className="text-sm text-foreground">Set as Headquarters</label>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setShowBranchForm(false)}
+                    className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-background"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveBranch}
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                  >
+                    {editingBranch ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Departments Tab */}
+      {activeTab === 'departments' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Departments</h2>
+            <button
+              onClick={() => {
+                setShowDeptForm(true);
+                setEditingDept(null);
+                setDeptForm({ name: '', branchId: '' });
+                // Fetch branches if not already loaded
+                if (branches.length === 0) fetchBranches();
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" /> Add Department
+            </button>
+          </div>
+
+          {departmentsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : departments.length === 0 ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <Network className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No departments yet</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/30 border-b border-border">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Name</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Branch</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departments.map((dept) => (
+                    <tr key={dept._id} className="border-b border-border last:border-0 hover:bg-muted/10">
+                      <td className="px-4 py-3 text-sm text-foreground">{dept.name}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {dept.branchId?.name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingDept(dept);
+                            setDeptForm({
+                              name: dept.name,
+                              branchId: dept.branchId?._id || '',
+                            });
+                            setShowDeptForm(true);
+                          }}
+                          className="text-primary hover:underline text-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteDepartment(dept._id, dept.name)}
+                          className="text-error hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Department Form Modal */}
+          {showDeptForm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{editingDept ? 'Edit' : 'Add'} Department</h3>
+                  <button onClick={() => setShowDeptForm(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={deptForm.name}
+                      onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Branch *</label>
+                    <select
+                      value={deptForm.branchId}
+                      onChange={(e) => setDeptForm({ ...deptForm, branchId: e.target.value })}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Select branch</option>
+                      {branches.map((b) => (
+                        <option key={b._id} value={b._id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setShowDeptForm(false)}
+                    className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-background"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveDepartment}
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                  >
+                    {editingDept ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Members Tab */}
+      {activeTab === 'members' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Members</h2>
+          </div>
+
+          {membersLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : members.length === 0 ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No members yet</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/30 border-b border-border">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Name</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Email</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Phone</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Branch</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.map((member) => (
+                    <tr key={member._id} className="border-b border-border last:border-0 hover:bg-muted/10">
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        {member.firstName} {member.lastName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{member.email || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{member.phone || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {member.branchId?.name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => deleteMember(member._id, `${member.firstName} ${member.lastName}`)}
+                          className="text-error hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

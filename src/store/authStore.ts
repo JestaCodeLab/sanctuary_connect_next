@@ -83,7 +83,15 @@ export const useAuthStore = create<AuthState>()(
 
       checkTokenExpiration: () => {
         const state = useAuthStore.getState();
-        if (!state.token) return false; // No token means not logged in, not necessarily expired
+        
+        // If no token or not authenticated, ensure clean state
+        if (!state.token || !state.isAuthenticated) {
+          if (state.isAuthenticated) {
+            // Inconsistent state - user is marked as authenticated but no token
+            state.logout();
+          }
+          return false; // Not expired, just not logged in
+        }
         
         const expired = isTokenExpired(state.token);
         if (expired) {
@@ -109,9 +117,17 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         // Set loading to false after rehydration
         if (state) {
-          state.setLoading(false);
-          // Check token expiration on rehydration
-          if (state.token) {
+          // Check if token exists in both store and localStorage
+          const localToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+          
+          // If store has token but localStorage doesn't (manually cleared), logout
+          if (state.token && !localToken) {
+            state.logout();
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('sessionExpired', 'true');
+            }
+          } else if (state.token) {
+            // Check token expiration on rehydration
             const expired = isTokenExpired(state.token);
             if (expired) {
               state.logout();
@@ -123,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
               localStorage.setItem('token', state.token);
             }
           }
+          state.setLoading(false);
         }
       },
     }

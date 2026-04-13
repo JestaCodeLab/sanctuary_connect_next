@@ -15,18 +15,12 @@ import {
   Menu,
   X,
   Shield,
-  GitBranch,
-  Network,
-  Users,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 const navLinks = [
   { label: 'Dashboard', href: '/superadmin/dashboard', icon: LayoutDashboard },
   { label: 'Organizations', href: '/superadmin/organizations', icon: Building2 },
-  { label: 'Branches', href: '/superadmin/branches', icon: GitBranch },
-  { label: 'Departments', href: '/superadmin/departments', icon: Network },
-  { label: 'Members', href: '/superadmin/members', icon: Users },
   { label: 'Subscriptions', href: '/superadmin/subscriptions', icon: CreditCard },
   { label: 'SMS Credits', href: '/superadmin/sms-credits', icon: MessageSquare },
   { label: 'SMS Packages', href: '/superadmin/sms-packages', icon: Package },
