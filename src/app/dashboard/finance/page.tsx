@@ -10,6 +10,7 @@ import { Card, Button } from '@/components/ui';
 import { financeApi } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import FinanceChart from '@/components/dashboard/FinanceChart';
+import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 
 const methodLabels: Record<string, string> = {
   cash: 'Cash',
@@ -34,7 +35,7 @@ const quickLinks = [
   { label: 'Reports', description: 'Generate financial reports', href: '/dashboard/finance/reports', icon: Wallet },
 ];
 
-export default function FinanceOverviewPage() {
+function FinanceOverviewContent() {
   const [viewMode, setViewMode] = useState<'all' | 'monthly' | 'ytd'>('all');
   const { formatCurrency } = useCurrency();
 
@@ -147,5 +148,13 @@ export default function FinanceOverviewPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function FinanceOverviewPage() {
+  return (
+    <FinanceAccessGuard setupPath="/finance/setup">
+      <FinanceOverviewContent />
+    </FinanceAccessGuard>
   );
 }

@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Users, Building2, Shield, Check } from 'lucide-react';
+import { Users, Building2, Shield, Check, Mail, Clock, X, UserPlus } from 'lucide-react';
 
 import { PageHeader, Badge, Modal } from '@/components/dashboard';
-import { Button, Card } from '@/components/ui';
-import { userBranchApi, organizationApi } from '@/lib/api';
+import { Button, Card, Input } from '@/components/ui';
+import { userBranchApi, organizationApi, invitationApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import type { UserWithBranches, Branch } from '@/types';
+import type { UserWithBranches, Branch, Invitation } from '@/types';
 
 const roleBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'muted'> = {
   admin: 'info',
@@ -18,11 +18,18 @@ const roleBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'muted'>
   member: 'muted',
 };
 
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+
+  // Branch assignment state
   const [editTarget, setEditTarget] = useState<UserWithBranches | null>(null);
   const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string>>(new Set());
+
+  // Invite state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
 
   const { data: orgData } = useQuery({
     queryKey: ['organization'],
@@ -32,11 +39,20 @@ export default function UsersPage() {
   const orgId = orgData?.organization?._id;
   const allBranches: Branch[] = orgData?.branches ?? [];
 
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['org-users', orgId],
     queryFn: () => userBranchApi.getOrgUsers(orgId!),
     enabled: !!orgId,
   });
+
+  const { data: invitationsData, isLoading: invitationsLoading } = useQuery({
+    queryKey: ['invitations'],
+    queryFn: () => invitationApi.list(),
+  });
+
+  const pendingInvitations = (invitationsData?.invitations ?? []).filter(
+    (inv: Invitation) => inv.status === 'pending'
+  );
 
   const assignMutation = useMutation({
     mutationFn: ({ userId, branchIds }: { userId: string; branchIds: string[] }) =>
@@ -51,6 +67,30 @@ export default function UsersPage() {
     },
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => invitationApi.send(email),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      toast.success('Invitation sent');
+      setInviteModalOpen(false);
+      setInviteEmail('');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to send invitation');
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (id: string) => invitationApi.revoke(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      toast.success('Invitation revoked');
+    },
+    onError: () => {
+      toast.error('Failed to revoke invitation');
+    },
+  });
+
   const handleOpenEdit = (u: UserWithBranches) => {
     setEditTarget(u);
     setSelectedBranchIds(new Set(u.branches.map(b => b._id)));
@@ -59,33 +99,33 @@ export default function UsersPage() {
   const handleToggleBranch = (branchId: string) => {
     setSelectedBranchIds(prev => {
       const next = new Set(prev);
-      if (next.has(branchId)) {
-        next.delete(branchId);
-      } else {
-        next.add(branchId);
-      }
+      if (next.has(branchId)) next.delete(branchId);
+      else next.add(branchId);
       return next;
     });
   };
 
   const handleSave = () => {
     if (!editTarget) return;
-    assignMutation.mutate({
-      userId: editTarget._id,
-      branchIds: Array.from(selectedBranchIds),
-    });
+    assignMutation.mutate({ userId: editTarget._id, branchIds: Array.from(selectedBranchIds) });
   };
 
-  // Only admin can access
+  const handleSendInvite = (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = inviteEmail.trim();
+    if (!email) return;
+    inviteMutation.mutate(email);
+  };
+
   if (user?.role !== 'admin') {
     return (
       <div>
-        <PageHeader title="Users & Branches" description="Manage user branch assignments" />
+        <PageHeader title="Team & Users" description="Manage team members and branch assignments" />
         <Card padding="lg">
           <div className="text-center py-8">
             <Shield className="w-12 h-12 text-muted mx-auto mb-3" />
             <p className="text-foreground font-medium">Admin access required</p>
-            <p className="text-sm text-muted mt-1">Only administrators can manage user assignments.</p>
+            <p className="text-sm text-muted mt-1">Only administrators can manage users.</p>
           </div>
         </Card>
       </div>
@@ -93,19 +133,70 @@ export default function UsersPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Users & Branches"
-        description="Manage which branches each user can access"
+        title="Team & Users"
+        description="Invite admins and manage branch access for your team"
+        actionLabel="Invite Admin"
+        actionIcon={UserPlus}
+        onAction={() => setInviteModalOpen(true)}
       />
 
+      {/* Pending Invitations */}
+      {(invitationsLoading || pendingInvitations.length > 0) && (
+        <Card padding="none">
+          <div className="p-6 border-b border-border">
+            <h2 className="text-lg font-semibold text-foreground">Pending Invitations</h2>
+            <p className="text-sm text-muted mt-1">Invitations awaiting acceptance</p>
+          </div>
+
+          {invitationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {pendingInvitations.map((inv: Invitation) => (
+                <div key={inv._id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{inv.email}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Clock className="w-3 h-3 text-muted" />
+                        <p className="text-xs text-muted">
+                          Sent {new Date(inv.createdAt).toLocaleDateString()} · Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                          {inv.invitedBy && ` · by ${inv.invitedBy.firstName} ${inv.invitedBy.lastName}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => revokeMutation.mutate(inv._id)}
+                    disabled={revokeMutation.isPending}
+                    className="flex items-center gap-1.5 text-xs text-muted hover:text-red-500 transition-colors disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Revoke
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Organization Users */}
       <Card padding="none">
         <div className="p-6 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">Organization Users</h2>
           <p className="text-sm text-muted mt-1">Assign users to branches to control their data access</p>
         </div>
 
-        {isLoading ? (
+        {usersLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
@@ -113,7 +204,7 @@ export default function UsersPage() {
           <div className="text-center py-12">
             <Users className="w-12 h-12 text-muted mx-auto mb-3" />
             <p className="text-foreground font-medium">No users found</p>
-            <p className="text-sm text-muted mt-1">Users will appear here once they register and join your organization.</p>
+            <p className="text-sm text-muted mt-1">Invite an admin above to get started.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -179,6 +270,36 @@ export default function UsersPage() {
         )}
       </Card>
 
+      {/* Invite Admin Modal */}
+      <Modal
+        isOpen={inviteModalOpen}
+        onClose={() => { setInviteModalOpen(false); setInviteEmail(''); }}
+        title="Invite Admin"
+        description="They'll receive an email to set up their account with admin access."
+        size="sm"
+      >
+        <form onSubmit={handleSendInvite}>
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-foreground mb-1">Email address</label>
+            <Input
+              type="email"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              placeholder="admin@example.com"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" type="button" onClick={() => { setInviteModalOpen(false); setInviteEmail(''); }}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={inviteMutation.isPending} disabled={!inviteEmail.trim()}>
+              Send Invitation
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Edit Branches Modal */}
       <Modal
         isOpen={editTarget !== null}
@@ -198,9 +319,7 @@ export default function UsersPage() {
                     type="button"
                     onClick={() => handleToggleBranch(branch._id)}
                     className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors text-left ${
-                      isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-background'
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border hover:bg-background'
                     }`}
                   >
                     <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
@@ -210,24 +329,15 @@ export default function UsersPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-foreground">{branch.name}</p>
-                      {branch.isHeadOffice && (
-                        <p className="text-xs text-muted">Head Office</p>
-                      )}
+                      {branch.isHeadOffice && <p className="text-xs text-muted">Head Office</p>}
                     </div>
                   </button>
                 );
               })}
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <Button variant="outline" onClick={() => setEditTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                isLoading={assignMutation.isPending}
-              >
-                Save Assignments
-              </Button>
+              <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button onClick={handleSave} isLoading={assignMutation.isPending}>Save Assignments</Button>
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ import { Button, Input, Card } from '@/components/ui';
 import { financeApi } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import FeatureGate from '@/components/dashboard/FeatureGate';
+import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -311,8 +312,10 @@ function ReportsContent() {
 
 export default function ReportsPage() {
   return (
-    <FeatureGate featureKey="advanced_financial_reporting" featureName="Financial Reports">
-      <ReportsContent />
-    </FeatureGate>
+    <FinanceAccessGuard setupPath="/finance/setup">
+      <FeatureGate featureKey="advanced_financial_reporting" featureName="Financial Reports">
+        <ReportsContent />
+      </FeatureGate>
+    </FinanceAccessGuard>
   );
 }

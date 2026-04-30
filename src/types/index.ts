@@ -766,3 +766,14 @@ export interface AvailableMembersResponse {
   count: number;
 }
 
+export interface Invitation {
+  _id: string;
+  email: string;
+  role: 'admin';
+  status: 'pending' | 'accepted' | 'revoked';
+  expiresAt: string;
+  invitedBy: { _id: string; firstName: string; lastName: string; email: string } | null;
+  createdAt: string;
+}
+
+

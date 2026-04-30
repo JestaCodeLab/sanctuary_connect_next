@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/button';
 import { PageHeader, EmptyState } from '@/components/dashboard';
 import { Card } from '@/components/ui';
 import { Mail, Plus, Trash2, Edit2, Copy, Loader2 } from 'lucide-react';

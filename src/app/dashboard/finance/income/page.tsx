@@ -14,6 +14,7 @@ import { donationsApi, organizationApi, membersApi } from '@/lib/api';
 import { donationSchema, type DonationFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import BranchField from '@/components/dashboard/BranchField';
+import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 import type { Donation } from '@/types';
 
 const donationTypeOptions = [
@@ -98,7 +99,7 @@ function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsRec
   );
 }
 
-export default function IncomePage() {
+function IncomePageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -486,5 +487,13 @@ export default function IncomePage() {
         )}
       </Modal>
     </div>
+  );
+}
+
+export default function IncomePage() {
+  return (
+    <FinanceAccessGuard setupPath="/finance/setup">
+      <IncomePageContent />
+    </FinanceAccessGuard>
   );
 }

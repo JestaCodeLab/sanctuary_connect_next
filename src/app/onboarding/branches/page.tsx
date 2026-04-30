@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { MapPin, Plus, ArrowLeft, ArrowRight, Lightbulb, Building2, Outdent, X, Check } from 'lucide-react';
 import { Button, Input, Card, ProgressBar } from '@/components/ui';
-import { MapWithGeofence } from '@/components/ui/MapWithGeofence';
+import { MapWithGeofence } from '@/components/ui/mapWithGeofence';
 import { branchSchema, BranchFormData } from '@/lib/validations';
 import { organizationApi, subscriptionApi } from '@/lib/api';
 import { useOnboardingStore } from '@/store/onboardingStore';

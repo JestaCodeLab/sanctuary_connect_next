@@ -13,6 +13,7 @@ import { expensesApi } from '@/lib/api';
 import { expenseSchema, type ExpenseFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import BranchField from '@/components/dashboard/BranchField';
+import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 import type { Expense } from '@/types';
 
 const categoryOptions = [
@@ -51,7 +52,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-export default function ExpensesPage() {
+function ExpensesPageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<Expense | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -354,5 +355,13 @@ export default function ExpensesPage() {
         )}
       </Modal>
     </div>
+  );
+}
+
+export default function ExpensesPage() {
+  return (
+    <FinanceAccessGuard setupPath="/finance/setup">
+      <ExpensesPageContent />
+    </FinanceAccessGuard>
   );
 }

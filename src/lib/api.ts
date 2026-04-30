@@ -54,6 +54,7 @@ import type {
   SmsAnalytics,
   SmsCostCalculation,
   AvailableMembersResponse,
+  Invitation,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -1104,6 +1105,29 @@ export const settingsApi = {
     birthdayMessageTemplate: string;
   }> => {
     const response = await api.post('/api/settings/birthday/reset');
+    return response.data;
+  },
+};
+
+export const invitationApi = {
+  send: async (email: string): Promise<{ message: string; invitation: Invitation }> => {
+    const response = await api.post('/api/invitations', { email });
+    return response.data;
+  },
+  list: async (): Promise<{ invitations: Invitation[] }> => {
+    const response = await api.get('/api/invitations');
+    return response.data;
+  },
+  revoke: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/api/invitations/${id}`);
+    return response.data;
+  },
+  getByToken: async (token: string): Promise<{ invitation: { email: string; organizationName: string; expiresAt: string } }> => {
+    const response = await api.get(`/api/invitations/token/${token}`);
+    return response.data;
+  },
+  accept: async (token: string, data: { firstName: string; lastName: string; password: string }): Promise<{ message: string; user: any; token: string }> => {
+    const response = await api.post(`/api/invitations/token/${token}`, data);
     return response.data;
   },
 };

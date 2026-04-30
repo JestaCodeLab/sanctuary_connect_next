@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import NotificationBell from '@/components/ui/NotificationBell';
+import NotificationBell from '@/components/ui/notificationBell';
 import {
   LayoutDashboard,
   Users,

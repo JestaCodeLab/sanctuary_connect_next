@@ -1,11 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { X } from 'lucide-react';
 
 interface DialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }
 
@@ -22,30 +22,41 @@ interface DialogTitleProps {
   children: ReactNode;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
-  if (!open) return null;
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-40"
-        onClick={() => onOpenChange(false)}
-      />
-      {/* Dialog */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {children}
-      </div>
-    </>
-  );
+interface DialogDescriptionProps {
+  children: ReactNode;
 }
 
-export function DialogContent({ children, className = '' }: DialogContentProps) {
+interface DialogTriggerProps {
+  children: ReactNode;
+  asChild?: boolean;
+  onClick?: () => void;
+}
+
+interface DialogCloseProps {
+  children: ReactNode;
+  onClick?: () => void;
+}
+
+export function DialogTrigger({ children, asChild, onClick }: DialogTriggerProps) {
   return (
-    <div className={`bg-background rounded-lg shadow-lg z-50 ${className}`}>
+    <div onClick={onClick}>
       {children}
     </div>
   );
+}
+
+export function DialogClose({ children, onClick }: DialogCloseProps) {
+  if (!children) {
+    return (
+      <button
+        onClick={onClick}
+        className="absolute right-4 top-4 p-1 hover:bg-muted rounded-md transition-colors"
+      >
+        <X className="w-5 h-5 text-muted-foreground" />
+      </button>
+    );
+  }
+  return <div>{children}</div>;
 }
 
 export function DialogHeader({ children }: DialogHeaderProps) {
@@ -64,13 +75,41 @@ export function DialogTitle({ children }: DialogTitleProps) {
   );
 }
 
-export function DialogClose({ onClick }: { onClick: () => void }) {
+export function DialogDescription({ children }: DialogDescriptionProps) {
+  return <p className="text-sm text-muted-foreground">{children}</p>;
+}
+
+export function Dialog({ open: initialOpen, onOpenChange, children }: DialogProps) {
+  const [internalOpen, setInternalOpen] = useState(initialOpen ?? false);
+  const open = initialOpen !== undefined ? initialOpen : internalOpen;
+  
+  const handleOpenChange = (newOpen: boolean) => {
+    setInternalOpen(newOpen);
+    onOpenChange?.(newOpen);
+  };
+
+  if (!open) return null;
+
   return (
-    <button
-      onClick={onClick}
-      className="absolute right-4 top-4 p-1 hover:bg-muted rounded-md transition-colors"
-    >
-      <X className="w-5 h-5 text-muted-foreground" />
-    </button>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-40"
+        onClick={() => handleOpenChange(false)}
+      />
+      {/* Dialog */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {children}
+      </div>
+    </>
   );
 }
+
+export function DialogContent({ children, className = '' }: DialogContentProps) {
+  return (
+    <div className={`bg-background rounded-lg shadow-lg z-50 ${className}`}>
+      {children}
+    </div>
+  );
+}
+

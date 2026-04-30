@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { smsApi } from '@/lib/api';
 import { SmsAnalytics as SmsAnalyticsType } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 export default function SmsAnalytics() {

@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/button';
 import { AlertCircle, LogOut } from 'lucide-react';
 
 interface SessionWarningModalProps {

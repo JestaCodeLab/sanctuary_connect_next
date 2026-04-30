@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { smsApi } from '@/lib/api';
 import { SmsLog } from '@/types';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/button';
 import { Loader2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
