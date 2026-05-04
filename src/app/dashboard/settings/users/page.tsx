@@ -137,10 +137,11 @@ export default function UsersPage() {
       <PageHeader
         title="Team & Users"
         description="Invite admins and manage branch access for your team"
-        actionLabel="Invite Admin"
+        actionLabel="Invite Admin" 
         actionIcon={UserPlus}
         onAction={() => setInviteModalOpen(true)}
       />
+
 
       {/* Pending Invitations */}
       {(invitationsLoading || pendingInvitations.length > 0) && (
