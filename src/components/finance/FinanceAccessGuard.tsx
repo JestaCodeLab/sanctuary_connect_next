@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Button,
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui';
 import { AlertCircle, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
