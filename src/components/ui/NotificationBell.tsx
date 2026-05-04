@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useNotificationStore } from '@/store/notificationStore';
-import NotificationPanel from './notificationPanel';
+import NotificationPanel from './NotificationPanel';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
