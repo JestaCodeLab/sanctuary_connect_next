@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePaystackPayment } from 'react-paystack';
-import Button from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { Modal, PageHeader } from '@/components/dashboard';
 import { Card } from '@/components/ui';

@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { smsApi, membersApi, departmentsApi } from '@/lib/api';
 import { Member, Department, SmsCostCalculation } from '@/types';
-import Button from '@/components/ui/button';
-import Input from '@/components/ui/input';
+import { Button, Input } from '@/components/ui';
 import { Loader2, AlertCircle, X } from 'lucide-react';
 
 interface SendSmsDialogProps {

@@ -1,18 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  Label,
   SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+  Alert,
+  AlertDescription,
+} from '@/components/ui';
 import { Loader2, AlertCircle, CheckCircle, Upload } from 'lucide-react';
 
 type FormStep = 'basic' | 'owner' | 'bank' | 'review';
