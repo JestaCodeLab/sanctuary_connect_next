@@ -16,7 +16,7 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: qrData, isLoading } = useQuery({
+  const { data: qrData, isLoading, isError, error } = useQuery({
     queryKey: ['qr-code', eventId],
     queryFn: () => eventsApi.getQRCode(eventId),
     enabled: isOpen,
@@ -29,8 +29,9 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
       queryClient.invalidateQueries({ queryKey: ['qr-code', eventId] });
       toast.success('QR code generated successfully');
     },
-    onError: () => {
-      toast.error('Failed to generate QR code');
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || 'Failed to generate QR code';
+      toast.error(msg);
     },
   });
 
@@ -93,6 +94,20 @@ export default function QRCodeDisplay({ eventId, eventTitle }: QRCodeDisplayProp
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+            </div>
+          ) : isError ? (
+            <div className="text-center py-8">
+              <p className="text-error font-medium mb-2">Unable to load QR code</p>
+              <p className="text-sm text-muted mb-4">
+                {(error as any)?.response?.data?.error || 'Failed to load QR code'}
+              </p>
+              <Button
+                leftIcon={<RefreshCw className="w-4 h-4" />}
+                onClick={handleGenerate}
+                isLoading={generateMutation.isPending}
+              >
+                Regenerate QR Code
+              </Button>
             </div>
           ) : qrData ? (
             <>

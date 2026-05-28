@@ -1,8 +1,8 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { CheckCircle, XCircle, User, Mail, Phone, Calendar, MapPin, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Phone, Calendar, MapPin, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input } from '@/components/ui';
 import axios from 'axios';
@@ -11,12 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function PublicCheckInPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
-  const [checkInType, setCheckInType] = useState<'member' | 'guest'>('guest');
-  const [guestInfo, setGuestInfo] = useState({
-    name: '',
-    email: '',
-    phone: '',
-  });
+  const [phone, setPhone] = useState('');
   const [checkInSuccess, setCheckInSuccess] = useState(false);
   const [checkInResult, setCheckInResult] = useState<any>(null);
 
@@ -33,7 +28,6 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
   // Check-in mutation
   const checkInMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('Making API call with data:', data);
       const response = await axios.post(`${API_URL}/api/attendance/check-in/qr`, data);
       return response.data;
     },
@@ -43,10 +37,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       toast.success('Check-in successful!');
     },
     onError: (error: any) => {
-      console.error('Check-in error:', error.response?.data || error.message);
       const message = error.response?.data?.error || 'Check-in failed';
-      
-      // Show more helpful messages based on error type
       if (message.includes('token') || message.includes('QR')) {
         toast.error('Invalid or expired check-in code. Please ask the event organizer for a new QR code.');
       } else if (message.includes('Already checked in')) {
@@ -58,7 +49,6 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
   });
 
   const handleCheckIn = () => {
-    // Check if event has started
     if (eventData.startDate && new Date(eventData.startDate) > new Date()) {
       toast.error('Check-in is not yet available. This event starts on ' + new Date(eventData.startDate).toLocaleDateString('en-US', {
         month: 'long',
@@ -70,24 +60,12 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       return;
     }
 
-    if (checkInType === 'guest') {
-      if (!guestInfo.name || !guestInfo.phone) {
-        toast.error('Name and phone number are required');
-        return;
-      }
+    if (!phone.trim()) {
+      toast.error('Phone number is required');
+      return;
     }
 
-    // Always include the token
-    const data: any = { token };
-
-    if (checkInType === 'guest') {
-      data.name = guestInfo.name;
-      data.email = guestInfo.email;
-      data.phone = guestInfo.phone;
-    }
-
-    console.log('Check-in data being sent:', data); // Debug log
-    checkInMutation.mutate(data);
+    checkInMutation.mutate({ token, phone: phone.trim() });
   };
 
   if (eventLoading) {
@@ -118,6 +96,17 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     );
   }
 
+  // Resolve the display name from check-in result
+  const resolvedName = checkInResult?.memberId
+    ? `${checkInResult.memberId.firstName} ${checkInResult.memberId.lastName}`
+    : checkInResult?.userId
+    ? `${checkInResult.userId.firstName} ${checkInResult.userId.lastName}`
+    : null;
+
+  const resolvedPhone = checkInResult?.memberId?.phone
+    || checkInResult?.phone
+    || phone;
+
   if (checkInSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center p-4">
@@ -128,30 +117,16 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             <p className="text-muted mb-6">
               You have successfully checked in to {eventData.title}
             </p>
-            {checkInResult?.memberId && (
-              <div className="mb-4 px-3 py-2 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
-                  Welcome back, {checkInResult.memberId.firstName}!
-                </p>
-              </div>
-            )}
-            {!checkInResult?.memberId && !checkInResult?.userId && (
-              <div className="mb-4 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
-                  Checked in as guest
-                </p>
-              </div>
-            )}
             <div className="bg-muted/20 rounded-lg p-4 text-left space-y-2 text-sm">
+              {resolvedName && (
+                <p>
+                  <span className="font-medium text-foreground">Name:</span>{' '}
+                  <span className="text-muted">{resolvedName}</span>
+                </p>
+              )}
               <p>
-                <span className="font-medium text-foreground">Name:</span>{' '}
-                <span className="text-muted">
-                  {checkInResult?.memberId
-                    ? `${checkInResult.memberId.firstName} ${checkInResult.memberId.lastName}`
-                    : checkInResult?.userId
-                    ? `${checkInResult.userId.firstName} ${checkInResult.userId.lastName}`
-                    : checkInResult?.name}
-                </span>
+                <span className="font-medium text-foreground">Phone:</span>{' '}
+                <span className="text-muted">{resolvedPhone}</span>
               </p>
               <p>
                 <span className="font-medium text-foreground">Time:</span>{' '}
@@ -166,6 +141,8 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     );
   }
 
+  const eventNotStarted = eventData.startDate && new Date(eventData.startDate) > new Date();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -178,8 +155,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             )}
           </div>
 
-          {/* Event Not Started Notice */}
-          {eventData.startDate && new Date(eventData.startDate) > new Date() && (
+          {eventNotStarted && (
             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
               <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center">
                 ⚠️ Check-in is not yet available. This event starts on {new Date(eventData.startDate).toLocaleDateString('en-US', {
@@ -238,55 +214,29 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
         {/* Check-In Form */}
         <Card padding="lg">
           <h2 className="text-lg font-semibold text-foreground mb-4">Check In</h2>
-          
-          {/* Guest Information */}
-          <div className="space-y-4">
-            <Input
-              label="Full Name"
-              placeholder="Enter your name"
-              value={guestInfo.name}
-              onChange={(e) => setGuestInfo({ ...guestInfo, name: e.target.value })}
-              leftIcon={<User className="w-4 h-4" />}
-              required
-            />
-            <Input
-              label="Phone Number"
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              value={guestInfo.phone}
-              onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
-              leftIcon={<Phone className="w-4 h-4" />}
-              required
-            />
-            <Input
-              label="Email (Optional)"
-              type="email"
-              placeholder="your@email.com"
-              value={guestInfo.email}
-              onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
-              leftIcon={<Mail className="w-4 h-4" />}
-            />
-          </div>
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="Enter your phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            leftIcon={<Phone className="w-4 h-4" />}
+            onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
+          />
 
           <Button
             className="w-full mt-6"
             size="lg"
             onClick={handleCheckIn}
-            disabled={
-              checkInMutation.isPending ||
-              !guestInfo.name ||
-              !guestInfo.phone ||
-              (eventData.startDate && new Date(eventData.startDate) > new Date())
-            }
+            disabled={checkInMutation.isPending || !phone.trim() || eventNotStarted}
           >
-            {checkInMutation.isPending ? 'Checking In...' : 
-             (eventData.startDate && new Date(eventData.startDate) > new Date()) ? 'Event Not Started' : 'Check In'}
+            {checkInMutation.isPending ? 'Checking In...' :
+             eventNotStarted ? 'Event Not Started' : 'Check In'}
           </Button>
         </Card>
 
-        {/* Privacy Notice */}
         <p className="text-xs text-center text-muted">
-          Your information will only be used for attendance tracking and event communications.
+          Your information will only be used for attendance tracking.
         </p>
       </div>
     </div>

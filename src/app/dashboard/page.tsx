@@ -97,8 +97,8 @@ export default function DashboardPage() {
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   }).length;
 
-  const upcomingEvents = events.filter((e: ChurchEvent) => e.status === 'scheduled').length;
   const ongoingEvents = events.filter((e: ChurchEvent) => e.status === 'ongoing').length;
+  const upcomingEvents = events.filter((e: ChurchEvent) => e.status === 'scheduled').length;
   
   const monthlyDonations = donations
     .filter((d: Donation) => {
@@ -189,12 +189,9 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 6);
 
-  // Get next upcoming events
+  // Get next upcoming events — include ongoing (already started) and scheduled (future)
   const nextEvents = events
-    .filter((e: ChurchEvent) => {
-      const startDate = new Date(e.startDate);
-      return e.status === 'scheduled' && startDate > now;
-    })
+    .filter((e: ChurchEvent) => e.status === 'scheduled' || e.status === 'ongoing')
     .sort((a: ChurchEvent, b: ChurchEvent) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 3);
 
@@ -445,11 +442,14 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  {event.eventType && (
-                    <Badge variant="muted">
-                      {event.eventType}
-                    </Badge>
-                  )}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {event.status === 'ongoing' && (
+                      <Badge variant="success">Live</Badge>
+                    )}
+                    {event.eventType && (
+                      <Badge variant="muted">{event.eventType}</Badge>
+                    )}
+                  </div>
                 </div>
               ))
             )}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, AlertCircle, Users, CreditCard, MessageSquare,
   CheckCircle, Building2, Calendar, Network, Plus, Pencil, Trash2, X, GitBranch,
+  DollarSign, FileText, ExternalLink, Clock, XCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -65,7 +66,7 @@ export default function OrgDetailPage() {
   const [actionIsError, setActionIsError] = useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'overview' | 'branches' | 'departments' | 'members'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'branches' | 'departments' | 'members' | 'finance'>('overview');
 
   // Organization edit state
   const [showEditForm, setShowEditForm] = useState(false);
@@ -104,6 +105,17 @@ export default function OrgDetailPage() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
+
+  // Finance state
+  const [financeAccount, setFinanceAccount] = useState<any>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeActionLoading, setFinanceActionLoading] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [approveNotes, setApproveNotes] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [revokeReason, setRevokeReason] = useState('');
 
   const fetchData = () => {
     setLoading(true);
@@ -266,11 +278,69 @@ export default function OrgDetailPage() {
     }
   };
 
+  const fetchFinanceAccount = async () => {
+    setFinanceLoading(true);
+    try {
+      const res = await api.get(`/api/superadmin/organizations/${id}/finance-account`);
+      setFinanceAccount(res.data);
+    } catch {
+      showMessage('Failed to load finance account.', true);
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
+  const handleFinanceApprove = async () => {
+    setFinanceActionLoading(true);
+    try {
+      await api.post(`/api/superadmin/finance-accounts/${financeAccount._id}/approve`, { notes: approveNotes });
+      showMessage('Finance account approved successfully.');
+      setShowApproveDialog(false);
+      setApproveNotes('');
+      fetchFinanceAccount();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to approve finance account.', true);
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  };
+
+  const handleFinanceReject = async () => {
+    setFinanceActionLoading(true);
+    try {
+      await api.post(`/api/superadmin/finance-accounts/${financeAccount._id}/reject`, { rejectionReason: rejectReason });
+      showMessage('Finance account rejected.');
+      setShowRejectDialog(false);
+      setRejectReason('');
+      fetchFinanceAccount();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to reject finance account.', true);
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  };
+
+  const handleFinanceRevoke = async () => {
+    setFinanceActionLoading(true);
+    try {
+      await api.post(`/api/superadmin/finance-accounts/${financeAccount._id}/revoke`, { revokedReason: revokeReason });
+      showMessage('Finance account revoked.');
+      setShowRevokeDialog(false);
+      setRevokeReason('');
+      fetchFinanceAccount();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to revoke finance account.', true);
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  };
+
   // Fetch data when switching tabs
   useEffect(() => {
     if (activeTab === 'branches') fetchBranches();
     else if (activeTab === 'departments') fetchDepartments();
     else if (activeTab === 'members') fetchMembers();
+    else if (activeTab === 'finance') fetchFinanceAccount();
   }, [activeTab]);
 
   // Branch CRUD
@@ -453,6 +523,16 @@ export default function OrgDetailPage() {
             }`}
           >
             Members ({memberCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('finance')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'finance'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Finance
           </button>
         </nav>
       </div>
@@ -954,6 +1034,245 @@ export default function OrgDetailPage() {
                     className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
                   >
                     {editingDept ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Finance Tab */}
+      {activeTab === 'finance' && (
+        <div className="space-y-6">
+          {financeLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : !financeAccount || financeAccount.status === 'not_started' ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-foreground font-medium">No finance account submitted yet</p>
+              <p className="text-sm text-muted-foreground mt-1">The church has not completed KYC setup.</p>
+            </div>
+          ) : (
+            <>
+              {/* Status header */}
+              <div className="flex items-center justify-between bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-3">
+                  {financeAccount.status === 'pending' && <Clock className="w-5 h-5 text-yellow-500" />}
+                  {financeAccount.status === 'approved' && <CheckCircle className="w-5 h-5 text-green-500" />}
+                  {(financeAccount.status === 'rejected' || financeAccount.status === 'revoked') && <XCircle className="w-5 h-5 text-red-500" />}
+                  <div>
+                    <p className="text-sm font-semibold text-foreground capitalize">{financeAccount.status}</p>
+                    {financeAccount.submittedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Submitted {new Date(financeAccount.submittedAt).toLocaleDateString()}
+                        {financeAccount.submittedBy && ` by ${financeAccount.submittedBy.firstName} ${financeAccount.submittedBy.lastName}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {financeAccount.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => setShowRejectDialog(true)}
+                        className="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => setShowApproveDialog(true)}
+                        className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                    </>
+                  )}
+                  {financeAccount.status === 'approved' && (
+                    <button
+                      onClick={() => setShowRevokeDialog(true)}
+                      className="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Paystack Merchant ID (if approved) */}
+              {financeAccount.paystackMerchantId && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Paystack Subaccount Created</p>
+                    <p className="text-sm font-mono text-green-700">{financeAccount.paystackMerchantId}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Business Info */}
+                <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Business Information</h3>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Business Name</dt><dd>{financeAccount.businessName || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Business Type</dt><dd className="capitalize">{financeAccount.businessType?.replace('_', ' ') || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Registration No.</dt><dd>{financeAccount.businessRegistration || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Tax ID</dt><dd>{financeAccount.taxId || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Address</dt><dd className="text-right max-w-[200px]">{financeAccount.businessAddress || '—'}</dd></div>
+                  </dl>
+                  <div className="pt-2 space-y-1">
+                    {financeAccount.businessRegistrationDoc && (
+                      <a href={financeAccount.businessRegistrationDoc} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                        <FileText className="w-3.5 h-3.5" /> Registration Document <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {financeAccount.taxIdDoc && (
+                      <a href={financeAccount.taxIdDoc} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                        <FileText className="w-3.5 h-3.5" /> Tax ID Document <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Owner Info */}
+                <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Owner / Principal</h3>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Full Name</dt><dd>{financeAccount.ownerFullName || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Email</dt><dd className="truncate max-w-[200px]">{financeAccount.ownerEmail || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Phone</dt><dd>{financeAccount.ownerPhone || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">ID Type</dt><dd className="capitalize">{financeAccount.ownerIdType?.replace('_', ' ') || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">ID Number</dt><dd>{financeAccount.ownerIdNumber || '—'}</dd></div>
+                  </dl>
+                  {financeAccount.ownerIdDoc && (
+                    <a href={financeAccount.ownerIdDoc} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-primary hover:underline pt-2">
+                      <FileText className="w-3.5 h-3.5" /> ID Document <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+
+                {/* Bank Info */}
+                <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Bank Account</h3>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Bank Code</dt><dd>{financeAccount.bankCode || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Account Name</dt><dd>{financeAccount.bankAccountName || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Account Number</dt><dd>{financeAccount.bankAccountNumber || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Account Type</dt><dd className="capitalize">{financeAccount.accountType || '—'}</dd></div>
+                  </dl>
+                </div>
+
+                {/* Status History */}
+                {financeAccount.statusHistory?.length > 0 && (
+                  <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground">Status History</h3>
+                    <div className="space-y-2">
+                      {[...financeAccount.statusHistory].reverse().map((entry: any, i: number) => (
+                        <div key={i} className="text-xs border-l-2 border-border pl-3 py-1">
+                          <p className="font-medium text-foreground capitalize">{entry.status}</p>
+                          <p className="text-muted-foreground">
+                            {entry.changedBy ? `${entry.changedBy.firstName} ${entry.changedBy.lastName}` : 'System'}
+                            {entry.timestamp && ` · ${new Date(entry.timestamp).toLocaleDateString()}`}
+                          </p>
+                          {entry.notes && <p className="text-muted-foreground mt-0.5 italic">{entry.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Approve Dialog */}
+          {showApproveDialog && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Approve Finance Account</h3>
+                <p className="text-sm text-muted-foreground">This will unlock the finance module for this church and trigger Paystack subaccount creation.</p>
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1">Notes (optional)</label>
+                  <textarea
+                    value={approveNotes}
+                    onChange={(e) => setApproveNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Any notes for the approval..."
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowApproveDialog(false)}
+                    className="flex-1 px-3 py-2 rounded-lg border border-border text-sm hover:bg-background">
+                    Cancel
+                  </button>
+                  <button onClick={handleFinanceApprove} disabled={financeActionLoading}
+                    className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50">
+                    {financeActionLoading ? 'Approving...' : 'Approve'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reject Dialog */}
+          {showRejectDialog && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Reject Finance Account</h3>
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1">Rejection Reason <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="Explain why this submission is being rejected..."
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowRejectDialog(false)}
+                    className="flex-1 px-3 py-2 rounded-lg border border-border text-sm hover:bg-background">
+                    Cancel
+                  </button>
+                  <button onClick={handleFinanceReject} disabled={financeActionLoading || !rejectReason.trim()}
+                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50">
+                    {financeActionLoading ? 'Rejecting...' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Revoke Dialog */}
+          {showRevokeDialog && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Revoke Finance Account</h3>
+                <p className="text-sm text-muted-foreground">This will remove finance module access for this church.</p>
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1">Revocation Reason <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={revokeReason}
+                    onChange={(e) => setRevokeReason(e.target.value)}
+                    rows={3}
+                    placeholder="Explain why the account is being revoked..."
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowRevokeDialog(false)}
+                    className="flex-1 px-3 py-2 rounded-lg border border-border text-sm hover:bg-background">
+                    Cancel
+                  </button>
+                  <button onClick={handleFinanceRevoke} disabled={financeActionLoading || !revokeReason.trim()}
+                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50">
+                    {financeActionLoading ? 'Revoking...' : 'Revoke'}
                   </button>
                 </div>
               </div>

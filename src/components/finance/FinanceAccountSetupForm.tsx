@@ -19,6 +19,7 @@ import {
   AlertDescription,
 } from '@/components/ui';
 import { Loader2, AlertCircle, CheckCircle, Upload } from 'lucide-react';
+import { api } from '@/lib/api';
 
 type FormStep = 'basic' | 'owner' | 'bank' | 'review';
 
@@ -264,16 +265,9 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         submitData.append('ownerIdDoc', formData.ownerIdDoc);
       }
 
-      const response = await fetch('/api/finance/account/submit', {
-        method: 'POST',
-        body: submitData,
+      const { data: result } = await api.post('/api/finance/account/submit', submitData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit finance account');
-      }
 
       setSuccess(true);
       if (onSubmitSuccess) {
@@ -291,12 +285,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       <Card className="w-full max-w-2xl mx-auto">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
-            <CheckCircle className="w-16 h-16 text-green-600" />
-            <h3 className="text-lg font-semibold">Submission Successful!</h3>
-            <p className="text-gray-600">
-              Your merchant account details have been submitted for superadmin review. You will receive an email notification once your account is approved.
+            <CheckCircle className="w-16 h-16 text-success" />
+            <h3 className="text-lg font-semibold text-foreground">Submission Successful!</h3>
+            <p className="text-muted">
+              Your merchant account details have been submitted for review. You will be notified once your account is approved.
             </p>
-            <p className="text-sm text-gray-500">This typically takes 24-48 hours.</p>
+            <p className="text-sm text-muted">This typically takes 24-48 hours.</p>
           </div>
         </CardContent>
       </Card>
@@ -322,39 +316,31 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
           {/* Step Indicator */}
           <div className="flex justify-between mb-8">
-            {(['basic', 'owner', 'bank', 'review'] as FormStep[]).map((step, index) => (
-              <div
-                key={step}
-                className={`flex items-center ${index < 3 ? 'flex-1' : ''}`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                    currentStep === step
-                      ? 'bg-blue-600 text-white'
-                      : ['basic', 'owner', 'bank', 'review'].indexOf(step) < ['basic', 'owner', 'bank', 'review'].indexOf(currentStep)
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {index + 1}
+            {(['basic', 'owner', 'bank', 'review'] as FormStep[]).map((step, index) => {
+              const steps: FormStep[] = ['basic', 'owner', 'bank', 'review'];
+              const stepIndex = steps.indexOf(step);
+              const currentIndex = steps.indexOf(currentStep);
+              const isActive = currentStep === step;
+              const isComplete = stepIndex < currentIndex;
+              return (
+                <div key={step} className={`flex items-center ${index < 3 ? 'flex-1' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    isActive ? 'bg-primary text-white' : isComplete ? 'bg-success text-white' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  {index < 3 && (
+                    <div className={`flex-1 h-1 mx-2 rounded ${isComplete ? 'bg-success' : 'bg-border'}`} />
+                  )}
                 </div>
-                {index < 3 && (
-                  <div
-                    className={`flex-1 h-1 mx-2 ${
-                      ['basic', 'owner', 'bank', 'review'].indexOf(step) < ['basic', 'owner', 'bank', 'review'].indexOf(currentStep)
-                        ? 'bg-green-600'
-                        : 'bg-gray-200'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Step 1: Business Information */}
           {currentStep === 'basic' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Business Information</h3>
+              <h3 className="font-semibold text-lg text-foreground">Business Information</h3>
 
               <div>
                 <Label htmlFor="businessName">Business Name *</Label>
@@ -394,7 +380,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="businessRegistrationDoc">Business Registration Document *</Label>
-                <div className="border-2 border-dashed rounded-lg p-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
                   <Input
                     id="businessRegistrationDoc"
                     type="file"
@@ -402,12 +388,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                     onChange={(e) => handleFileChange('businessRegistrationDoc', e.target.files?.[0] || null)}
                     className="hidden"
                   />
-                  <label htmlFor="businessRegistrationDoc" className="flex flex-col items-center cursor-pointer">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <label htmlFor="businessRegistrationDoc" className="flex flex-col items-center cursor-pointer text-foreground">
+                    <Upload className="w-8 h-8 text-muted mb-2" />
                     <span className="text-sm">
                       {formData.businessRegistrationDoc?.name || 'Click to upload or drag and drop'}
                     </span>
-                    <span className="text-xs text-gray-500">PDF, JPG, PNG up to 5MB</span>
+                    <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
                   </label>
                 </div>
               </div>
@@ -434,7 +420,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="taxIdDoc">Tax ID Document *</Label>
-                <div className="border-2 border-dashed rounded-lg p-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
                   <Input
                     id="taxIdDoc"
                     type="file"
@@ -442,12 +428,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                     onChange={(e) => handleFileChange('taxIdDoc', e.target.files?.[0] || null)}
                     className="hidden"
                   />
-                  <label htmlFor="taxIdDoc" className="flex flex-col items-center cursor-pointer">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <label htmlFor="taxIdDoc" className="flex flex-col items-center cursor-pointer text-foreground">
+                    <Upload className="w-8 h-8 text-muted mb-2" />
                     <span className="text-sm">
                       {formData.taxIdDoc?.name || 'Click to upload or drag and drop'}
                     </span>
-                    <span className="text-xs text-gray-500">PDF, JPG, PNG up to 5MB</span>
+                    <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
                   </label>
                 </div>
               </div>
@@ -457,7 +443,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           {/* Step 2: Owner Information */}
           {currentStep === 'owner' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Owner/Principal Details</h3>
+              <h3 className="font-semibold text-lg text-foreground">Owner/Principal Details</h3>
 
               <div>
                 <Label htmlFor="ownerFullName">Full Name *</Label>
@@ -518,7 +504,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="ownerIdDoc">ID Document *</Label>
-                <div className="border-2 border-dashed rounded-lg p-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
                   <Input
                     id="ownerIdDoc"
                     type="file"
@@ -526,12 +512,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                     onChange={(e) => handleFileChange('ownerIdDoc', e.target.files?.[0] || null)}
                     className="hidden"
                   />
-                  <label htmlFor="ownerIdDoc" className="flex flex-col items-center cursor-pointer">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <label htmlFor="ownerIdDoc" className="flex flex-col items-center cursor-pointer text-foreground">
+                    <Upload className="w-8 h-8 text-muted mb-2" />
                     <span className="text-sm">
                       {formData.ownerIdDoc?.name || 'Click to upload or drag and drop'}
                     </span>
-                    <span className="text-xs text-gray-500">PDF, JPG, PNG up to 5MB</span>
+                    <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
                   </label>
                 </div>
               </div>
@@ -541,7 +527,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           {/* Step 3: Bank Information */}
           {currentStep === 'bank' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Bank Account Information</h3>
+              <h3 className="font-semibold text-lg text-foreground">Bank Account Information</h3>
 
               <div>
                 <Label htmlFor="bankCode">Bank *</Label>
@@ -598,33 +584,33 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           {/* Step 4: Review */}
           {currentStep === 'review' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Review Your Information</h3>
+              <h3 className="font-semibold text-lg text-foreground">Review Your Information</h3>
 
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="bg-background border border-border rounded-lg p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Business Name</p>
-                    <p className="font-semibold">{formData.businessName}</p>
+                    <p className="text-sm text-muted">Business Name</p>
+                    <p className="font-semibold text-foreground">{formData.businessName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Business Type</p>
-                    <p className="font-semibold capitalize">{formData.businessType}</p>
+                    <p className="text-sm text-muted">Business Type</p>
+                    <p className="font-semibold text-foreground capitalize">{formData.businessType}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Owner Name</p>
-                    <p className="font-semibold">{formData.ownerFullName}</p>
+                    <p className="text-sm text-muted">Owner Name</p>
+                    <p className="font-semibold text-foreground">{formData.ownerFullName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Owner Email</p>
-                    <p className="font-semibold">{formData.ownerEmail}</p>
+                    <p className="text-sm text-muted">Owner Email</p>
+                    <p className="font-semibold text-foreground">{formData.ownerEmail}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Bank Account</p>
-                    <p className="font-semibold">{formData.bankAccountNumber}</p>
+                    <p className="text-sm text-muted">Bank Account</p>
+                    <p className="font-semibold text-foreground">{formData.bankAccountNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Account Holder</p>
-                    <p className="font-semibold">{formData.bankAccountName}</p>
+                    <p className="text-sm text-muted">Account Holder</p>
+                    <p className="font-semibold text-foreground">{formData.bankAccountName}</p>
                   </div>
                 </div>
               </div>
@@ -640,7 +626,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between pt-6 border-t">
+          <div className="flex justify-between pt-6 border-t border-border">
             <Button
               type="button"
               variant="outline"
@@ -651,11 +637,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
             </Button>
 
             {currentStep === 'review' ? (
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -666,11 +648,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                 )}
               </Button>
             ) : (
-              <Button
-                type="button"
-                onClick={handleNext}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
+              <Button type="button" onClick={handleNext}>
                 Next
               </Button>
             )}

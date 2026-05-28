@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { AlertCircle, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 
 interface FinanceAccountStatus {
   status: 'not_started' | 'pending' | 'approved' | 'rejected' | 'revoked';
@@ -42,8 +43,7 @@ export function FinanceAccessGuard({
     const fetchStatus = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/finance/account/status');
-        const data = await response.json();
+        const { data } = await api.get('/api/finance/account/status');
         setStatus(data);
         setError(null);
       } catch (err) {
@@ -240,8 +240,7 @@ export function useFinanceAccountStatus() {
     const fetchStatus = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/finance/account/status');
-        const data = await response.json();
+        const { data } = await api.get('/api/finance/account/status');
         setStatus(data);
         setError(null);
       } catch (err) {

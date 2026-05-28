@@ -10,6 +10,7 @@ import {
   MessageSquare,
   ScrollText,
   Package,
+  DollarSign,
   LogOut,
   ChevronDown,
   Menu,
@@ -25,6 +26,7 @@ const navLinks = [
   { label: 'SMS Credits', href: '/superadmin/sms-credits', icon: MessageSquare },
   { label: 'SMS Packages', href: '/superadmin/sms-packages', icon: Package },
   { label: 'Audit Log', href: '/superadmin/audit-log', icon: ScrollText },
+  { label: 'Finance Approvals', href: '/superadmin/finance-approvals', icon: DollarSign },
 ];
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
