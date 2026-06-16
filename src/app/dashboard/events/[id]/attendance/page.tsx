@@ -32,6 +32,8 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const [isExporting, setIsExporting] = useState(false);
   const [selectedOccurrence, setSelectedOccurrence] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [viewTab, setViewTab] = useState<'checked-in' | 'absent'>('checked-in');
+  const [quickCheckInMemberId, setQuickCheckInMemberId] = useState<string | null>(null);
 
   const { data: event } = useQuery({
     queryKey: ['events', id],
@@ -59,11 +61,13 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     onSuccess: () => {
       toast.success('Check-in successful!');
       setGuestInfo({ name: '', email: '', phone: '' });
+      setQuickCheckInMemberId(null);
       refetch();
     },
     onError: (error: any) => {
       const message = error.response?.data?.error || 'Check-in failed';
       toast.error(message);
+      setQuickCheckInMemberId(null);
     },
   });
 
@@ -79,6 +83,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   });
 
   const handleMemberCheckIn = (member: Member) => {
+    setQuickCheckInMemberId(member._id);
     checkInMutation.mutate({
       eventId: id,
       memberId: member._id,
@@ -122,6 +127,17 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const records = attendanceData?.records || [];
   const stats = attendanceData?.stats || {};
 
+  // Compute absentees
+  const checkedInMemberIds = new Set(
+    records
+      .filter((r: any) => r.memberId)
+      .map((r: any) => r.memberId._id || r.memberId)
+  );
+
+  const absentees = members.filter(
+    (member) => !checkedInMemberIds.has(member._id)
+  );
+
   const statsData = [
     {
       label: 'Total Check-Ins',
@@ -139,9 +155,9 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       icon: UserCheck,
     },
     {
-      label: 'Guests',
-      value: stats.guests || 0,
-      icon: UserPlus,
+      label: 'Absent',
+      value: absentees.length,
+      icon: Users,
     },
   ];
 
@@ -204,95 +220,198 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       <StatsGrid stats={statsData} />
 
       <Card padding="lg">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Check-In Records</h2>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b border-border">
+          <button
+            onClick={() => setViewTab('checked-in')}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              viewTab === 'checked-in'
+                ? 'text-primary border-b-2 border-primary -mb-[2px]'
+                : 'text-muted hover:text-foreground'
+            }`}
+          >
+            Checked In ({records.length})
+          </button>
+          <button
+            onClick={() => setViewTab('absent')}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              viewTab === 'absent'
+                ? 'text-primary border-b-2 border-primary -mb-[2px]'
+                : 'text-muted hover:text-foreground'
+            }`}
+          >
+            Absent ({absentees.length})
+          </button>
+        </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : records.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-muted mx-auto mb-3" />
-            <p className="text-muted">No check-ins yet for this event</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-sm font-medium text-muted py-3 px-4">Name</th>
-                  <th className="text-left text-sm font-medium text-muted py-3 px-4">Type</th>
-                  <th className="text-left text-sm font-medium text-muted py-3 px-4">Method</th>
-                  <th className="text-left text-sm font-medium text-muted py-3 px-4">Check-In Time</th>
-                  <th className="text-left text-sm font-medium text-muted py-3 px-4">Contact</th>
-                  <th className="text-right text-sm font-medium text-muted py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((record: any) => {
-                  let name = 'Unknown';
-                  let type = 'Guest';
-                  let contact = '';
+        {viewTab === 'checked-in' && (
+          <>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Check-In Records</h2>
 
-                  if (record.memberId) {
-                    name = `${record.memberId.firstName} ${record.memberId.lastName}`;
-                    type = 'Member';
-                    contact = record.memberId.email || record.memberId.phone || '';
-                  } else if (record.userId) {
-                    name = `${record.userId.firstName} ${record.userId.lastName}`;
-                    type = 'User';
-                    contact = record.userId.email || '';
-                  } else if (record.name) {
-                    name = record.name;
-                    type = 'Guest';
-                    contact = record.email || record.phone || '';
-                  }
-
-                  return (
-                    <tr key={record._id} className="border-b border-border hover:bg-muted/20">
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-medium text-foreground">{name}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant={type === 'Member' ? 'success' : type === 'User' ? 'info' : 'muted'}>
-                          {type}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant={record.checkInMethod === 'qr' ? 'info' : 'muted'}>
-                          {record.checkInMethod === 'qr' ? (
-                            <span className="flex items-center gap-1">
-                              <QrCode className="w-3 h-3" />
-                              QR
-                            </span>
-                          ) : (
-                            'Manual'
-                          )}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-muted">{formatDateTime(record.checkInTime)}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-muted">{contact || '—'}</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="px-2 text-red-500 hover:text-red-700"
-                          onClick={() => setDeleteTarget(record._id)}
-                          title="Delete record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : records.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-muted mx-auto mb-3" />
+                <p className="text-muted">No check-ins yet for this event</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Name</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Type</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Method</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Check-In Time</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Contact</th>
+                      <th className="text-right text-sm font-medium text-muted py-3 px-4">Actions</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {records.map((record: any) => {
+                      let name = 'Unknown';
+                      let type = 'Guest';
+                      let contact = '';
+
+                      if (record.memberId) {
+                        name = `${record.memberId.firstName} ${record.memberId.lastName}`;
+                        type = 'Member';
+                        contact = record.memberId.email || record.memberId.phone || '';
+                      } else if (record.userId) {
+                        name = `${record.userId.firstName} ${record.userId.lastName}`;
+                        type = 'User';
+                        contact = record.userId.email || '';
+                      } else if (record.name) {
+                        name = record.name;
+                        type = 'Guest';
+                        contact = record.email || record.phone || '';
+                      }
+
+                      return (
+                        <tr key={record._id} className="border-b border-border hover:bg-muted/20">
+                          <td className="py-3 px-4">
+                            <span className="text-sm font-medium text-foreground">{name}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge variant={type === 'Member' ? 'success' : type === 'User' ? 'info' : 'muted'}>
+                              {type}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge variant={record.checkInMethod === 'qr' ? 'info' : 'muted'}>
+                              {record.checkInMethod === 'qr' ? (
+                                <span className="flex items-center gap-1">
+                                  <QrCode className="w-3 h-3" />
+                                  QR
+                                </span>
+                              ) : (
+                                'Manual'
+                              )}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm text-muted">{formatDateTime(record.checkInTime)}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm text-muted">{contact || '—'}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="px-2 text-red-500 hover:text-red-700"
+                              onClick={() => setDeleteTarget(record._id)}
+                              title="Delete record"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {viewTab === 'absent' && (
+          <>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Absent Members</h2>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : absentees.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <p className="text-foreground font-medium">All members checked in!</p>
+                <p className="text-muted text-sm mt-1">No absent members for this event</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Name</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Email</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Phone</th>
+                      <th className="text-left text-sm font-medium text-muted py-3 px-4">Member Status</th>
+                      <th className="text-right text-sm font-medium text-muted py-3 px-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {absentees.map((member: Member) => (
+                      <tr key={member._id} className="border-b border-border hover:bg-muted/20">
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-medium text-foreground">
+                            {member.firstName} {member.lastName}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-muted">{member.email || '—'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-muted">{member.phone || '—'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge
+                            variant={
+                              member.memberStatus === 'active'
+                                ? 'success'
+                                : member.memberStatus === 'inactive'
+                                ? 'error'
+                                : 'muted'
+                            }
+                          >
+                            {member.memberStatus || 'Unknown'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Button
+                            variant={quickCheckInMemberId === member._id ? 'primary' : 'outline'}
+                            size="sm"
+                            onClick={() => handleMemberCheckIn(member)}
+                            isLoading={
+                              checkInMutation.isPending && quickCheckInMemberId === member._id
+                            }
+                            leftIcon={<CheckCircle className="w-4 h-4" />}
+                          >
+                            {quickCheckInMemberId === member._id ? 'Checking In...' : 'Check In'}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </Card>
 

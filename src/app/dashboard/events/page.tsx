@@ -28,6 +28,93 @@ import type { ChurchEvent } from '@/types';
 
 type StatusFilter = 'all' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
 
+// Helper functions for recurring event occurrences
+function getCurrentOccurrenceForEvent(event: ChurchEvent, now: Date = new Date()) {
+  if (!event.isRecurring || !event.recurrencePattern) return null;
+
+  const anchorStart = new Date(event.startDate);
+  const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
+  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
+
+  let current = new Date(anchorStart);
+  if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
+    while (current.getDay() !== event.recurrenceDay) {
+      current.setDate(current.getDate() + 1);
+    }
+    current.setHours(anchorStart.getHours(), anchorStart.getMinutes(), anchorStart.getSeconds(), anchorStart.getMilliseconds());
+  }
+
+  const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
+
+  // Fast-forward to the time period around now
+  while (current < now) {
+    const occEnd = new Date(current.getTime() + duration);
+    if (occEnd >= now) {
+      break;
+    }
+    // Advance date
+    if (event.recurrencePattern === 'monthly') {
+      current.setMonth(current.getMonth() + 1);
+    } else {
+      current.setDate(current.getDate() + increment);
+    }
+  }
+
+  if (seriesEnd && current > seriesEnd) return null;
+
+  const occStart = new Date(current);
+  const occEnd = new Date(occStart.getTime() + duration);
+
+  // Check if we're within this occurrence's time window
+  if (now >= occStart && now <= occEnd) {
+    return { startDate: occStart, endDate: occEnd };
+  }
+
+  return null;
+}
+
+// Compute occurrences for a date range
+function getOccurrencesInRange(event: ChurchEvent, rangeStart: Date, rangeEnd: Date) {
+  if (!event.isRecurring || !event.recurrencePattern) return [];
+
+  const anchorStart = new Date(event.startDate);
+  const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
+  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
+  const from = new Date(rangeStart);
+  const to = new Date(rangeEnd);
+
+  const occurrences = [];
+
+  let current = new Date(anchorStart);
+  if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
+    while (current.getDay() !== event.recurrenceDay) {
+      current.setDate(current.getDate() + 1);
+    }
+    current.setHours(anchorStart.getHours(), anchorStart.getMinutes(), anchorStart.getSeconds(), anchorStart.getMilliseconds());
+  }
+
+  const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
+
+  while (current <= to) {
+    if (seriesEnd && current > seriesEnd) break;
+
+    if (current >= from) {
+      const occStart = new Date(current);
+      const occEnd = new Date(occStart.getTime() + duration);
+      occurrences.push({ startDate: occStart, endDate: occEnd });
+    }
+
+    // Advance date
+    if (event.recurrencePattern === 'monthly') {
+      current.setMonth(current.getMonth() + 1);
+    } else {
+      current.setDate(current.getDate() + increment);
+    }
+  }
+
+  return occurrences;
+}
+
 const statusBadgeVariant: Record<ChurchEvent['status'], 'info' | 'success' | 'muted' | 'error'> = {
   scheduled: 'info',
   ongoing: 'success',
@@ -88,7 +175,13 @@ function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
         return 'completed';
       }
     }
-    return event.status; // Keep current status for active recurring events
+    // Check if there's a current occurrence happening
+    const currentOccurrence = getCurrentOccurrenceForEvent(event, now);
+    if (currentOccurrence) {
+      return 'ongoing';
+    }
+    // If series hasn't ended and there are future occurrences, it's scheduled
+    return 'scheduled';
   }
 
   // For non-recurring events
@@ -218,7 +311,6 @@ export default function EventsPage() {
 
   // Computed stats
   const totalEvents = events.length;
-  // Use actual status calculation for stats
   const eventsWithActualStatus = events.map(e => ({ ...e, status: getActualStatus(e) }));
   const upcomingCount = eventsWithActualStatus.filter((e) => e.status === 'scheduled').length;
   const ongoingCount = eventsWithActualStatus.filter((e) => e.status === 'ongoing').length;
@@ -231,15 +323,22 @@ export default function EventsPage() {
     { label: 'Completed', value: completedCount, icon: Calendar },
   ];
 
-  // Client-side filtering
-  const filteredEvents = events.filter((event) => {
-    const actualStatus = getActualStatus(event);
-    const matchesStatus = statusFilter === 'all' || actualStatus === statusFilter;
-    const matchesSearch =
-      searchText.trim() === '' ||
-      event.title.toLowerCase().includes(searchText.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  // Client-side filtering - no expansion, just filter the original events
+  const filteredEvents = events
+    .filter((event) => {
+      const actualStatus = getActualStatus(event);
+      const matchesStatus = statusFilter === 'all' || actualStatus === statusFilter;
+      const matchesSearch =
+        searchText.trim() === '' ||
+        event.title.toLowerCase().includes(searchText.toLowerCase());
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      // Sort by start date
+      const aDate = new Date(a.startDate).getTime();
+      const bDate = new Date(b.startDate).getTime();
+      return aDate - bDate;
+    });
 
   const filterButtons: { label: string; value: StatusFilter }[] = [
     { label: 'All', value: 'all' },
@@ -338,7 +437,9 @@ export default function EventsPage() {
                           {event.isRecurring && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <Repeat className="w-3 h-3 text-blue-500" />
-                              <span className="text-xs text-muted">Recurring</span>
+                              <span className="text-xs text-muted">
+                                Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay ?? 0]}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -347,7 +448,7 @@ export default function EventsPage() {
                     <td className="px-4 py-3">
                       {event.isRecurring ? (
                         <div className="text-sm text-foreground">
-                          Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay ?? 0]}
+                          {new Date(event.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           <div className="text-xs text-muted">{event.recurrencePattern}</div>
                         </div>
                       ) : (

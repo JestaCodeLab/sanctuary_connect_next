@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "Sanctuary Connect - Church Management ERP",
   description: "Professional church management simplified. Manage your sanctuary and community with ease.",
   keywords: ["church management", "ERP", "sanctuary", "ministry", "donations", "members"],
+  icons: {
+    icon: "/favico.png",
+  },
 };
 
 // Script to set theme before React hydrates to prevent flash

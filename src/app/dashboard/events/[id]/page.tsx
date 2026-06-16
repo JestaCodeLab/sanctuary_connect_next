@@ -179,7 +179,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               View Attendance
             </Button>
           </Link>
-          <QRCodeDisplay eventId={event._id} eventTitle={event.title} />
           <ShareEventSection eventId={event._id} eventTitle={event.title} existingShareToken={event.shareToken} />
           <Link href="/dashboard/events">
             <Button variant="outline" size="sm" leftIcon={<Edit2 className="w-4 h-4" />}>
@@ -189,7 +188,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Event Details */}
+        <div className="lg:col-span-2 space-y-6">
         {/* Schedule */}
         <Card padding="lg">
           <div className="flex items-center gap-2 mb-6">
@@ -295,6 +297,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </Card>
         )}
+        </div>
+
+        {/* Right Column - QR Code */}
+        <div className="sticky top-24 h-fit">
+          <QRCodeDisplay eventId={event._id} eventTitle={event.title} isRecurring={event.isRecurring} />
+        </div>
       </div>
     </div>
   );

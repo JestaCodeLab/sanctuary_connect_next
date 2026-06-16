@@ -577,12 +577,25 @@ export const eventsApi = {
     const response = await api.get<EventOccurrence[]>(`/api/events/${id}/occurrences?range=${rangeDays}`);
     return response.data;
   },
-  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }> => {
-    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }>(`/api/events/${id}/qr-code`);
+  generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string | null; checkInUrl?: string; occurrenceDate?: string; usesServiceCodes?: boolean }> => {
+    const response = await api.post<{ token: string; dataUrl: string; expiresAt: string | null; checkInUrl?: string; occurrenceDate?: string; usesServiceCodes?: boolean }>(`/api/events/${id}/qr-code`);
     return response.data;
   },
-  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }> => {
-    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string; checkInUrl?: string; occurrenceDate?: string }>(`/api/events/${id}/qr-code`);
+  getQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string | null; checkInUrl?: string; occurrenceDate?: string; usesServiceCodes?: boolean }> => {
+    const response = await api.get<{ token: string; dataUrl: string; expiresAt: string | null; checkInUrl?: string; occurrenceDate?: string; usesServiceCodes?: boolean }>(`/api/events/${id}/qr-code`);
+    return response.data;
+  },
+  getServiceCode: async (id: string, occurrenceDate?: string): Promise<{ code: string; occurrenceDate: string; expiresAt: string; usageCount: number }> => {
+    const params = new URLSearchParams();
+    if (occurrenceDate) params.append('occurrenceDate', occurrenceDate);
+    const qs = params.toString();
+    const response = await api.get<{ code: string; occurrenceDate: string; expiresAt: string; usageCount: number }>(`/api/events/${id}/service-code${qs ? `?${qs}` : ''}`);
+    return response.data;
+  },
+  regenerateServiceCode: async (id: string, occurrenceDate?: string): Promise<{ code: string; occurrenceDate: string; expiresAt: string; usageCount: number }> => {
+    const data: any = {};
+    if (occurrenceDate) data.occurrenceDate = occurrenceDate;
+    const response = await api.post<{ code: string; occurrenceDate: string; expiresAt: string; usageCount: number }>(`/api/events/${id}/service-code`, data);
     return response.data;
   },
 };
