@@ -111,7 +111,8 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
 
       setShowExportModal(false);
       toast.success('Export successful');
-    } catch {
+    } catch (err: any) {
+      console.error('Export error:', err);
       toast.error('Failed to export attendance report');
     } finally {
       setIsExporting(false);

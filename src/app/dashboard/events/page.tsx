@@ -334,10 +334,10 @@ export default function EventsPage() {
       return matchesStatus && matchesSearch;
     })
     .sort((a, b) => {
-      // Sort by start date
+      // Sort by start date (newest first - current/future to past)
       const aDate = new Date(a.startDate).getTime();
       const bDate = new Date(b.startDate).getTime();
-      return aDate - bDate;
+      return bDate - aDate;
     });
 
   const filterButtons: { label: string; value: StatusFilter }[] = [
