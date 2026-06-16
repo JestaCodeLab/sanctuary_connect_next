@@ -95,12 +95,20 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     setIsExporting(true);
     try {
       const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat, selectedOccurrence || undefined);
+
+      // Fetch as blob so the download attribute works across origins (avoids PDF opening in browser tab)
+      const response = await fetch(downloadUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
       const a = document.createElement('a');
-      a.href = downloadUrl;
+      a.href = blobUrl;
       a.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
       setShowExportModal(false);
       toast.success('Export successful');
     } catch {
