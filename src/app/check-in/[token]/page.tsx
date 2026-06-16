@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Phone, Calendar, MapPin, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Phone, Calendar, MapPin, Clock, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input } from '@/components/ui';
 import axios from 'axios';
@@ -12,6 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 export default function PublicCheckInPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [phone, setPhone] = useState('');
+  const [serviceCode, setServiceCode] = useState('');
   const [checkInSuccess, setCheckInSuccess] = useState(false);
   const [checkInResult, setCheckInResult] = useState<any>(null);
 
@@ -38,7 +39,13 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     },
     onError: (error: any) => {
       const message = error.response?.data?.error || 'Check-in failed';
-      if (message.includes('token') || message.includes('QR')) {
+      const data = error.response?.data;
+
+      if (data?.requiresServiceCode) {
+        toast.error('Service code is required for this event. Please ask the event organizer for the code.');
+      } else if (message.includes('Service code')) {
+        toast.error('Invalid or expired service code. Please check the code and try again.');
+      } else if (message.includes('token') || message.includes('QR')) {
         toast.error('Invalid or expired check-in code. Please ask the event organizer for a new QR code.');
       } else if (message.includes('Already checked in')) {
         toast.error('You have already checked in to this event.');
@@ -65,7 +72,17 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       return;
     }
 
-    checkInMutation.mutate({ token, phone: phone.trim() });
+    if (eventData.usesServiceCodes && !serviceCode.trim()) {
+      toast.error('Service code is required for this event');
+      return;
+    }
+
+    const data: any = { token, phone: phone.trim() };
+    if (eventData.usesServiceCodes && serviceCode) {
+      data.serviceCode = serviceCode.trim();
+    }
+
+    checkInMutation.mutate(data);
   };
 
   if (eventLoading) {
@@ -214,21 +231,48 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
         {/* Check-In Form */}
         <Card padding="lg">
           <h2 className="text-lg font-semibold text-foreground mb-4">Check In</h2>
-          <Input
-            label="Phone Number"
-            type="tel"
-            placeholder="Enter your phone number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            leftIcon={<Phone className="w-4 h-4" />}
-            onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-          />
+
+          {eventData.usesServiceCodes && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-2">
+                <Lock className="w-4 h-4 text-blue-700 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700 dark:text-blue-400">
+                  <strong>Service Code Required:</strong> This event requires a service code for secure check-in. Ask the event organizer for the code.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Input
+              label="Phone Number"
+              type="tel"
+              placeholder="Enter your phone number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              leftIcon={<Phone className="w-4 h-4" />}
+              onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
+            />
+
+            {eventData.usesServiceCodes && (
+              <Input
+                label="Service Code"
+                type="text"
+                placeholder="Enter 4-digit service code"
+                value={serviceCode}
+                onChange={(e) => setServiceCode(e.target.value.toUpperCase())}
+                leftIcon={<Lock className="w-4 h-4" />}
+                onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
+                maxLength={4}
+              />
+            )}
+          </div>
 
           <Button
             className="w-full mt-6"
             size="lg"
             onClick={handleCheckIn}
-            disabled={checkInMutation.isPending || !phone.trim() || eventNotStarted}
+            disabled={checkInMutation.isPending || !phone.trim() || (eventData.usesServiceCodes && !serviceCode.trim()) || eventNotStarted}
           >
             {checkInMutation.isPending ? 'Checking In...' :
              eventNotStarted ? 'Event Not Started' : 'Check In'}
