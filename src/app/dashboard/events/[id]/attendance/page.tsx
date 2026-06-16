@@ -94,26 +94,36 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const handleExportAttendance = async () => {
     setIsExporting(true);
     try {
-      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat, selectedOccurrence || undefined);
+      const response = await fetch(
+        `/api/attendance/${id}/export?format=${exportFormat}${selectedOccurrence ? `&occurrenceDate=${selectedOccurrence}` : ''}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
 
-      // Fetch as blob so the download attribute works across origins (avoids PDF opening in browser tab)
-      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Export failed');
+      }
+
       const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = blobUrl;
+      a.href = url;
       a.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
       document.body.appendChild(a);
       a.click();
+      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
 
       setShowExportModal(false);
       toast.success('Export successful');
     } catch (err: any) {
       console.error('Export error:', err);
-      toast.error('Failed to export attendance report');
+      toast.error(err.message || 'Failed to export attendance report');
     } finally {
       setIsExporting(false);
     }
