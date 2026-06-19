@@ -95,7 +95,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     setIsExporting(true);
     try {
       const response = await fetch(
-        `/api/attendance/${id}/export?format=${exportFormat}${selectedOccurrence ? `&occurrenceDate=${selectedOccurrence}` : ''}`,
+        `/api/attendance/event/${id}/export?format=${exportFormat}${selectedOccurrence ? `&occurrenceDate=${selectedOccurrence}` : ''}`,
         {
           method: 'GET',
           headers: {

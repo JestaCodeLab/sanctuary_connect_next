@@ -77,6 +77,18 @@ export default function DashboardPage() {
     enabled: true, // Always try, but handle errors gracefully
   });
 
+  // Debug: Log events when they load
+  if (events.length > 0) {
+    console.log('Dashboard Events:', events.map((e: ChurchEvent) => ({
+      title: e.title,
+      status: e.status,
+      isRecurring: e.isRecurring,
+      startDate: e.startDate,
+      recurrencePattern: e.recurrencePattern,
+      recurrenceDay: e.recurrenceDay
+    })));
+  }
+
   const { data: donations = [] } = useQuery({
     queryKey: ['donations'],
     queryFn: donationsApi.getAll,
@@ -191,8 +203,23 @@ export default function DashboardPage() {
 
   // Get next upcoming events — include ongoing (already started) and scheduled (future)
   const nextEvents = events
-    .filter((e: ChurchEvent) => e.status === 'scheduled' || e.status === 'ongoing')
-    .sort((a: ChurchEvent, b: ChurchEvent) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .filter((e: ChurchEvent) => {
+      // Only show scheduled/ongoing events
+      if (e.status !== 'scheduled' && e.status !== 'ongoing') return false;
+
+      // For non-recurring events, check if date is in future
+      if (!e.isRecurring) {
+        return new Date(e.startDate) >= new Date();
+      }
+
+      // For recurring events, always include them (they have future occurrences)
+      return true;
+    })
+    .sort((a: ChurchEvent, b: ChurchEvent) => {
+      const dateA = getNextOccurrenceDate(a);
+      const dateB = getNextOccurrenceDate(b);
+      return dateA.getTime() - dateB.getTime();
+    })
     .slice(0, 3);
 
   // Calculate member demographics
@@ -260,6 +287,45 @@ export default function DashboardPage() {
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  // Compute next occurrence for recurring events
+  function getNextOccurrenceDate(event: ChurchEvent): Date {
+    if (!event.isRecurring || !event.recurrencePattern) {
+      return new Date(event.startDate);
+    }
+
+    const baseDate = new Date(event.startDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Compare dates only, not times
+
+    const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
+
+    let current = new Date(baseDate);
+    current.setHours(baseDate.getHours(), baseDate.getMinutes(), baseDate.getSeconds(), 0);
+
+    // Align to the correct day of week
+    if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
+      // Move to the correct day of week while preserving time
+      const targetDay = event.recurrenceDay;
+      while (current.getDay() !== targetDay) {
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    // Fast-forward to find the next occurrence
+    // Add a safety limit to prevent infinite loops
+    let iterations = 0;
+    while (current < now && iterations < 100) {
+      if (event.recurrencePattern === 'monthly') {
+        current.setMonth(current.getMonth() + 1);
+      } else {
+        current.setDate(current.getDate() + increment);
+      }
+      iterations++;
+    }
+
+    return current;
   }
 
   return (
@@ -416,42 +482,46 @@ export default function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              nextEvents.map((event: ChurchEvent) => (
-                <div
-                  key={event._id}
-                  onClick={() => router.push(`/dashboard/events/${event._id}`)}
-                  className="flex items-start gap-3 p-3 bg-background rounded-lg hover:bg-muted/30 transition-colors cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {event.title}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatEventDate(event.startDate)} • {formatEventTime(event.startDate)}
-                      </span>
-                      {event.location && (
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3" />
-                          {event.location}
+              nextEvents.map((event: ChurchEvent) => {
+                const displayDate = getNextOccurrenceDate(event);
+                return (
+                  <div
+                    key={event._id}
+                    onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                    className="flex items-start gap-3 p-3 bg-background rounded-lg hover:bg-muted/30 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        {event.title}
+                        {event.isRecurring && <span className="text-xs text-muted font-normal ml-1">(Recurring)</span>}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatEventDate(displayDate.toISOString())} • {formatEventTime(displayDate.toISOString())}
                         </span>
+                        {event.location && (
+                          <span className="flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3" />
+                            {event.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {event.status === 'ongoing' && (
+                        <Badge variant="success">Live</Badge>
+                      )}
+                      {event.eventType && (
+                        <Badge variant="muted">{event.eventType}</Badge>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {event.status === 'ongoing' && (
-                      <Badge variant="success">Live</Badge>
-                    )}
-                    {event.eventType && (
-                      <Badge variant="muted">{event.eventType}</Badge>
-                    )}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Card>

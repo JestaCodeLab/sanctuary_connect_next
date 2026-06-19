@@ -366,12 +366,12 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                   </div>
 
                   {/* Button Section */}
-                  <div className="px-6 py-4 bg-blue-100/40 dark:bg-blue-950/40 border-t border-blue-200 dark:border-blue-800 flex gap-2">
+                  <div className="px-6 py-4 bg-blue-100/40 dark:bg-blue-950/40 border-t border-blue-200 dark:border-blue-800 flex flex-wrap gap-2">
                     <Button
                       onClick={() => regenerateServiceCodeMutation.mutate({ occurrenceDate: nextOccurrence.startDate })}
                       isLoading={isGenerating}
                       leftIcon={<RefreshCw className="w-4 h-4" />}
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
                     >
                       {hasCode ? 'Regenerate' : 'Generate Code'}
                     </Button>
@@ -383,7 +383,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                             navigator.clipboard.writeText(hasCode);
                             toast.success('Code copied to clipboard');
                           }}
-                          className="flex-shrink-0"
+                          className="min-w-[80px]"
                         >
                           Copy
                         </Button>
@@ -391,7 +391,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                           variant="outline"
                           onClick={() => handlePrintServiceCode(hasCode, new Date(nextOccurrence.startDate))}
                           leftIcon={<Printer className="w-4 h-4" />}
-                          className="flex-shrink-0"
+                          className="min-w-[80px]"
                         >
                           Print
                         </Button>
