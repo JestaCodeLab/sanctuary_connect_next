@@ -79,9 +79,13 @@ export default function MembersPage() {
   const deleteMutation = useMutation({
     mutationFn: membersApi.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['members', dateFilterApplied] });
       toast.success('Member removed');
       setDeleteId(null);
+      setCurrentPage(1);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to remove member');
     },
   });
 

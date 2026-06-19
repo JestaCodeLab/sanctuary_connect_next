@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -23,6 +23,8 @@ import { api } from '@/lib/api';
 
 type FormStep = 'basic' | 'owner' | 'bank' | 'review';
 
+const FORM_STEPS: FormStep[] = ['basic', 'owner', 'bank', 'review'];
+
 interface FormData {
   // Business Info
   businessName: string;
@@ -30,8 +32,6 @@ interface FormData {
   businessRegistration: string;
   businessRegistrationDoc: File | null;
   businessAddress: string;
-  taxId: string;
-  taxIdDoc: File | null;
 
   // Owner Info
   ownerFullName: string;
@@ -64,8 +64,6 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
     businessRegistration: '',
     businessRegistrationDoc: null,
     businessAddress: '',
-    taxId: '',
-    taxIdDoc: null,
     ownerFullName: '',
     ownerEmail: '',
     ownerPhone: '',
@@ -80,9 +78,29 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({
     businessRegistrationDoc: false,
-    taxIdDoc: false,
     ownerIdDoc: false,
   });
+
+  const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
+  const [loadingBanks, setLoadingBanks] = useState(true);
+
+  // Fetch list of Ghanaian banks on component mount
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const response = await api.get('/api/finance/banks');
+        setBanks(response.data.banks || []);
+      } catch (err) {
+        console.error('Failed to fetch bank list:', err);
+        // Fall back to empty list on error
+        setBanks([]);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+
+    fetchBanks();
+  }, []);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({
@@ -97,21 +115,46 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError(`${field} must be less than 5MB`);
+        setUploadedDocs((prev) => ({
+          ...prev,
+          [field]: false,
+        }));
         return;
       }
       // Validate file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
         setError(`${field} must be PDF, JPEG, PNG, or WebP`);
+        setUploadedDocs((prev) => ({
+          ...prev,
+          [field]: false,
+        }));
         return;
       }
-    }
 
-    setFormData((prev) => ({
-      ...prev,
-      [field]: file,
-    }));
-    setError(null);
+      setFormData((prev) => ({
+        ...prev,
+        [field]: file,
+      }));
+
+      setUploadedDocs((prev) => ({
+        ...prev,
+        [field]: true,
+      }));
+
+      setError(null);
+    } else {
+      // File cleared/removed
+      setFormData((prev) => ({
+        ...prev,
+        [field]: null,
+      }));
+
+      setUploadedDocs((prev) => ({
+        ...prev,
+        [field]: false,
+      }));
+    }
   };
 
   const validateStep = (step: FormStep): boolean => {
@@ -135,14 +178,6 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         }
         if (!formData.businessAddress?.trim()) {
           setError('Business address is required');
-          return false;
-        }
-        if (!formData.taxId?.trim()) {
-          setError('Tax ID is required');
-          return false;
-        }
-        if (!formData.taxIdDoc) {
-          setError('Tax ID document is required');
           return false;
         }
         return true;
@@ -187,8 +222,8 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           setError('Account holder name is required');
           return false;
         }
-        if (!formData.bankAccountNumber?.trim()) {
-          setError('Account number is required');
+        if (!formData.bankAccountNumber || formData.bankAccountNumber.length !== 10) {
+          setError('Account number must be exactly 10 digits');
           return false;
         }
         if (!formData.accountType) {
@@ -208,24 +243,34 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       return;
     }
 
-    const steps: FormStep[] = ['basic', 'owner', 'bank', 'review'];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1]);
+    const currentIndex = FORM_STEPS.indexOf(currentStep);
+    if (currentIndex < FORM_STEPS.length - 1) {
+      setCurrentStep(FORM_STEPS[currentIndex + 1]);
     }
   };
 
   const handleBack = () => {
-    const steps: FormStep[] = ['basic', 'owner', 'bank', 'review'];
-    const currentIndex = steps.indexOf(currentStep);
+    const currentIndex = FORM_STEPS.indexOf(currentStep);
     if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1]);
+      setCurrentStep(FORM_STEPS[currentIndex - 1]);
       setError(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Prevent form submission via Enter key unless on review step
+    if (currentStep !== 'review' && e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+      e.preventDefault();
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Only allow submission on the review step
+    if (currentStep !== 'review') {
+      return;
+    }
 
     if (!validateStep('review')) {
       return;
@@ -243,7 +288,6 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       submitData.append('businessType', formData.businessType);
       submitData.append('businessRegistration', formData.businessRegistration);
       submitData.append('businessAddress', formData.businessAddress);
-      submitData.append('taxId', formData.taxId);
       submitData.append('ownerFullName', formData.ownerFullName);
       submitData.append('ownerEmail', formData.ownerEmail);
       submitData.append('ownerPhone', formData.ownerPhone);
@@ -258,9 +302,6 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       if (formData.businessRegistrationDoc) {
         submitData.append('businessRegistrationDoc', formData.businessRegistrationDoc);
       }
-      if (formData.taxIdDoc) {
-        submitData.append('taxIdDoc', formData.taxIdDoc);
-      }
       if (formData.ownerIdDoc) {
         submitData.append('ownerIdDoc', formData.ownerIdDoc);
       }
@@ -273,8 +314,9 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       if (onSubmitSuccess) {
         onSubmitSuccess(result);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while submitting your form';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -306,7 +348,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -316,10 +358,9 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
           {/* Step Indicator */}
           <div className="flex justify-between mb-8">
-            {(['basic', 'owner', 'bank', 'review'] as FormStep[]).map((step, index) => {
-              const steps: FormStep[] = ['basic', 'owner', 'bank', 'review'];
-              const stepIndex = steps.indexOf(step);
-              const currentIndex = steps.indexOf(currentStep);
+            {FORM_STEPS.map((step, index) => {
+              const stepIndex = FORM_STEPS.indexOf(step);
+              const currentIndex = FORM_STEPS.indexOf(currentStep);
               const isActive = currentStep === step;
               const isComplete = stepIndex < currentIndex;
               return (
@@ -380,17 +421,21 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="businessRegistrationDoc">Business Registration Document *</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
+                <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.businessRegistrationDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}>
                   <Input
                     id="businessRegistrationDoc"
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
                     onChange={(e) => handleFileChange('businessRegistrationDoc', e.target.files?.[0] || null)}
                     className="hidden"
                   />
                   <label htmlFor="businessRegistrationDoc" className="flex flex-col items-center cursor-pointer text-foreground">
-                    <Upload className="w-8 h-8 text-muted mb-2" />
-                    <span className="text-sm">
+                    {uploadedDocs.businessRegistrationDoc ? (
+                      <CheckCircle className="w-8 h-8 text-green-600 mb-2" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-muted mb-2" />
+                    )}
+                    <span className="text-sm font-medium">
                       {formData.businessRegistrationDoc?.name || 'Click to upload or drag and drop'}
                     </span>
                     <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
@@ -406,36 +451,6 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                   value={formData.businessAddress}
                   onChange={(e) => handleInputChange('businessAddress', e.target.value)}
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="taxId">Tax ID *</Label>
-                <Input
-                  id="taxId"
-                  placeholder="e.g., 12345678901"
-                  value={formData.taxId}
-                  onChange={(e) => handleInputChange('taxId', e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="taxIdDoc">Tax ID Document *</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
-                  <Input
-                    id="taxIdDoc"
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => handleFileChange('taxIdDoc', e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                  <label htmlFor="taxIdDoc" className="flex flex-col items-center cursor-pointer text-foreground">
-                    <Upload className="w-8 h-8 text-muted mb-2" />
-                    <span className="text-sm">
-                      {formData.taxIdDoc?.name || 'Click to upload or drag and drop'}
-                    </span>
-                    <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
-                  </label>
-                </div>
               </div>
             </div>
           )}
@@ -504,17 +519,21 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="ownerIdDoc">ID Document *</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-4 bg-background hover:bg-muted/30 transition-colors">
+                <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.ownerIdDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}>
                   <Input
                     id="ownerIdDoc"
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
                     onChange={(e) => handleFileChange('ownerIdDoc', e.target.files?.[0] || null)}
                     className="hidden"
                   />
                   <label htmlFor="ownerIdDoc" className="flex flex-col items-center cursor-pointer text-foreground">
-                    <Upload className="w-8 h-8 text-muted mb-2" />
-                    <span className="text-sm">
+                    {uploadedDocs.ownerIdDoc ? (
+                      <CheckCircle className="w-8 h-8 text-green-600 mb-2" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-muted mb-2" />
+                    )}
+                    <span className="text-sm font-medium">
                       {formData.ownerIdDoc?.name || 'Click to upload or drag and drop'}
                     </span>
                     <span className="text-xs text-muted">PDF, JPG, PNG up to 5MB</span>
@@ -531,17 +550,24 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="bankCode">Bank *</Label>
-                <SelectRoot value={formData.bankCode} onValueChange={(value) => handleInputChange('bankCode', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your bank" />
+                <SelectRoot value={formData.bankCode} onValueChange={(value) => !loadingBanks && handleInputChange('bankCode', value)}>
+                  <SelectTrigger className={loadingBanks ? 'opacity-60' : ''}>
+                    {formData.bankCode ? (
+                      <span>{banks.find((b) => b.code === formData.bankCode)?.name || formData.bankCode}</span>
+                    ) : (
+                      <SelectValue placeholder={loadingBanks ? 'Loading banks...' : 'Select your bank'} />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="044">Access Bank</SelectItem>
-                    <SelectItem value="050">Ecobank</SelectItem>
-                    <SelectItem value="058">GTBank</SelectItem>
-                    <SelectItem value="033">United Bank for Africa</SelectItem>
-                    <SelectItem value="002">First Bank</SelectItem>
-                    {/* Add more banks as needed */}
+                    {banks.length > 0 ? (
+                      banks.map((bank) => (
+                        <SelectItem key={bank.code} value={bank.code}>
+                          {bank.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">No banks available</div>
+                    )}
                   </SelectContent>
                 </SelectRoot>
               </div>
@@ -557,13 +583,22 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
               </div>
 
               <div>
-                <Label htmlFor="bankAccountNumber">Account Number *</Label>
+                <Label htmlFor="bankAccountNumber">Account Number * (10 digits)</Label>
                 <Input
                   id="bankAccountNumber"
-                  placeholder="10 digits"
+                  placeholder="Enter 10-digit account number"
                   value={formData.bankAccountNumber}
-                  onChange={(e) => handleInputChange('bankAccountNumber', e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    handleInputChange('bankAccountNumber', value);
+                  }}
+                  maxLength={10}
                 />
+                {formData.bankAccountNumber && formData.bankAccountNumber.length < 10 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    {10 - formData.bankAccountNumber.length} digits remaining
+                  </p>
+                )}
               </div>
 
               <div>
@@ -586,32 +621,99 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
             <div className="space-y-4">
               <h3 className="font-semibold text-lg text-foreground">Review Your Information</h3>
 
-              <div className="bg-background border border-border rounded-lg p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted">Business Name</p>
-                    <p className="font-semibold text-foreground">{formData.businessName}</p>
+              <div className="bg-background border border-border rounded-lg p-4 space-y-6">
+                <div>
+                  <h4 className="font-semibold text-sm text-muted mb-3">Business Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted">Business Name</p>
+                      <p className="font-medium text-foreground">{formData.businessName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Business Type</p>
+                      <p className="font-medium text-foreground capitalize">{formData.businessType}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted">Registration Number</p>
+                      <p className="font-medium text-foreground">{formData.businessRegistration}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted">Business Address</p>
+                      <p className="font-medium text-foreground">{formData.businessAddress}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted">Business Type</p>
-                    <p className="font-semibold text-foreground capitalize">{formData.businessType}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted mb-3">Owner Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted">Full Name</p>
+                      <p className="font-medium text-foreground">{formData.ownerFullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Email</p>
+                      <p className="font-medium text-foreground">{formData.ownerEmail}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Phone</p>
+                      <p className="font-medium text-foreground">{formData.ownerPhone}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">ID Type</p>
+                      <p className="font-medium text-foreground capitalize">{formData.ownerIdType?.replace(/_/g, ' ')}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted">ID Number</p>
+                      <p className="font-medium text-foreground">{formData.ownerIdNumber}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted">Owner Name</p>
-                    <p className="font-semibold text-foreground">{formData.ownerFullName}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted mb-3">Bank Account Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted">Bank</p>
+                      <p className="font-medium text-foreground">
+                        {banks.find((b) => b.code === formData.bankCode)?.name || formData.bankCode}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Account Type</p>
+                      <p className="font-medium text-foreground capitalize">{formData.accountType}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Account Holder Name</p>
+                      <p className="font-medium text-foreground">{formData.bankAccountName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Account Number</p>
+                      <p className="font-medium text-foreground">{formData.bankAccountNumber}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted">Owner Email</p>
-                    <p className="font-semibold text-foreground">{formData.ownerEmail}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted">Bank Account</p>
-                    <p className="font-semibold text-foreground">{formData.bankAccountNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted">Account Holder</p>
-                    <p className="font-semibold text-foreground">{formData.bankAccountName}</p>
-                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted mb-2">Documents Attached</h4>
+                  <ul className="text-sm space-y-1">
+                    <li className="flex items-center gap-2">
+                      {uploadedDocs.businessRegistrationDoc ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                      )}
+                      <span>Business Registration Document</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      {uploadedDocs.ownerIdDoc ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                      )}
+                      <span>Owner ID Document</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
 
