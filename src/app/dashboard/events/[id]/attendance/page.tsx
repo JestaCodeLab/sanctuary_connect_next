@@ -94,43 +94,21 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   const handleExportAttendance = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch(
-        `/api/attendance/event/${id}/export?format=${exportFormat}${selectedOccurrence ? `&occurrenceDate=${selectedOccurrence}` : ''}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      console.log('Export request:', { format: exportFormat, id, selectedOccurrence });
 
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        let errorMessage = 'Export failed';
+      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat, selectedOccurrence);
 
-        if (contentType?.includes('application/json')) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorData.message || `Error: ${response.status} ${response.statusText}`;
-          } catch {
-            errorMessage = `Error: ${response.status} ${response.statusText}`;
-          }
-        } else {
-          errorMessage = `Error: ${response.status} ${response.statusText}`;
-        }
-
-        throw new Error(errorMessage);
+      if (!downloadUrl) {
+        throw new Error('No download URL provided');
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Download the file from the URL
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
 
       setShowExportModal(false);
       toast.success('Export successful');
@@ -453,10 +431,43 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
           <Card padding="lg" className="w-full max-w-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-foreground">Export Attendance Report</h2>
-              <button onClick={() => setShowExportModal(false)} className="text-muted hover:text-foreground">
+              <button
+                onClick={() => {
+                  setShowExportModal(false);
+                  setSelectedOccurrence('');
+                }}
+                className="text-muted hover:text-foreground"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Occurrence Selector for Recurring Events */}
+            {event?.isRecurring && occurrences.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Select Occurrence
+                </label>
+                <select
+                  value={selectedOccurrence}
+                  onChange={(e) => setSelectedOccurrence(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="">All occurrences</option>
+                  {occurrences.map((occ) => (
+                    <option key={occ.startDate} value={occ.startDate}>
+                      {new Date(occ.startDate).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-foreground mb-2">Format</label>
