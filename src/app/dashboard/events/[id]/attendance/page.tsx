@@ -105,8 +105,21 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Export failed');
+        const contentType = response.headers.get('content-type');
+        let errorMessage = 'Export failed';
+
+        if (contentType?.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || `Error: ${response.status} ${response.statusText}`;
+          } catch {
+            errorMessage = `Error: ${response.status} ${response.statusText}`;
+          }
+        } else {
+          errorMessage = `Error: ${response.status} ${response.statusText}`;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const blob = await response.blob();
