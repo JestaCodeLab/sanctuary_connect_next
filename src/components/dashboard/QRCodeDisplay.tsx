@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { QrCode, Download, RefreshCw, X, Share2, Lock, Calendar } from 'lucide-react';
+import { QrCode, Download, RefreshCw, X, Share2, Lock, Calendar, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, Card } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
@@ -118,6 +118,154 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
     });
   };
 
+  const handlePrintServiceCode = (serviceCode: string, occurrenceDate: Date) => {
+    const printWindow = window.open('', '_blank', 'width=600,height=400');
+    if (!printWindow) {
+      toast.error('Failed to open print window');
+      return;
+    }
+
+    const formattedDate = occurrenceDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const formattedTime = occurrenceDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Service Code - ${eventTitle}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 40px;
+              border-radius: 12px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+              text-align: center;
+              max-width: 400px;
+            }
+            h1 {
+              margin: 0 0 10px 0;
+              font-size: 24px;
+              color: #333;
+            }
+            .event-title {
+              font-size: 20px;
+              color: #666;
+              margin-bottom: 30px;
+              font-weight: 500;
+            }
+            .date-time {
+              background: #f0f0f0;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 30px;
+              font-size: 14px;
+              color: #555;
+            }
+            .date-label {
+              font-size: 12px;
+              font-weight: 600;
+              text-transform: uppercase;
+              color: #999;
+              margin-bottom: 5px;
+            }
+            .date-value {
+              font-size: 18px;
+              font-weight: 600;
+              color: #333;
+            }
+            .time-value {
+              font-size: 16px;
+              color: #666;
+              margin-top: 5px;
+            }
+            .code-section {
+              margin: 40px 0;
+            }
+            .code-label {
+              font-size: 12px;
+              font-weight: 600;
+              text-transform: uppercase;
+              color: #999;
+              margin-bottom: 15px;
+            }
+            .service-code {
+              font-size: 60px;
+              font-weight: bold;
+              font-family: 'Courier New', monospace;
+              color: #1e40af;
+              letter-spacing: 12px;
+              margin: 20px 0;
+              font-weight: 900;
+            }
+            .footer {
+              font-size: 12px;
+              color: #999;
+              margin-top: 30px;
+              border-top: 1px solid #eee;
+              padding-top: 20px;
+            }
+            @media print {
+              body {
+                background: white;
+              }
+              .container {
+                box-shadow: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Service Code</h1>
+            <div class="event-title">${eventTitle}</div>
+
+            <div class="date-time">
+              <div class="date-label">Date & Time</div>
+              <div class="date-value">${formattedDate}</div>
+              <div class="time-value">${formattedTime}</div>
+            </div>
+
+            <div class="code-section">
+              <div class="code-label">Enter This Code</div>
+              <div class="service-code">${serviceCode}</div>
+            </div>
+
+            <div class="footer">
+              Members must enter this code along with scanning the QR code to check in.
+            </div>
+          </div>
+          <script>
+            window.print();
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    toast.success('Print dialog opened');
+  };
+
   // If not showing as card, render as button that opens modal
   if (!showAsCard && !isOpen) {
     return (
@@ -225,19 +373,29 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                       leftIcon={<RefreshCw className="w-4 h-4" />}
                       className="flex-1"
                     >
-                      {hasCode ? 'Regenerate Code' : 'Generate Code'}
+                      {hasCode ? 'Regenerate' : 'Generate Code'}
                     </Button>
                     {hasCode && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(hasCode);
-                          toast.success('Code copied to clipboard');
-                        }}
-                        className="flex-shrink-0"
-                      >
-                        Copy
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(hasCode);
+                            toast.success('Code copied to clipboard');
+                          }}
+                          className="flex-shrink-0"
+                        >
+                          Copy
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handlePrintServiceCode(hasCode, new Date(nextOccurrence.startDate))}
+                          leftIcon={<Printer className="w-4 h-4" />}
+                          className="flex-shrink-0"
+                        >
+                          Print
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
