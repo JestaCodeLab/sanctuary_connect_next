@@ -55,15 +55,19 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     },
   });
 
+  const getEventDate = () => eventData.occurrenceDate || eventData.startDate;
+  const getEventDateString = (date: string) => new Date(date).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+
   const handleCheckIn = () => {
-    if (eventData.startDate && new Date(eventData.startDate) > new Date()) {
-      toast.error('Check-in is not yet available. This event starts on ' + new Date(eventData.startDate).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      }));
+    const eventDate = getEventDate();
+    if (eventDate && new Date(eventDate) > new Date()) {
+      toast.error('Check-in is not yet available. This event starts on ' + getEventDateString(eventDate));
       return;
     }
 
@@ -158,7 +162,8 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
     );
   }
 
-  const eventNotStarted = eventData.startDate && new Date(eventData.startDate) > new Date();
+  const eventDate = eventData.occurrenceDate || eventData.startDate;
+  const eventNotStarted = eventDate && new Date(eventDate) > new Date();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-primary/5 flex items-center justify-center p-4">
@@ -175,7 +180,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
           {eventNotStarted && (
             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
               <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center">
-                ⚠️ Check-in is not yet available. This event starts on {new Date(eventData.startDate).toLocaleDateString('en-US', {
+                ⚠️ Check-in is not yet available. This event starts on {new Date(eventDate).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
@@ -187,13 +192,15 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
           )}
 
           <div className="space-y-3 bg-muted/20 rounded-lg p-4">
-            {eventData.startDate && (
+            {eventDate && (
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-foreground">Date & Time</p>
+                  <p className="font-medium text-foreground">
+                    {eventData.isRecurring ? 'Next Occurrence' : 'Date & Time'}
+                  </p>
                   <p className="text-muted">
-                    {new Date(eventData.startDate).toLocaleString('en-US', {
+                    {new Date(eventDate).toLocaleString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -258,9 +265,13 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
               <Input
                 label="Service Code"
                 type="text"
+                inputMode="numeric"
                 placeholder="Enter 4-digit service code"
                 value={serviceCode}
-                onChange={(e) => setServiceCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  setServiceCode(value.slice(0, 4));
+                }}
                 leftIcon={<Lock className="w-4 h-4" />}
                 onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
                 maxLength={4}

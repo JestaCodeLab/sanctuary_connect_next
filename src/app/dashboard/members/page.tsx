@@ -246,14 +246,20 @@ export default function MembersPage() {
   };
 
   // Client-side search and filter
-  const filteredMembers = members.filter((member: Member) => {
-    const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
-    const matchesSearch = fullName.includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
+  const filteredMembers = members
+    .filter((member: Member) => {
+      const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
+      const matchesSearch = fullName.includes(search.toLowerCase());
+      const matchesStatus =
+        statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a: Member, b: Member) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
   // Pagination
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
