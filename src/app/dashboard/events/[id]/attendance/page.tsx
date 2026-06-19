@@ -96,19 +96,18 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     try {
       console.log('Export request:', { format: exportFormat, id, selectedOccurrence });
 
-      const { downloadUrl } = await attendanceApi.exportEventAttendance(id, exportFormat, selectedOccurrence);
+      // Build the URL with query parameters
+      const blob = await attendanceApi.exportEventAttendance(id, exportFormat as 'csv' | 'pdf', selectedOccurrence);
 
-      if (!downloadUrl) {
-        throw new Error('No download URL provided');
-      }
-
-      // Download the file from the URL
+      // Create a download link and trigger download
+      const downloadUrl = window.URL.createObjectURL(blob);
       const downloadLink = document.createElement('a');
       downloadLink.href = downloadUrl;
       downloadLink.download = `attendance-${event?.title || id}-${new Date().toISOString().split('T')[0]}.${exportFormat}`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
+      window.URL.revokeObjectURL(downloadUrl);
 
       setShowExportModal(false);
       toast.success('Export successful');

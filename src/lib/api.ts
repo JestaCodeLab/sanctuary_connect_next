@@ -673,10 +673,12 @@ export const attendanceApi = {
     const response = await api.delete<{ message: string }>(`/api/attendance/record/${id}`);
     return response.data;
   },
-  exportEventAttendance: async (eventId: string, format: 'csv' | 'pdf' = 'csv', occurrenceDate?: string): Promise<{ downloadUrl: string }> => {
+  exportEventAttendance: async (eventId: string, format: 'csv' | 'pdf' = 'csv', occurrenceDate?: string): Promise<Blob> => {
     const params = new URLSearchParams({ format });
     if (occurrenceDate) params.append('occurrenceDate', occurrenceDate);
-    const response = await api.get<{ downloadUrl: string }>(`/api/attendance/event/${eventId}/export?${params.toString()}`);
+    const response = await api.get<Blob>(`/api/attendance/event/${eventId}/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
     return response.data;
   },
 };

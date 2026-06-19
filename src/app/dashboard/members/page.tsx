@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Users, UserPlus, Search, Trash2, Edit2, Eye, Users2, Calendar, Upload, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
-import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { PageHeader, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import { membersApi } from '@/lib/api';
 import type { Member } from '@/types';
@@ -55,6 +55,9 @@ export default function MembersPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Card filter state
+  const [cardFilter, setCardFilter] = useState<string | null>(null);
 
   const { data: members = [], isLoading, refetch } = useQuery({
     queryKey: ['members', dateFilterApplied],
@@ -245,6 +248,47 @@ export default function MembersPage() {
     }
   };
 
+  // Age demographics helper
+  const getAge = (dateOfBirth: string | undefined): number | null => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Apply card filter if one is selected
+  const getFilteredByCard = (member: Member): boolean => {
+    if (!cardFilter) return true;
+
+    const age = getAge(member.dateOfBirth);
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const isNewThisMonth = new Date(member.createdAt) >= startOfMonth;
+
+    switch (cardFilter) {
+      case 'male':
+        return member.gender === 'male';
+      case 'female':
+        return member.gender === 'female';
+      case 'new-this-month':
+        return isNewThisMonth;
+      case 'children':
+        return age !== null && age >= 1 && age <= 12;
+      case 'teens':
+        return age !== null && age >= 13 && age <= 19;
+      case 'adults':
+        return age !== null && age >= 20 && age <= 59;
+      case 'seniors':
+        return age !== null && age >= 60;
+      default:
+        return true;
+    }
+  };
+
   // Client-side search and filter
   const filteredMembers = members
     .filter((member: Member) => {
@@ -252,8 +296,9 @@ export default function MembersPage() {
       const matchesSearch = fullName.includes(search.toLowerCase());
       const matchesStatus =
         statusFilter === 'All' || member.memberStatus === statusFilter.toLowerCase();
+      const matchesCard = getFilteredByCard(member);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesCard;
     })
     .sort((a: Member, b: Member) => {
       const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
@@ -281,7 +326,7 @@ export default function MembersPage() {
 
   // Compute stats
   const totalMembers = members.length;
-  
+
   // Gender stats
   const maleCount = members.filter((m: Member) => m.gender === 'male').length;
   const femaleCount = members.filter((m: Member) => m.gender === 'female').length;
@@ -292,19 +337,6 @@ export default function MembersPage() {
   const newThisMonth = members.filter(
     (m: Member) => new Date(m.createdAt) >= startOfMonth
   ).length;
-
-  // Age demographics helper
-  const getAge = (dateOfBirth: string | undefined): number | null => {
-    if (!dateOfBirth) return null;
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
 
   // Age demographics (Children: 1-12, Teens: 13-19, Adults: 20-59, Seniors: 60+)
   const childrenCount = members.filter((m: Member) => {
@@ -377,7 +409,68 @@ export default function MembersPage() {
         </div>
       </div>
 
-      <StatsGrid stats={stats} />
+      {/* Stats Cards with Filter */}
+      <div className="mb-6 space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {stats.map((stat) => {
+            const filterKey = stat.label === 'Total Members' ? null :
+              stat.label === 'Male' ? 'male' :
+              stat.label === 'Female' ? 'female' :
+              stat.label === 'New This Month' ? 'new-this-month' :
+              stat.label === 'Children (1-12)' ? 'children' :
+              stat.label === 'Teens (13-19)' ? 'teens' :
+              stat.label === 'Adults (20-59)' ? 'adults' :
+              stat.label === 'Seniors (60+)' ? 'seniors' : null;
+
+            const isActive = cardFilter === filterKey && filterKey !== null;
+            const Icon = stat.icon;
+
+            return (
+              <button
+                key={stat.label}
+                onClick={() => setCardFilter(isActive ? null : filterKey)}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  isActive
+                    ? 'border-primary bg-primary/5 shadow-md'
+                    : 'border-border bg-background hover:border-primary/50'
+                } ${filterKey === null ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
+                disabled={filterKey === null}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="w-4 h-4 text-muted-foreground" />
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className="text-lg font-semibold text-foreground">{stat.value}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {cardFilter && (
+          <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
+              Filtering by: <span className="font-semibold">{stats.find(s => {
+                const key = s.label === 'Male' ? 'male' :
+                  s.label === 'Female' ? 'female' :
+                  s.label === 'New This Month' ? 'new-this-month' :
+                  s.label === 'Children (1-12)' ? 'children' :
+                  s.label === 'Teens (13-19)' ? 'teens' :
+                  s.label === 'Adults (20-59)' ? 'adults' :
+                  s.label === 'Seniors (60+)' ? 'seniors' : null;
+                return key === cardFilter;
+              })?.label}</span>
+            </span>
+            <button
+              onClick={() => setCardFilter(null)}
+              className="px-3 py-1 text-xs font-medium text-blue-900 dark:text-blue-200 bg-blue-200 dark:bg-blue-800 rounded hover:bg-blue-300 dark:hover:bg-blue-700 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Search and Filters */}
       <div className="space-y-4 mb-6">
