@@ -40,6 +40,25 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   // Get only the next upcoming occurrence
   const nextOccurrence = occurrences.length > 0 ? occurrences[0] : null;
 
+  // Fetch existing service code for next occurrence
+  const { data: existingServiceCode } = useQuery({
+    queryKey: ['service-code', eventId, nextOccurrence?.startDate],
+    queryFn: () => eventsApi.getServiceCode(eventId, nextOccurrence!.startDate),
+    enabled: (showAsCard || isOpen) && isRecurring && !!nextOccurrence,
+    retry: false,
+  });
+
+  // Update local state when service code is fetched from backend
+  if (existingServiceCode && nextOccurrence) {
+    const occDateStr = new Date(nextOccurrence.startDate).toISOString();
+    if (!serviceCodes[occDateStr]) {
+      setServiceCodes(prev => ({
+        ...prev,
+        [occDateStr]: existingServiceCode.code
+      }));
+    }
+  }
+
   const generateMutation = useMutation({
     mutationFn: () => eventsApi.generateQRCode(eventId),
     onSuccess: () => {
@@ -61,6 +80,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
         [variables.occurrenceDate]: data.code
       }));
       queryClient.invalidateQueries({ queryKey: ['events', eventId, 'occurrences'] });
+      queryClient.invalidateQueries({ queryKey: ['service-code', eventId, variables.occurrenceDate] });
       toast.success('Service code regenerated successfully');
     },
     onError: (err: any) => {
