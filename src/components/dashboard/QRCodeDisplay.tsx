@@ -412,7 +412,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
               <div className="text-left">
                 <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">Service Code Security</p>
                 <p className="text-xs text-green-600 dark:text-green-500">
-                  This recurring event uses service codes for enhanced security. Generate a unique 4-digit code for each occurrence above. Members must enter both the QR token and the service code to check in.
+                  This recurring event uses service codes for enhanced security. Generate a unique 4-digit code for each occurrence above. Members have until the next day after each service to check in using the QR code and the service code.
                 </p>
               </div>
             </div>

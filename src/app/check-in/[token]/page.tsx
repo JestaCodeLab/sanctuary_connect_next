@@ -44,7 +44,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
       if (data?.requiresServiceCode) {
         toast.error('Service code is required for this event. Please ask the event organizer for the code.');
       } else if (message.includes('Service code')) {
-        toast.error('Invalid or expired service code. Please check the code and try again.');
+        toast.error('Invalid service code. Please verify the code with the event organizer and try again.');
       } else if (message.includes('token') || message.includes('QR')) {
         toast.error('Invalid or expired check-in code. Please ask the event organizer for a new QR code.');
       } else if (message.includes('Already checked in')) {
@@ -243,9 +243,14 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-2">
                 <Lock className="w-4 h-4 text-blue-700 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-700 dark:text-blue-400">
-                  <strong>Service Code Required:</strong> This event requires a service code for secure check-in. Ask the event organizer for the code.
-                </p>
+                <div>
+                  <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">
+                    Service Code Required
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-500">
+                    Ask the event organizer for the 4-digit code. You have until the next day to check in.
+                  </p>
+                </div>
               </div>
             </div>
           )}
