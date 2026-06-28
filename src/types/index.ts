@@ -79,6 +79,12 @@ export interface Organization {
   subscriptionId?: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  smsConfig?: {
+    senderId?: string;
+    senderIdStatus?: 'pending' | 'approved' | 'rejected';
+    senderIdPurpose?: string;
+    senderIdRegisteredAt?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

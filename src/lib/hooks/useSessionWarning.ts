@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { api } from '@/lib/api';
+import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import toast from 'react-hot-toast';
 
 interface DecodedToken {
   exp: number;
@@ -14,7 +15,7 @@ interface DecodedToken {
 
 export const useSessionWarning = () => {
   const router = useRouter();
-  const { token, logout } = useAuthStore();
+  const { token, logout, user } = useAuthStore();
   const [showWarning, setShowWarning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -37,31 +38,54 @@ export const useSessionWarning = () => {
   const refreshSession = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await api.post('/auth/refresh-token', {});
-      const { token: newToken, user } = response.data;
-      
+      // Use axios directly to bypass the main API interceptor's logout behavior
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/refresh-token`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+
+      const { token: newToken, user: updatedUser } = response.data;
+
       // Update auth store with new token
       useAuthStore.setState({
         token: newToken,
-        user,
+        user: updatedUser || user,
       });
-      
+
       // Update localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', newToken);
+        if (updatedUser) {
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
       }
-      
+
       // Hide warning and reset timer
       setShowWarning(false);
       setTimeRemaining(0);
-    } catch (error) {
+      toast.success('Session extended successfully');
+    } catch (error: any) {
       console.error('Failed to refresh session:', error);
-      // If refresh fails, logout
-      logout();
+      // Show user-friendly error message
+      const errorMessage = error?.response?.data?.error || 'Failed to extend session. Please log in again.';
+      toast.error(errorMessage);
+      // If refresh fails, logout after a brief delay
+      setTimeout(() => {
+        logout();
+        router.push('/login');
+      }, 1500);
     } finally {
       setIsRefreshing(false);
     }
-  }, [logout]);
+  }, [token, user, logout, router]);
 
   // Handle logout
   const handleLogout = useCallback(() => {
@@ -80,7 +104,7 @@ export const useSessionWarning = () => {
     // Set up interval to check token expiration
     const interval = setInterval(() => {
       const timeLeft = getTimeUntilExpiry();
-      
+
       // Show warning when 5 minutes (300,000 ms) remain
       if (timeLeft > 0 && timeLeft <= 5 * 60 * 1000) {
         setShowWarning(true);
@@ -114,7 +138,7 @@ export const useSessionWarning = () => {
     timeRemaining,
     formattedTime: formatTimeRemaining(timeRemaining),
     refreshSession,
-    handleLogout,
+    handleLogout: handleLogout,
     isRefreshing,
   };
 };

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone, Settings, RotateCcw, Save } from 'lucide-react';
+import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone, Settings, RotateCcw, Save, Zap } from 'lucide-react';
 import { membersApi, smsApi, settingsApi } from '@/lib/api';
 import { Card, Button, Input } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
+import { useAuthStore } from '@/store/authStore';
 import type { MemberWithBirthday } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -118,8 +119,10 @@ function BirthdaysContent() {
   const [showSettings, setShowSettings] = useState(false);
   const [customTemplate, setCustomTemplate] = useState('');
   const [autoSendEnabled, setAutoSendEnabled] = useState(true);
+  const [testingSms, setTestingSms] = useState(false);
 
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -268,6 +271,36 @@ function BirthdaysContent() {
     });
   };
 
+  const handleTestSms = async () => {
+    if (!user?.phone) {
+      toast.error('Your phone number is not set. Unable to send test SMS.');
+      return;
+    }
+
+    setTestingSms(true);
+    try {
+      const template = customTemplate || `Happy Birthday {{firstName}}! 🎉🎂 Wishing you a wonderful day filled with joy and blessings as you turn {{age}}. May God's grace continue to shine upon you!`;
+
+      const testMessage = template
+        .replace(/\{\{firstName\}\}/g, user.firstName || 'User')
+        .replace(/\{\{lastName\}\}/g, user.lastName || '')
+        .replace(/\{\{age\}\}/g, '25')
+        .replace(/\{\{churchName\}\}/g, settings?.churchName || '');
+
+      await smsApi.sendSingle({
+        phone: user.phone,
+        message: testMessage,
+        category: 'birthday_test',
+      });
+
+      toast.success('Test SMS sent to your phone!');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to send test SMS');
+    } finally {
+      setTestingSms(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -384,7 +417,7 @@ function BirthdaysContent() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={handleSaveSettings}
                   disabled={updateSettingsMutation.isPending}
@@ -401,6 +434,17 @@ function BirthdaysContent() {
                 >
                   <RotateCcw className="w-4 h-4" />
                   Reset to Default
+                </Button>
+                <Button
+                  onClick={handleTestSms}
+                  disabled={testingSms || !user?.phone}
+                  isLoading={testingSms}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  title={!user?.phone ? 'Phone number not set' : 'Send test SMS to your phone'}
+                >
+                  <Zap className="w-4 h-4" />
+                  Test SMS
                 </Button>
               </div>
             </div>

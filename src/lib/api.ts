@@ -854,7 +854,7 @@ export const smsApi = {
     return response.data;
   },
 
-  initializePayment: async (credits: number): Promise<{
+  initializePayment: async (credits: number, priceInGhs: number): Promise<{
     success: boolean;
     reference: string;
     credits: number;
@@ -867,6 +867,7 @@ export const smsApi = {
   }> => {
     const response = await api.post('/api/sms/credits/initialize-payment', {
       credits,
+      priceInGhs,
     });
     return response.data;
   },
@@ -1089,6 +1090,35 @@ export const smsApi = {
     category: string;
   }> => {
     const response = await api.post(`/api/sms/templates/${id}/duplicate`);
+    return response.data;
+  },
+
+  // Sender ID Management
+  registerSenderId: async (data: { senderName: string; purpose: string }): Promise<{
+    success: boolean;
+    message: string;
+    senderName: string;
+    status: string;
+    purpose: string;
+  }> => {
+    const response = await api.post('/api/sms/sender-id/register', data);
+    return response.data;
+  },
+
+  checkSenderIdStatus: async (senderName?: string): Promise<{
+    success: boolean;
+    senderName: string;
+    status: string;
+    organizationUpdated: boolean;
+  }> => {
+    const response = await api.post('/api/sms/sender-id/status', { senderName });
+    return response.data;
+  },
+
+  getSystemConfig: async (): Promise<{
+    defaultSenderId: string;
+  }> => {
+    const response = await api.get('/api/sms/config/system');
     return response.data;
   },
 };

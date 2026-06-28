@@ -28,15 +28,17 @@ import {
   FileText,
   Network,
   LucideIcon,
-  BarChart3,
   Send,
   Mail,
   Phone,
+  Badge,
   Zap,
   ArrowLeftRight,
   AlertCircle,
   Settings2,
   UserCheck,
+  Clock,
+  CreditCard,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -108,6 +110,7 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Overview', href: '/dashboard/finance', icon: PieChart },
       { label: 'Income', href: '/dashboard/finance/income', icon: TrendingUp },
       { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
+      { label: 'Transactions', href: '/dashboard/transactions', icon: ArrowLeftRight },
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
     ],
   },
@@ -117,12 +120,13 @@ const sidebarLinks: SidebarLink[] = [
     icon: MessageSquare,
     featureKey: 'sms_credits',
     children: [
-      { label: 'Analytics', href: '/dashboard/communication/analytics', icon: BarChart3, featureKey: 'advanced_analytics' },
+      { label: 'Buy Credits', href: '/dashboard/communication/credits', icon: CreditCard },
       { label: 'Send SMS', href: '/dashboard/communication/send-sms', icon: Send },
+      { label: 'History', href: '/dashboard/communication/history', icon: Clock },
+      { label: 'Sender ID', href: '/dashboard/communication/sender-id', icon: Badge },
       { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
     ],
   },
-  { label: 'Transactions', href: '/dashboard/transactions', icon: ArrowLeftRight },
   {
     label: 'Settings',
     href: '/dashboard/settings',

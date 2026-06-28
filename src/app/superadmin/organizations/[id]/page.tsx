@@ -66,7 +66,7 @@ export default function OrgDetailPage() {
   const [actionIsError, setActionIsError] = useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'overview' | 'branches' | 'departments' | 'members' | 'finance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'branches' | 'departments' | 'members' | 'finance' | 'sms'>('overview');
 
   // Organization edit state
   const [showEditForm, setShowEditForm] = useState(false);
@@ -117,6 +117,13 @@ export default function OrgDetailPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [revokeReason, setRevokeReason] = useState('');
 
+  // SMS Configuration state
+  const [smsConfig, setSmsConfig] = useState<any>(null);
+  const [showSmsForm, setShowSmsForm] = useState(false);
+  const [smsSenderId, setSmsSenderId] = useState('');
+  const [smsSenderIdStatus, setSmsSenderIdStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [smsSaving, setSmsSaving] = useState(false);
+
   const fetchData = () => {
     setLoading(true);
     api
@@ -135,6 +142,12 @@ export default function OrgDetailPage() {
           setSubStatus(r.data.org.subscriptionId.status);
           setSubCycle(r.data.org.subscriptionId.billingCycle);
           setSubEnd(r.data.org.subscriptionId.currentPeriodEnd?.slice(0, 10) ?? '');
+        }
+        // Load SMS config
+        if (r.data.org.smsConfig) {
+          setSmsConfig(r.data.org.smsConfig);
+          setSmsSenderId(r.data.org.smsConfig.senderId || '');
+          setSmsSenderIdStatus(r.data.org.smsConfig.senderIdStatus || 'pending');
         }
       })
       .catch(() => setError('Failed to load organization'))
@@ -533,6 +546,16 @@ export default function OrgDetailPage() {
             }`}
           >
             Finance
+          </button>
+          <button
+            onClick={() => setActiveTab('sms')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'sms'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            SMS Configuration
           </button>
         </nav>
       </div>
@@ -1334,6 +1357,114 @@ export default function OrgDetailPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* SMS Configuration Tab */}
+      {activeTab === 'sms' && (
+        <div className="space-y-6">
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">SMS Configuration</h3>
+                <p className="text-sm text-muted-foreground mt-1">Manage sender ID and SMS settings for this church</p>
+              </div>
+              <button
+                onClick={() => setShowSmsForm(!showSmsForm)}
+                className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90"
+              >
+                {showSmsForm ? 'Cancel' : 'Edit Sender ID'}
+              </button>
+            </div>
+
+            {showSmsForm ? (
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Sender ID</label>
+                  <input
+                    type="text"
+                    value={smsSenderId}
+                    onChange={(e) => setSmsSenderId(e.target.value.substring(0, 11))}
+                    maxLength={11}
+                    placeholder="Church name (max 11 chars)"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{smsSenderId.length}/11 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Sender ID Status</label>
+                  <select
+                    value={smsSenderIdStatus}
+                    onChange={(e) => setSmsSenderIdStatus(e.target.value as 'pending' | 'approved' | 'rejected')}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={async () => {
+                      setSmsSaving(true);
+                      try {
+                        await api.patch(`/api/superadmin/organizations/${id}`, {
+                          smsConfig: {
+                            senderId: smsSenderId || null,
+                            senderIdStatus: smsSenderIdStatus,
+                          },
+                        });
+                        showMessage('SMS configuration updated successfully');
+                        setShowSmsForm(false);
+                        fetchData();
+                      } catch (err: any) {
+                        showMessage(err?.response?.data?.error || 'Failed to update SMS configuration', true);
+                      } finally {
+                        setSmsSaving(false);
+                      }
+                    }}
+                    disabled={smsSaving}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {smsSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={() => setShowSmsForm(false)}
+                    className="px-4 py-2 border border-border text-foreground rounded-lg text-sm hover:bg-muted/50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Current Sender ID</p>
+                  <p className="text-lg font-semibold text-foreground">{smsSenderId || 'Not Set'}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Status</p>
+                  <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    smsSenderIdStatus === 'approved'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      : smsSenderIdStatus === 'rejected'
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                      : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                  }`}>
+                    {smsSenderIdStatus?.charAt(0).toUpperCase()}{smsSenderIdStatus?.slice(1)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Info:</strong> When a sender ID is approved, all SMS sent from this church will appear with their approved sender ID. If pending or rejected, SMS will use the system default sender ID (Sanctuary).
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

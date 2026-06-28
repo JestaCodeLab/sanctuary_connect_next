@@ -3,39 +3,22 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  AlertCircle,
-  Edit,
-  Trash2,
-  Play,
-  ToggleLeft,
-  ToggleRight,
-  Loader,
-  Calendar,
-  Users,
-} from 'lucide-react';
+import { Plus, AlertCircle, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { organizationApi, api } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
+import toast from 'react-hot-toast';
 
 interface ShepherdAlert {
   _id: string;
   name: string;
-  description: string;
   isActive: boolean;
-  absenceThreshold: number;
-  lookbackPeriodDays: number;
-  monitoredEventIds: string[];
-  alertRecipients: Array<{
-    memberId: string;
-    phoneNumber: string;
-    role: string;
-  }>;
-  totalAlertsTriggered: number;
-  smsSentCount: number;
-  lastCheckAt: string | null;
-  createdAt: string;
+  absenceThreshold?: number;
+  lookbackPeriodDays?: number;
+  shepherds?: Array<{ memberId: string; phoneNumber: string }>;
+  totalAlertsTriggered?: number;
+  smsSentCount?: number;
+  lastCheckAt?: string | null;
 }
 
 export default function ShepherdAlertsPage() {
@@ -58,9 +41,22 @@ export default function ShepherdAlertsPage() {
     try {
       setLoading(true);
       const response = await api.get('/api/shepherd-alerts');
-      setAlerts(Array.isArray(response.data) ? response.data : response.data.alerts || []);
+      const data = Array.isArray(response.data) ? response.data : response.data.alerts || [];
+
+      // Ensure all fields have defaults
+      const normalized = data.map((alert: any) => ({
+        ...alert,
+        shepherds: alert.shepherds || [],
+        totalAlertsTriggered: alert.totalAlertsTriggered || 0,
+        smsSentCount: alert.smsSentCount || 0,
+        absenceThreshold: alert.absenceThreshold || 3,
+        lookbackPeriodDays: alert.lookbackPeriodDays || 30,
+      }));
+
+      setAlerts(normalized);
     } catch (error) {
-      console.error('Error fetching shepherd alerts:', error);
+      console.error('Error fetching alerts:', error);
+      toast.error('Failed to load shepherd alerts');
     } finally {
       setLoading(false);
     }
@@ -73,9 +69,10 @@ export default function ShepherdAlertsPage() {
       setDeleting(id);
       await api.delete(`/api/shepherd-alerts/${id}`);
       setAlerts(alerts.filter(a => a._id !== id));
+      toast.success('Alert deleted');
     } catch (error) {
       console.error('Error deleting alert:', error);
-      alert('Failed to delete alert');
+      toast.error('Failed to delete alert');
     } finally {
       setDeleting(null);
     }
@@ -85,32 +82,20 @@ export default function ShepherdAlertsPage() {
     try {
       setToggling(id);
       const response = await api.patch(`/api/shepherd-alerts/${id}/toggle`);
-      setAlerts(
-        alerts.map(a => (a._id === id ? response.data.alert : a))
-      );
+      setAlerts(alerts.map(a => (a._id === id ? response.data.alert : a)));
+      const alert = alerts.find(a => a._id === id);
+      toast.success(alert?.isActive ? 'Alert deactivated' : 'Alert activated');
     } catch (error) {
       console.error('Error toggling alert:', error);
-      alert('Failed to toggle alert');
+      toast.error('Failed to toggle alert');
     } finally {
       setToggling(null);
     }
   };
 
-  const handleRunCheck = async (id: string) => {
-    try {
-      await api.post(`/api/shepherd-alerts/${id}/run`);
-      // Refresh alerts to show updated lastCheckAt
-      await fetchAlerts();
-      alert('Alert check completed');
-    } catch (error) {
-      console.error('Error running alert check:', error);
-      alert('Failed to run alert check');
-    }
-  };
-
   if (!isFeatureAvailable) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-muted mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Feature Not Available</h1>
@@ -127,14 +112,14 @@ export default function ShepherdAlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Shepherd Alerts</h1>
+          <h1 className="text-3xl font-bold">Shepherd Alerts</h1>
           <p className="text-muted-foreground mt-1">
-            Automated SMS alerts when members are frequently absent from events
+            Monitor member attendance and automatically notify shepherds
           </p>
         </div>
         <Link href="/dashboard/attendance/shepherd-alerts/new">
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
             New Alert
           </Button>
         </Link>
@@ -151,7 +136,7 @@ export default function ShepherdAlertsPage() {
       {!loading && alerts.length === 0 && (
         <div className="bg-card rounded-lg border border-border p-8 text-center">
           <AlertCircle className="w-12 h-12 text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">No Alerts Yet</h3>
+          <h3 className="text-lg font-semibold mb-1">No Alerts Yet</h3>
           <p className="text-muted-foreground mb-4">
             Create your first Shepherd Alert to start monitoring member attendance
           </p>
@@ -161,9 +146,9 @@ export default function ShepherdAlertsPage() {
         </div>
       )}
 
-      {/* Alerts Grid */}
+      {/* Alerts List */}
       {!loading && alerts.length > 0 && (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {alerts.map(alert => (
             <div
               key={alert._id}
@@ -172,7 +157,7 @@ export default function ShepherdAlertsPage() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-foreground">{alert.name}</h3>
+                    <h3 className="text-lg font-semibold">{alert.name}</h3>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         alert.isActive
@@ -183,54 +168,41 @@ export default function ShepherdAlertsPage() {
                       {alert.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  {alert.description && (
-                    <p className="text-sm text-muted-foreground">{alert.description}</p>
-                  )}
                 </div>
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 pb-4 border-b border-border">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Absence Threshold</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {alert.absenceThreshold}x
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-1">Threshold</p>
+                  <p className="text-lg font-semibold">{alert.absenceThreshold || 3}x</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Lookback Period</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {alert.lookbackPeriodDays} days
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-1">Period</p>
+                  <p className="text-lg font-semibold">{alert.lookbackPeriodDays || 30}d</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Alerts Triggered</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {alert.totalAlertsTriggered}
-                  </p>
+                  <p className="text-lg font-semibold">{alert.totalAlertsTriggered || 0}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">SMS Sent</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {alert.smsSentCount}
-                  </p>
+                  <p className="text-lg font-semibold">{alert.smsSentCount || 0}</p>
                 </div>
               </div>
 
               {/* Details */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-border">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  {alert.monitoredEventIds.length} event{alert.monitoredEventIds.length !== 1 ? 's' : ''}
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-border text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  {alert.alertRecipients.length} recipient{alert.alertRecipients.length !== 1 ? 's' : ''}
+                  Monitors all members
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Last check: {alert.lastCheckAt
-                    ? new Date(alert.lastCheckAt).toLocaleDateString()
-                    : 'Never'}
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Notifying {(alert.shepherds || []).length} shepherd{(alert.shepherds || []).length !== 1 ? 's' : ''}
+                </div>
+                <div>
+                  Last check: {alert.lastCheckAt ? new Date(alert.lastCheckAt).toLocaleDateString() : 'Never'}
                 </div>
               </div>
 
@@ -239,28 +211,20 @@ export default function ShepherdAlertsPage() {
                 <button
                   onClick={() => handleToggle(alert._id)}
                   disabled={toggling === alert._id}
-                  className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  className="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
                   title={alert.isActive ? 'Deactivate' : 'Activate'}
                 >
                   {toggling === alert._id ? (
                     <Loader className="w-4 h-4 animate-spin" />
                   ) : alert.isActive ? (
-                    <ToggleRight className="w-4 h-4" />
+                    <ToggleRight className="w-4 h-4 text-green-600" />
                   ) : (
-                    <ToggleLeft className="w-4 h-4" />
+                    <ToggleLeft className="w-4 h-4 text-gray-400" />
                   )}
                 </button>
 
-                <button
-                  onClick={() => handleRunCheck(alert._id)}
-                  className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title="Run check now"
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-
                 <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}`}>
-                  <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                  <button className="p-2 rounded-lg hover:bg-accent transition-colors">
                     <Edit className="w-4 h-4" />
                   </button>
                 </Link>
@@ -268,13 +232,12 @@ export default function ShepherdAlertsPage() {
                 <button
                   onClick={() => handleDelete(alert._id)}
                   disabled={deleting === alert._id}
-                  className="p-2 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                  title="Delete"
+                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 ml-auto"
                 >
                   {deleting === alert._id ? (
                     <Loader className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4 text-red-600" />
                   )}
                 </button>
               </div>

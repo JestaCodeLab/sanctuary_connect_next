@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePaystackPayment } from 'react-paystack';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { Modal, PageHeader } from '@/components/dashboard';
 import { Card } from '@/components/ui';
-import { Send, AlertCircle, User, Users, Zap, Building2, Check, Loader2, CreditCard } from 'lucide-react';
+import { Send, AlertCircle, User, Users, Zap, Building2, Check, Loader2, CreditCard, Calendar, Clock } from 'lucide-react';
 import { membersApi, departmentsApi, smsApi } from '@/lib/api';
 import { useBranchStore } from '@/store/branchStore';
 import type { Member, Department } from '@/types';
@@ -56,6 +57,7 @@ const sendOptions: SendOptionConfig[] = [
 ];
 
 export default function SendSmsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const user = useAuthStore((state) => state.user);
@@ -81,6 +83,9 @@ export default function SendSmsPage() {
   } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('card');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
 
   const branches = useBranchStore((state) => state.branches);
 
@@ -197,8 +202,29 @@ export default function SendSmsPage() {
       return;
     }
 
+    if (isScheduled) {
+      if (!scheduleDate || !scheduleTime) {
+        toast.error('Please set both date and time for scheduled SMS');
+        return;
+      }
+      const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+      if (scheduledDateTime < new Date()) {
+        toast.error('Scheduled time must be in the future');
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
+      const sendData = {
+        message,
+        category,
+        ...(isScheduled && {
+          isScheduled: true,
+          scheduleDate: `${scheduleDate}T${scheduleTime}`,
+        }),
+      };
+
       switch (sendOption) {
         case 'single':
           if (!recipientValue) {
@@ -207,22 +233,20 @@ export default function SendSmsPage() {
           }
           await smsApi.sendToMembers({
             memberIds: [recipientValue],
-            message,
-            category,
+            ...sendData,
           });
           break;
         case 'all':
-          await smsApi.sendToAll({ message, category });
+          await smsApi.sendToAll(sendData);
           break;
         case 'department':
           if (!recipientValue) {
             toast.error('Please select a department');
             return;
           }
-          await smsApi.sendToDepartment({ 
-            departmentId: recipientValue, 
-            message, 
-            category 
+          await smsApi.sendToDepartment({
+            departmentId: recipientValue,
+            ...sendData,
           });
           break;
         case 'branch':
@@ -232,16 +256,18 @@ export default function SendSmsPage() {
           }
           await smsApi.sendToBranch({
             branchId: recipientValue,
-            message,
-            category,
+            ...sendData,
           });
           break;
       }
-      toast.success('SMS sent successfully!');
+      toast.success(isScheduled ? 'SMS scheduled successfully!' : 'SMS sent successfully!');
       setMessage('');
       setRecipientValue('');
+      setIsScheduled(false);
+      setScheduleDate('');
+      setScheduleTime('');
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || 'Failed to send SMS';
+      const errorMsg = error?.response?.data?.error || (isScheduled ? 'Failed to schedule SMS' : 'Failed to send SMS');
       toast.error(errorMsg);
     } finally {
       setIsLoading(false);
@@ -439,10 +465,10 @@ export default function SendSmsPage() {
               </p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
-            onClick={() => setShowCreditModal(true)}
+            onClick={() => router.push('/dashboard/communication/credits')}
           >
             Add Credits
           </Button>
@@ -543,19 +569,74 @@ export default function SendSmsPage() {
             </div>
           </div>
 
+          {/* Schedule SMS Section */}
+          <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 bg-primary/5">
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                id="schedule-sms"
+                checked={isScheduled}
+                onChange={(e) => setIsScheduled(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer"
+              />
+              <label htmlFor="schedule-sms" className="flex items-center gap-2 cursor-pointer font-medium text-foreground">
+                <Calendar className="w-4 h-4 text-primary" />
+                Schedule SMS for later
+              </label>
+            </div>
+
+            {isScheduled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground"
+                  />
+                </div>
+              </div>
+            )}
+
+            {isScheduled && (scheduleDate || scheduleTime) && (
+              <p className="text-xs text-muted mt-3 pl-8">
+                <Clock className="w-3 h-3 inline mr-1" />
+                This SMS will be sent on {scheduleDate && new Date(scheduleDate).toLocaleDateString()} {scheduleTime && `at ${scheduleTime}`}
+              </p>
+            )}
+          </div>
+
           <div className="flex gap-2 pt-2">
             <Button
               type="submit"
-              disabled={isLoading || !message.trim()}
-              leftIcon={<Send className="w-4 h-4" />}
+              disabled={isLoading || !message.trim() || (isScheduled && (!scheduleDate || !scheduleTime))}
+              leftIcon={isScheduled ? <Calendar className="w-4 h-4" /> : <Send className="w-4 h-4" />}
             >
-              {isLoading ? 'Sending...' : 'Send SMS'}
+              {isLoading ? (isScheduled ? 'Scheduling...' : 'Sending...') : (isScheduled ? 'Schedule SMS' : 'Send SMS')}
             </Button>
             <Button
               type="button"
               onClick={() => {
                 setRecipientValue('');
                 setMessage('');
+                setIsScheduled(false);
+                setScheduleDate('');
+                setScheduleTime('');
               }}
               variant="outline"
             >

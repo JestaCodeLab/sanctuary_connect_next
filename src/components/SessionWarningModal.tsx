@@ -6,7 +6,7 @@ import {
   DialogTitle,
   Button,
 } from '@/components/ui';
-import { AlertCircle, LogOut } from 'lucide-react';
+import { AlertCircle, LogOut, Clock } from 'lucide-react';
 
 interface SessionWarningModalProps {
   isOpen: boolean;
@@ -30,36 +30,53 @@ export const SessionWarningModal: React.FC<SessionWarningModalProps> = ({
         onLogout();
       }
     }}>
-      <DialogContent className="w-full max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-orange-600" />
-            <DialogTitle>Session Expiring Soon</DialogTitle>
-          </div>
-          <div className="mt-2 text-sm text-gray-600">
-            Your session will expire in {timeRemaining}. Choose an action below.
+      <DialogContent className="w-full max-w-md border-amber-200 bg-white dark:bg-slate-950 dark:border-amber-900">
+        <DialogHeader className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 mt-0.5" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl text-foreground">Your Session is Expiring</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your login session will expire soon due to inactivity.
+              </p>
+            </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">
-            <p>
-              For your security, your login session is set to expire when you have been inactive.
-              Click <strong>Stay Logged In</strong> to extend your session and continue working.
+        <div className="space-y-4 py-2">
+          {/* Time Warning Box */}
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Time Remaining
+              </p>
+            </div>
+            <p className="text-3xl font-bold text-amber-600 dark:text-amber-400 text-center">
+              {timeRemaining}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 text-center mt-2">
+              Click "Stay Logged In" to continue working
             </p>
           </div>
 
-          <div className="text-center text-lg font-semibold text-gray-900">
-            Time Remaining: <span className="text-orange-600">{timeRemaining}</span>
+          {/* Info Box */}
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+            <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+              For your security, idle sessions automatically expire. Click <strong>Stay Logged In</strong> to extend your session and continue working without interruption.
+            </p>
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-gray-200 pt-4">
+        {/* Action Buttons */}
+        <div className="flex gap-3 border-t border-border pt-4 mt-6">
           <Button
             variant="outline"
             onClick={onLogout}
             disabled={isRefreshing}
-            className="flex items-center gap-2 flex-1"
+            className="flex items-center gap-2 flex-1 text-red-600 hover:text-red-700 dark:text-red-400"
           >
             <LogOut className="h-4 w-4" />
             Logout
@@ -67,7 +84,8 @@ export const SessionWarningModal: React.FC<SessionWarningModalProps> = ({
           <Button
             onClick={onStayLoggedIn}
             disabled={isRefreshing}
-            className="flex-1"
+            isLoading={isRefreshing}
+            className="flex-1 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800"
           >
             {isRefreshing ? 'Extending...' : 'Stay Logged In'}
           </Button>

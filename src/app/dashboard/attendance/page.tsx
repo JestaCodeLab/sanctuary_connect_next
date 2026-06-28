@@ -81,13 +81,6 @@ export default function AttendancePage() {
       <div className="mb-6 flex gap-3">
         <Button
           variant="outline"
-          leftIcon={<QrCode className="w-4 h-4" />}
-          onClick={() => router.push('/dashboard/attendance/check-in')}
-        >
-          QR Check-In
-        </Button>
-        <Button
-          variant="outline"
           leftIcon={<UserCheck className="w-4 h-4" />}
           onClick={() => router.push('/dashboard/attendance/manual-check-in')}
         >

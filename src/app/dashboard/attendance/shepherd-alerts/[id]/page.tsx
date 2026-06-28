@@ -1,25 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  AlertCircle,
-  Loader,
-  Plus,
-  X,
-  Calendar,
-  Clock,
-} from 'lucide-react';
-import { Button } from '@/components/ui';
-import { organizationApi, api } from '@/lib/api';
-
-interface Event {
-  _id: string;
-  title: string;
-  startDate: string;
-}
+import { ArrowLeft, AlertCircle, Loader, Plus, X } from 'lucide-react';
+import { Button, Input } from '@/components/ui';
+import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface Member {
   _id: string;
@@ -28,84 +15,75 @@ interface Member {
   phone: string;
 }
 
-interface ShepherdAlert {
-  _id: string;
+interface FormData {
   name: string;
-  description: string;
-  monitoredEventIds: string[];
-  alertRecipients: Array<{ memberId: string; phoneNumber: string; role: string }>;
+  shepherds: Array<{ memberId: string; phoneNumber: string }>;
   absenceThreshold: number;
   lookbackPeriodDays: number;
-  smsTemplate: string;
-  checkSchedule: string;
 }
 
-interface AlertLog {
-  _id: string;
-  memberId: string;
-  memberName: string;
-  eventName: string;
-  absenceCount: number;
-  triggerred: boolean;
-  smsSent: boolean;
-  createdAt: string;
-}
-
-export default function ShepherdAlertDetailPage({ params }: { params: { id: string } }) {
+export default function EditShepherdAlertPage() {
   const router = useRouter();
+  const params = useParams();
+  const alertId = params?.id as string;
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [events, setEvents] = useState<Event[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [alert, setAlert] = useState<ShepherdAlert | null>(null);
-  const [logs, setLogs] = useState<AlertLog[]>([]);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'edit' | 'logs'>('edit');
 
-  // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
-    description: '',
-    monitoredEventIds: [] as string[],
-    alertRecipients: [] as Array<{ memberId: string; phoneNumber: string; role: string }>,
+    shepherds: [],
     absenceThreshold: 3,
     lookbackPeriodDays: 30,
-    smsTemplate: '',
-    checkSchedule: 'weekly',
   });
 
-  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedShepherd, setSelectedShepherd] = useState('');
 
   useEffect(() => {
+    if (!alertId) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [alertRes, eventsRes, membersRes, logsRes] = await Promise.all([
-          api.get(`/api/shepherd-alerts/${params.id}`),
-          api.get('/api/events'),
+        setError('');
+
+        const [alertRes, membersRes] = await Promise.all([
+          api.get(`/api/shepherd-alerts/${alertId}`),
           api.get('/api/members'),
-          api.get(`/api/shepherd-alerts/logs/list?shepherdAlertId=${params.id}`),
         ]);
-        
-        setAlert(alertRes.data.alert || alertRes.data);
-        setFormData(alertRes.data.alert || alertRes.data);
-        setEvents(Array.isArray(eventsRes.data) ? eventsRes.data : eventsRes.data.events || []);
+
+        const alertData = alertRes.data.alert || alertRes.data;
+
+        if (!alertData || !alertData.name) {
+          throw new Error('Invalid alert data received');
+        }
+
+        setFormData({
+          name: alertData.name || '',
+          shepherds: alertData.shepherds || [],
+          absenceThreshold: alertData.absenceThreshold || 3,
+          lookbackPeriodDays: alertData.lookbackPeriodDays || 30,
+        });
+
         setMembers(Array.isArray(membersRes.data) ? membersRes.data : membersRes.data.members || []);
-        setLogs(Array.isArray(logsRes.data) ? logsRes.data : logsRes.data.logs || []);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load alert');
+        const errorMsg = err?.response?.data?.error || err?.message || 'Failed to load alert';
+        setError(errorMsg);
+        toast.error(errorMsg);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [params.id]);
+  }, [alertId]);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -113,49 +91,39 @@ export default function ShepherdAlertDetailPage({ params }: { params: { id: stri
     }));
   };
 
-  const handleEventToggle = (eventId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      monitoredEventIds: prev.monitoredEventIds.includes(eventId)
-        ? prev.monitoredEventIds.filter(id => id !== eventId)
-        : [...prev.monitoredEventIds, eventId],
-    }));
-  };
-
-  const handleAddRecipient = () => {
-    if (!selectedMemberId) {
-      setError('Please select a member');
+  const handleAddShepherd = () => {
+    if (!selectedShepherd) {
+      setError('Please select a shepherd');
       return;
     }
 
-    const member = members.find(m => m._id === selectedMemberId);
+    const alreadyAdded = formData.shepherds.some(s => s.memberId === selectedShepherd);
+    if (alreadyAdded) {
+      setError('This shepherd is already added');
+      return;
+    }
+
+    const member = members.find(m => m._id === selectedShepherd);
     if (!member) return;
 
-    const alreadyAdded = formData.alertRecipients.some(r => r.memberId === selectedMemberId);
-    if (alreadyAdded) {
-      setError('This member is already added as a recipient');
-      return;
-    }
-
     setFormData(prev => ({
       ...prev,
-      alertRecipients: [
-        ...prev.alertRecipients,
+      shepherds: [
+        ...prev.shepherds,
         {
-          memberId: selectedMemberId,
+          memberId: selectedShepherd,
           phoneNumber: member.phone,
-          role: 'shepherd',
         },
       ],
     }));
-    setSelectedMemberId('');
+    setSelectedShepherd('');
     setError('');
   };
 
-  const handleRemoveRecipient = (memberId: string) => {
+  const handleRemoveShepherd = (memberId: string) => {
     setFormData(prev => ({
       ...prev,
-      alertRecipients: prev.alertRecipients.filter(r => r.memberId !== memberId),
+      shepherds: prev.shepherds.filter(s => s.memberId !== memberId),
     }));
   };
 
@@ -163,359 +131,242 @@ export default function ShepherdAlertDetailPage({ params }: { params: { id: stri
     e.preventDefault();
     setError('');
 
-    // Validation
+    if (!alertId) {
+      setError('Alert ID not found');
+      return;
+    }
+
     if (!formData.name.trim()) {
       setError('Alert name is required');
       return;
     }
 
-    if (formData.monitoredEventIds.length === 0) {
-      setError('Please select at least one event to monitor');
-      return;
-    }
-
-    if (formData.alertRecipients.length === 0) {
-      setError('Please add at least one alert recipient');
+    if (formData.shepherds.length === 0) {
+      setError('Please add at least one shepherd to notify');
       return;
     }
 
     try {
       setSubmitting(true);
-      await api.patch(`/api/shepherd-alerts/${params.id}`, formData);
+      await api.patch(`/api/shepherd-alerts/${alertId}`, formData);
+      toast.success('Shepherd alert updated successfully!');
       router.push('/dashboard/attendance/shepherd-alerts');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update alert');
+      const message = err?.response?.data?.error || 'Failed to update alert';
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  if (loading || !alertId) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center py-12">
         <Loader className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!alert) {
+  if (error && !formData.name) {
     return (
       <div className="space-y-6">
-        <Link href="/dashboard/attendance/shepherd-alerts">
-          <Button variant="ghost" className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </Button>
-        </Link>
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
-          <p className="text-sm text-destructive">Alert not found</p>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/attendance/shepherd-alerts">
+            <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Link>
+          <h1 className="text-3xl font-bold">Edit Shepherd Alert</h1>
+        </div>
+
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <div className="flex gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">{error}</p>
+              <Link href="/dashboard/attendance/shepherd-alerts">
+                <Button variant="outline" size="sm">
+                  Back to Alerts
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  const shepherdNames = formData.shepherds
+    .map(s => members.find(m => m._id === s.memberId))
+    .filter(Boolean);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Link href="/dashboard/attendance/shepherd-alerts">
-        <Button variant="ghost" className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-      </Link>
-
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">{alert.name}</h1>
-        <p className="text-muted-foreground mt-1">Edit and manage this Shepherd Alert</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-border">
-        <button
-          onClick={() => setActiveTab('edit')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'edit'
-              ? 'text-primary border-b-2 border-primary -mb-[1px]'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'logs'
-              ? 'text-primary border-b-2 border-primary -mb-[1px]'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          History
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-gap-3">
-          <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-destructive">{error}</p>
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard/attendance/shepherd-alerts">
+          <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold">Edit Shepherd Alert</h1>
+          <p className="text-muted-foreground mt-1">
+            Update shepherd alert settings and notifications
+          </p>
         </div>
-      )}
+      </div>
 
-      {/* Edit Tab */}
-      {activeTab === 'edit' && (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-            {/* Basic Info */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Alert Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+      {/* Form Container - Full Width */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
             </div>
           </div>
+        )}
 
-          {/* Configuration */}
-          <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Configuration</h3>
+        {/* Info Box */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>How it works:</strong> This alert monitors attendance for <strong>all members</strong> in your organization. When any member reaches the absence threshold, selected shepherds will be notified via SMS.
+          </p>
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Absence Threshold
-                </label>
-                <input
-                  type="number"
-                  name="absenceThreshold"
-                  value={formData.absenceThreshold}
-                  onChange={handleInputChange}
-                  min={1}
-                  max={10}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Lookback Period (days)
-                </label>
-                <input
-                  type="number"
-                  name="lookbackPeriodDays"
-                  value={formData.lookbackPeriodDays}
-                  onChange={handleInputChange}
-                  min={7}
-                  max={365}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Check Schedule
-              </label>
-              <select
-                name="checkSchedule"
-                value={formData.checkSchedule}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="manual">Manual Only</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                SMS Template
-              </label>
-              <textarea
-                name="smsTemplate"
-                value={formData.smsTemplate}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Variables: {'{memberName}'}, {'{eventName}'}, {'{absenceCount}'}, {'{lookbackPeriodDays}'}
-              </p>
-            </div>
+        {/* Form Fields - 2 Columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Alert Name - Full Width */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-foreground mb-2">Alert Name</label>
+            <Input
+              name="name"
+              placeholder="e.g., 'Sunday Service Attendance Monitor'"
+              value={formData.name}
+              onChange={handleInputChange}
+              maxLength={100}
+            />
+            <p className="text-xs text-muted-foreground mt-1">{formData.name.length}/100</p>
           </div>
 
-          {/* Events Selection */}
-          <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Events to Monitor</h3>
-            <div className="space-y-2">
-              {events.map(event => (
-                <label key={event._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.monitoredEventIds.includes(event._id)}
-                    onChange={() => handleEventToggle(event._id)}
-                    className="w-4 h-4 rounded border-border focus:ring-2 focus:ring-primary"
-                  />
-                  <span className="text-sm text-foreground">{event.title}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {new Date(event.startDate).toLocaleDateString()}
-                  </span>
-                </label>
+          {/* Absence Threshold */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Absence Threshold
+            </label>
+            <select
+              name="absenceThreshold"
+              value={formData.absenceThreshold}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                <option key={n} value={n}>
+                  {n} absence{n !== 1 ? 's' : ''}
+                </option>
               ))}
-            </div>
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Alert when member exceeds this</p>
           </div>
 
-          {/* Recipients */}
-          <div className="bg-card rounded-lg border border-border p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Alert Recipients</h3>
+          {/* Look Back Period */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Look Back Period
+            </label>
+            <select
+              name="lookbackPeriodDays"
+              value={formData.lookbackPeriodDays}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={14}>Last 14 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={60}>Last 60 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Count absences in this period</p>
+          </div>
 
-            <div className="flex gap-2">
+          {/* Shepherds to Notify - Full Width */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Shepherds to Notify
+            </label>
+            <p className="text-xs text-muted-foreground mb-3">
+              Select which shepherds/leaders should be notified when attendance thresholds are exceeded
+            </p>
+            <div className="flex gap-2 mb-3">
               <select
-                value={selectedMemberId}
-                onChange={e => setSelectedMemberId(e.target.value)}
-                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                value={selectedShepherd}
+                onChange={e => setSelectedShepherd(e.target.value)}
+                className="flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Select a member...</option>
-                {members.map(member => (
-                  <option key={member._id} value={member._id}>
-                    {member.firstName} {member.lastName} ({member.phone})
-                  </option>
-                ))}
+                <option value="">Select a shepherd...</option>
+                {members
+                  .filter(m => !formData.shepherds.some(s => s.memberId === m._id))
+                  .map(member => (
+                    <option key={member._id} value={member._id}>
+                      {member.firstName} {member.lastName} ({member.phone})
+                    </option>
+                  ))}
               </select>
-              <Button
+              <button
                 type="button"
-                onClick={handleAddRecipient}
-                variant="outline"
-                className="gap-2"
+                onClick={handleAddShepherd}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                Add
-              </Button>
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="space-y-2">
-              {formData.alertRecipients.map(recipient => {
-                const member = members.find(m => m._id === recipient.memberId);
-                return (
+            {shepherdNames.length > 0 && (
+              <div className="space-y-2">
+                {shepherdNames.map(member => (
                   <div
-                    key={recipient.memberId}
-                    className="flex items-center justify-between p-3 bg-accent rounded-lg"
+                    key={member._id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border"
                   >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {member?.firstName} {member?.lastName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{recipient.phoneNumber}</p>
+                    <div className="text-sm">
+                      <div className="font-medium">
+                        {member.firstName} {member.lastName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{member.phone}</div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleRemoveRecipient(recipient.memberId)}
-                      className="p-2 rounded-lg hover:bg-destructive/20"
+                      onClick={() => handleRemoveShepherd(member._id)}
+                      className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4 text-red-600" />
                     </button>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Submit */}
-          <div className="flex gap-3">
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </Button>
-            <Link href="/dashboard/attendance/shepherd-alerts">
-              <Button variant="outline">Cancel</Button>
-            </Link>
-          </div>
-        </form>
-      )}
-
-      {/* Logs Tab */}
-      {activeTab === 'logs' && (
-        <div className="space-y-4">
-          {logs.length === 0 ? (
-            <div className="bg-card rounded-lg border border-border p-8 text-center">
-              <Clock className="w-12 h-12 text-muted mx-auto mb-4" />
-              <p className="text-muted-foreground">No alert history yet</p>
-            </div>
-          ) : (
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-accent border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">Member</th>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">Event</th>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">Absences</th>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">Triggered</th>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">SMS Sent</th>
-                    <th className="px-4 py-3 text-left font-medium text-foreground">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map(log => (
-                    <tr key={log._id} className="border-b border-border hover:bg-accent transition-colors">
-                      <td className="px-4 py-3 text-foreground">{log.memberName}</td>
-                      <td className="px-4 py-3 text-foreground">{log.eventName}</td>
-                      <td className="px-4 py-3 text-foreground">{log.absenceCount}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          log.triggerred
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                        }`}>
-                          {log.triggerred ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          log.smsSent
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                        }`}>
-                          {log.smsSent ? 'Sent' : 'Not Sent'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      )}
+
+        {/* Submit Buttons - Compact Width */}
+        <div className="flex gap-3 pt-6 border-t border-border">
+          <Link href="/dashboard/attendance/shepherd-alerts">
+            <Button variant="outline">
+              Cancel
+            </Button>
+          </Link>
+          <Button
+            type="submit"
+            disabled={submitting}
+            isLoading={submitting}
+          >
+            Update Alert
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
