@@ -187,6 +187,28 @@ export default function SendSmsPage() {
     return fullName.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm.toLowerCase());
   });
 
+  // Get selected member for template preview
+  const selectedMember = recipientValue ? members.find((m: Member) => m._id === recipientValue) : null;
+
+  // Process template variables for preview
+  const getProcessedMessage = (msg: string, member: Member | null): string => {
+    if (!member) return msg;
+    let processed = msg;
+    processed = processed.replace(/{{firstName}}/g, member.firstName || '');
+    processed = processed.replace(/{{lastName}}/g, member.lastName || '');
+    processed = processed.replace(/{{fullName}}/g, `${member.firstName} ${member.lastName}`.trim());
+    processed = processed.replace(/{{phone}}/g, member.phone || '');
+    if (member.dateOfBirth) {
+      const birthDate = new Date(member.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      processed = processed.replace(/{{age}}/g, age.toString());
+    }
+    return processed;
+  };
+
+  const previewMessage = selectedTemplate && selectedMember ? getProcessedMessage(message, selectedMember) : message;
+
   // Handle template selection
   const handleTemplateSelect = (templateId: string) => {
     const template = templates.find((t: any) => t._id === templateId);
@@ -541,8 +563,10 @@ export default function SendSmsPage() {
               </select>
               {selectedTemplate && (
                 <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <p className="text-xs text-muted mb-1">Template preview:</p>
-                  <p className="text-sm text-foreground font-mono">{message}</p>
+                  <p className="text-xs text-muted mb-1">
+                    {selectedMember ? 'Preview for ' + selectedMember.firstName + ':' : 'Template preview (select a member to see personalized preview):'}
+                  </p>
+                  <p className="text-sm text-foreground font-mono">{previewMessage}</p>
                 </div>
               )}
             </div>
