@@ -125,7 +125,8 @@ export default function SendSmsPage() {
     }
 
     try {
-      const quote = await smsApi.initializePayment(amount);
+      const totalPrice = amount * PRICE_PER_CREDIT;
+      const quote = await smsApi.initializePayment(amount, totalPrice);
       setPaymentQuote(quote);
       setPaymentStep('confirm');
     } catch (error: any) {
