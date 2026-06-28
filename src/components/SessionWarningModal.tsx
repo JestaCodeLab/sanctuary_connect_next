@@ -37,7 +37,7 @@ export const SessionWarningModal: React.FC<SessionWarningModalProps> = ({
               <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 mt-0.5" />
             </div>
             <div className="space-y-1">
-              <DialogTitle className="text-xl text-foreground">Your Session is Expiring</DialogTitle>
+              <h2 className="text-xl font-semibold text-foreground">Your Session is Expiring</h2>
               <p className="text-sm text-muted-foreground">
                 Your login session will expire soon due to inactivity.
               </p>
