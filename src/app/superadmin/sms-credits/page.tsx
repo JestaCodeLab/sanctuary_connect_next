@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, CheckCircle, Plus, Minus } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, CheckCircle, Plus, Minus, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface CreditRow {
@@ -13,6 +13,12 @@ interface CreditRow {
   updatedAt: string;
 }
 
+interface BmsBalance {
+  success: boolean;
+  balance: number;
+  message?: string;
+}
+
 export default function SmsCreditsPage() {
   const [credits, setCredits] = useState<CreditRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -21,6 +27,10 @@ export default function SmsCreditsPage() {
   const [error, setError] = useState('');
   const limit = 20;
 
+  const [bmsBalance, setBmsBalance] = useState<BmsBalance | null>(null);
+  const [bmsLoading, setBmsLoading] = useState(false);
+  const [bmsError, setBmsError] = useState('');
+
   // Adjust modal
   const [adjusting, setAdjusting] = useState<CreditRow | null>(null);
   const [amount, setAmount] = useState('');
@@ -28,6 +38,18 @@ export default function SmsCreditsPage() {
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+
+  const fetchBmsBalance = useCallback(() => {
+    setBmsLoading(true);
+    setBmsError('');
+    api
+      .get('/api/sms/credits/bms-balance')
+      .then((r) => setBmsBalance(r.data))
+      .catch(() => setBmsError('Failed to fetch BMS balance'))
+      .finally(() => setBmsLoading(false));
+  }, []);
+
+  useEffect(() => { fetchBmsBalance(); }, [fetchBmsBalance]);
 
   const fetchCredits = useCallback(() => {
     setLoading(true);
@@ -80,6 +102,43 @@ export default function SmsCreditsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">SMS Credits</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage SMS credit balances across all churches</p>
+      </div>
+
+      {/* BMS Platform Balance */}
+      <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`flex items-center justify-center w-11 h-11 rounded-full flex-shrink-0 ${
+            bmsBalance?.success ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'
+          }`}>
+            {bmsBalance?.success
+              ? <Wifi className="w-5 h-5 text-green-600 dark:text-green-400" />
+              : <WifiOff className="w-5 h-5 text-gray-400" />
+            }
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">BMS Africa Platform Credits</p>
+            {bmsLoading ? (
+              <p className="text-sm text-muted-foreground">Fetching live balance...</p>
+            ) : bmsError ? (
+              <p className="text-sm text-red-500">{bmsError}</p>
+            ) : bmsBalance?.success ? (
+              <p className="text-2xl font-bold text-foreground">
+                {bmsBalance.balance.toLocaleString()}
+                <span className="text-sm font-normal text-muted-foreground ml-2">credits remaining on BMS</span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{bmsBalance?.message || 'Balance unavailable'}</p>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={fetchBmsBalance}
+          disabled={bmsLoading}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-2 hover:bg-background transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${bmsLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {error && (

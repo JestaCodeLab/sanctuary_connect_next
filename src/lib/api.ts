@@ -832,6 +832,11 @@ export const smsApi = {
     const response = await api.get<SmsCredit>('/api/sms/credits/balance');
     return response.data;
   },
+
+  getBmsBalance: async (): Promise<{ success: boolean; balance: number; message?: string }> => {
+    const response = await api.get('/api/sms/credits/bms-balance');
+    return response.data;
+  },
   getCreditTransactions: async (page = 1, limit = 20): Promise<{
     transactions: SmsCreditTransaction[];
     pagination: { page: number; limit: number; total: number; pages: number };

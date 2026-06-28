@@ -111,32 +111,31 @@ export function FinanceAccessGuard({
     );
   }
 
-  // Account pending approval
+  // Account pending approval - show banner and block access
   if (status?.status === 'pending') {
-    const submittedDate = status.submittedAt ? new Date(status.submittedAt).toLocaleDateString() : 'Unknown';
     return (
-      <Card className="w-full border-blue-200 bg-blue-50">
+      <Card className="w-full border-red-200 bg-red-50">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Clock className="mr-2 h-5 w-5 text-blue-600" />
-            Pending Approval
+            <Clock className="mr-2 h-5 w-5 text-red-600" />
+            KYC Verification In Progress
           </CardTitle>
           <CardDescription>
-            Your finance account is awaiting superadmin review
+            Finance features are unavailable until your KYC is approved
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="bg-blue-100 border-blue-300">
-            <Clock className="h-4 w-4" />
-            <AlertTitle>Under Review</AlertTitle>
+          <Alert className="bg-red-100 border-red-300">
+            {/* <Clock className="h-4 w-4" /> */}
+            <AlertTitle>Awaiting Approval</AlertTitle>
             <AlertDescription>
-              Your submission was received on {submittedDate}. 
-              We typically review submissions within 24-48 hours. 
-              You'll receive an email notification once your account is approved or if we need additional information.
+              Your merchant account application is under review.
+              We typically complete reviews within 24-48 hours.
+              You'll receive an email notification once your account is approved.
             </AlertDescription>
           </Alert>
           <p className="text-xs text-gray-600 mt-4">
-            Estimated review time: 24-48 hours
+            You can access other modules while we review your application.
           </p>
         </CardContent>
       </Card>

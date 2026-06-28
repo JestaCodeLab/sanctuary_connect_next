@@ -107,8 +107,8 @@ const sidebarLinks: SidebarLink[] = [
     icon: DollarSign,
     featureKey: 'financial_reporting',
     children: [
-      { label: 'Overview', href: '/dashboard/finance', icon: PieChart },
-      { label: 'Income', href: '/dashboard/finance/income', icon: TrendingUp },
+      { label: 'Offerings', href: '/dashboard/finance/offerings', icon: TrendingUp },
+      { label: 'Tithes', href: '/dashboard/finance/tithes', icon: TrendingUp },
       { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
       { label: 'Transactions', href: '/dashboard/transactions', icon: ArrowLeftRight },
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },

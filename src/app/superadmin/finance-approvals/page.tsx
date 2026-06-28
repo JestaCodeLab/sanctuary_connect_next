@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui';
-import { Loader2, CheckCircle, XCircle, Eye, AlertCircle, FileText, Lock, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Eye, AlertCircle, FileText, Lock, Trash2, Search, Filter, ChevronDown, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -114,7 +115,6 @@ export default function FinanceApprovalsPage() {
       setIsLoading(true);
       const params = new URLSearchParams();
 
-      // Only add status if it's not 'all'
       if (status && status !== 'all') {
         params.append('status', status);
       }
@@ -138,19 +138,11 @@ export default function FinanceApprovalsPage() {
       }
 
       const data = await response.json();
-      console.log('Accounts fetched:', {
-        count: data.accounts?.length || 0,
-        total: data.total,
-        status: status,
-        search: search,
-        accounts: data.accounts
-      });
       setAccounts(data.accounts || []);
       setTotal(data.total || 0);
       setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch accounts';
-      console.error('Error fetching accounts:', errorMessage);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -170,19 +162,9 @@ export default function FinanceApprovalsPage() {
       }
 
       const data = await response.json();
-      console.log('Account details fetched:', {
-        id: data._id,
-        status: data.status,
-        businessName: data.businessName,
-        businessRegistrationDoc: data.businessRegistrationDoc,
-        ownerIdDoc: data.ownerIdDoc,
-        fullData: data
-      });
-
       setSelectedAccount(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch account details';
-      console.error('Error fetching account details:', err);
       setError(errorMessage);
     }
   };
@@ -207,12 +189,15 @@ export default function FinanceApprovalsPage() {
         throw new Error(result.error || 'Failed to approve account');
       }
 
+      toast.success(`${selectedAccount.businessName} approved successfully`);
       setIsApproveOpen(false);
       setApproveNotes('');
       fetchAccounts(page, statusFilter);
       setIsDetailsOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve account');
+      const msg = err instanceof Error ? err.message : 'Failed to approve account';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -241,12 +226,15 @@ export default function FinanceApprovalsPage() {
         throw new Error(result.error || 'Failed to reject account');
       }
 
+      toast.success(`${selectedAccount.businessName} rejected`);
       setIsRejectOpen(false);
       setRejectionReason('');
       fetchAccounts(page, statusFilter);
       setIsDetailsOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reject account');
+      const msg = err instanceof Error ? err.message : 'Failed to reject account';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -254,7 +242,7 @@ export default function FinanceApprovalsPage() {
 
   const handleRevoke = async () => {
     if (!selectedAccount || !revokeReason.trim()) {
-      setError('Revoke reason is required');
+      setError('Revocation reason is required');
       return;
     }
 
@@ -265,7 +253,7 @@ export default function FinanceApprovalsPage() {
         {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ revokedReason: revokeReason }),
+          body: JSON.stringify({ reason: revokeReason }),
         }
       );
 
@@ -275,12 +263,15 @@ export default function FinanceApprovalsPage() {
         throw new Error(result.error || 'Failed to revoke account');
       }
 
+      toast.success(`${selectedAccount.businessName} revoked`);
       setIsRevokeOpen(false);
       setRevokeReason('');
       fetchAccounts(page, statusFilter);
       setIsDetailsOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revoke account');
+      const msg = err instanceof Error ? err.message : 'Failed to revoke account';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -305,10 +296,13 @@ export default function FinanceApprovalsPage() {
         throw new Error(result.error || 'Failed to setup Paystack');
       }
 
+      toast.success('Paystack setup completed');
       setIsSetupPaystackOpen(false);
       fetchAccountDetails(selectedAccount._id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to setup Paystack');
+      const msg = err instanceof Error ? err.message : 'Failed to setup Paystack';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -324,10 +318,8 @@ export default function FinanceApprovalsPage() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
     if (searchQuery === '') {
-      // If search is cleared, fetch immediately
       fetchAccounts(1, statusFilter, '');
     } else {
-      // If search has content, debounce
       searchDebounceRef.current = setTimeout(() => {
         fetchAccounts(1, statusFilter, searchQuery);
       }, 500);
@@ -376,25 +368,50 @@ export default function FinanceApprovalsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950/30 text-yellow-800 dark:text-yellow-300">Pending</Badge>;
+        return <Badge className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">Pending</Badge>;
       case 'approved':
-        return <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300">Approved</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300">Approved</Badge>;
       case 'rejected':
-        return <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300">Rejected</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Rejected</Badge>;
       case 'revoked':
-        return <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300">Revoked</Badge>;
+        return <Badge className="bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300">Revoked</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge>{status}</Badge>;
     }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'border-l-4 border-l-amber-500';
+      case 'approved':
+        return 'border-l-4 border-l-green-500';
+      case 'rejected':
+        return 'border-l-4 border-l-red-500';
+      case 'revoked':
+        return 'border-l-4 border-l-purple-500';
+      default:
+        return '';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Finance Account Approvals</h1>
-        <p className="text-gray-600 dark:text-gray-400 dark:text-gray-400 mt-1">Review and approve merchant account setups</p>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">Review and manage merchant account applications</p>
       </div>
 
+      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -402,39 +419,147 @@ export default function FinanceApprovalsPage() {
         </Alert>
       )}
 
+      {/* Filters Card */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Filter Applications</CardTitle>
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+              {total} {total === 1 ? 'result' : 'results'}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            {/* Search */}
+            <div className="sm:col-span-2 relative group">
+              <label className="block text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Search</label>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-gray-600 dark:group-focus-within:text-gray-300 transition-colors" />
+              <Input
+                placeholder="Business, owner, or church name..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-12 py-2.5 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-300 dark:focus:border-blue-600"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setPage(1);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter */}
+            <div className="relative">
+              <label className="block text-sm text-gray-600 dark:text-gray-400 font-medium mb-2 flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Status
+              </label>
+              <SelectRoot
+                value={statusFilter}
+                onValueChange={(status) => {
+                  setStatusFilter(status);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="py-2.5 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-300 dark:focus:border-blue-600">
+                  <span className={`text-sm font-medium ${
+                    statusFilter === 'pending' ? 'text-amber-700 dark:text-amber-300' :
+                    statusFilter === 'approved' ? 'text-green-700 dark:text-green-300' :
+                    statusFilter === 'rejected' ? 'text-red-700 dark:text-red-300' :
+                    statusFilter === 'revoked' ? 'text-purple-700 dark:text-purple-300' :
+                    'text-gray-700 dark:text-gray-300'
+                  }`}>
+                    {statusFilter === 'pending' && '🟡 Pending'}
+                    {statusFilter === 'approved' && '🟢 Approved'}
+                    {statusFilter === 'rejected' && '🔴 Rejected'}
+                    {statusFilter === 'revoked' && '🟣 Revoked'}
+                    {statusFilter === 'all' && '⚪ All'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">🟡 Pending Only</SelectItem>
+                  <SelectItem value="approved">🟢 Approved Only</SelectItem>
+                  <SelectItem value="rejected">🔴 Rejected Only</SelectItem>
+                  <SelectItem value="revoked">🟣 Revoked Only</SelectItem>
+                  <SelectItem value="all">⚪ All Applications</SelectItem>
+                </SelectContent>
+              </SelectRoot>
+            </div>
+          </div>
+
+          {/* Active Filters Summary */}
+          {(searchQuery || statusFilter !== 'pending') && (
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Active Filters</p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setStatusFilter('pending');
+                    setPage(1);
+                  }}
+                  className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                >
+                  Reset All
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-200 dark:border-blue-800">
+                    <Search className="h-3 w-3" />
+                    "{searchQuery}"
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setPage(1);
+                      }}
+                      className="ml-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded p-0.5 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                {statusFilter !== 'pending' && (
+                  <span className="inline-flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full text-xs font-medium border border-purple-200 dark:border-purple-800">
+                    <Filter className="h-3 w-3" />
+                    {statusFilter === 'all' ? 'All' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+                    <button
+                      onClick={() => {
+                        setStatusFilter('pending');
+                        setPage(1);
+                      }}
+                      className="ml-1 hover:bg-purple-100 dark:hover:bg-purple-800 rounded p-0.5 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Results Card */}
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Submissions</CardTitle>
-            <CardDescription>
-              Review merchant account setup requests
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-4 mt-4">
-            <Input
-              placeholder="Search by business name, email, or church..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              className="flex-1"
-            />
-            <SelectRoot value={statusFilter} onValueChange={(status) => {
-              setStatusFilter(status);
-              setPage(1);
-            }}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="revoked">Revoked</SelectItem>
-              </SelectContent>
-            </SelectRoot>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Applications</CardTitle>
+              <CardDescription>
+                {total} {total === 1 ? 'application' : 'applications'} found
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -444,481 +569,523 @@ export default function FinanceApprovalsPage() {
             </div>
           ) : accounts.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 dark:text-gray-500">No accounts found</p>
+              <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">No applications found</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Organization</TableHead>
-                      <TableHead>Business Name</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {accounts.map((account) => (
-                      <TableRow key={account._id}>
-                        <TableCell className="font-semibold">
-                          {account.organizationId?.churchName}
-                        </TableCell>
-                        <TableCell>{account.businessName}</TableCell>
-                        <TableCell>{account.ownerFullName}</TableCell>
-                        <TableCell className="text-sm">{account.ownerEmail}</TableCell>
-                        <TableCell>{getStatusBadge(account.status)}</TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(account.submittedAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-9 h-9 p-0 hover:bg-blue-100 dark:hover:bg-blue-900"
-                            title="View details"
-                            onClick={() => {
-                              console.log('Eye button clicked for account:', account._id);
-                              setIsDetailsOpen(true);
-                              setSelectedAccount(null); // Reset to force re-fetch
-                              fetchAccountDetails(account._id);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            <span className="sr-only">View</span>
-                          </Button>
+            <div className="space-y-3">
+              {accounts.map((account) => (
+                <div
+                  key={account._id}
+                  className={`p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors ${getStatusColor(account.status)}`}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    {/* Church & Business */}
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">CHURCH</p>
+                      <p className="font-semibold text-sm truncate">{account.organizationId?.churchName}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{account.businessName}</p>
+                    </div>
 
-                          <Dialog open={isDetailsOpen && selectedAccount?._id === account._id} onOpenChange={(open) => {
-                            setIsDetailsOpen(open);
-                            if (!open) {
-                              setSelectedAccount(null);
-                            }
-                          }}>
-                            <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0">
-                              {selectedAccount && (
-                                <>
-                                  {/* Header */}
-                                  <div className="border-b px-6 py-4">
-                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">{selectedAccount.businessName}</h2>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                      {selectedAccount.organizationId?.churchName}
-                                    </p>
-                                    <div className="mt-3 flex items-center gap-2">
-                                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                        selectedAccount.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
-                                        selectedAccount.status === 'approved' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                                        selectedAccount.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                                        'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                                      }`}>
-                                        {selectedAccount.status.charAt(0).toUpperCase() + selectedAccount.status.slice(1)}
-                                      </span>
-                                    </div>
-                                  </div>
+                    {/* Owner Info */}
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">OWNER</p>
+                      <p className="font-semibold text-sm truncate">{account.ownerFullName}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{account.ownerEmail}</p>
+                    </div>
 
-                                  {/* Scrollable Content */}
-                                  <div className="overflow-y-auto flex-1 space-y-6 px-6 py-4">
-                                    {/* Business Details */}
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Business Details</h4>
-                                      <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Business Type</p>
-                                          <p className="font-semibold capitalize">{selectedAccount.businessType}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Registration</p>
-                                          <p className="font-semibold">{selectedAccount.businessRegistration}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Address</p>
-                                          <p className="font-semibold">{selectedAccount.businessAddress}</p>
-                                        </div>
-                                      </div>
-                                    </div>
+                    {/* Status & Date */}
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">STATUS</p>
+                      <div className="mt-1">{getStatusBadge(account.status)}</div>
+                    </div>
 
-                                    {/* Owner Details */}
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Owner Information</h4>
-                                      <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Name</p>
-                                          <p className="font-semibold">{selectedAccount.ownerFullName}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Email</p>
-                                          <p className="font-semibold text-sm">{selectedAccount.ownerEmail}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Phone</p>
-                                          <p className="font-semibold">{selectedAccount.ownerPhone}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">ID Type</p>
-                                          <p className="font-semibold capitalize">{selectedAccount.ownerIdType?.replace(/_/g, ' ')}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">ID Number</p>
-                                          <p className="font-semibold">{selectedAccount.ownerIdNumber}</p>
-                                        </div>
-                                      </div>
-                                    </div>
+                    {/* Submitted Date */}
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">SUBMITTED</p>
+                      <p className="font-semibold text-sm">{formatDate(account.submittedAt)}</p>
+                    </div>
+                  </div>
 
-                                    {/* Bank Details */}
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Bank Account</h4>
-                                      <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Bank</p>
-                                          <p className="font-semibold">{banks.find((b) => b.code === selectedAccount.bankCode)?.name || selectedAccount.bankCode}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Account Number</p>
-                                          <p className="font-semibold">{selectedAccount.bankAccountNumber}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Account Holder</p>
-                                          <p className="font-semibold">{selectedAccount.bankAccountName}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-gray-600 dark:text-gray-400">Account Type</p>
-                                          <p className="font-semibold capitalize">{selectedAccount.accountType}</p>
-                                        </div>
-                                      </div>
-                                    </div>
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200 dark:border-gray-800">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsDetailsOpen(true);
+                        setSelectedAccount(null);
+                        fetchAccountDetails(account._id);
+                      }}
+                      className="text-blue-600 dark:text-blue-400"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
 
-                                    {/* Documents */}
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Documents</h4>
-                                      {(!selectedAccount.businessRegistrationDoc?.trim() || !selectedAccount.ownerIdDoc?.trim()) && (
-                                        <div className="p-3 mb-3 bg-yellow-50 dark:bg-yellow-950/30 rounded text-yellow-700 dark:text-yellow-300 text-xs">
-                                          <p className="font-semibold">Debug Info:</p>
-                                          <p>Registration Doc URL: {selectedAccount.businessRegistrationDoc ? '✓ Present' : '✗ Missing'}</p>
-                                          <p>ID Doc URL: {selectedAccount.ownerIdDoc ? '✓ Present' : '✗ Missing'}</p>
-                                        </div>
-                                      )}
-                                      <div className="space-y-2">
-                                        {selectedAccount.businessRegistrationDoc && selectedAccount.businessRegistrationDoc.trim() ? (
-                                          <a
-                                            href={selectedAccount.businessRegistrationDoc}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => {
-                                              if (!selectedAccount.businessRegistrationDoc?.startsWith('http')) {
-                                                e.preventDefault();
-                                                alert('Invalid document URL');
-                                              }
-                                            }}
-                                            className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm cursor-pointer transition-colors"
-                                          >
-                                            <FileText className="w-4 h-4 flex-shrink-0" />
-                                            <span className="truncate">Business Registration Document</span>
-                                          </a>
-                                        ) : (
-                                          <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-900/30 rounded text-gray-500 dark:text-gray-400 text-sm">
-                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                            <span>Business Registration Document - Not uploaded</span>
-                                          </div>
-                                        )}
-                                        {selectedAccount.ownerIdDoc && selectedAccount.ownerIdDoc.trim() ? (
-                                          <a
-                                            href={selectedAccount.ownerIdDoc}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => {
-                                              if (!selectedAccount.ownerIdDoc?.startsWith('http')) {
-                                                e.preventDefault();
-                                                alert('Invalid document URL');
-                                              }
-                                            }}
-                                            className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm cursor-pointer transition-colors"
-                                          >
-                                            <FileText className="w-4 h-4 flex-shrink-0" />
-                                            <span className="truncate">Owner ID Document</span>
-                                          </a>
-                                        ) : (
-                                          <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-900/30 rounded text-gray-500 dark:text-gray-400 text-sm">
-                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                            <span>Owner ID Document - Not uploaded</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
+                    {account.status === 'pending' && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            setIsDetailsOpen(true);
+                            setSelectedAccount(null);
+                            fetchAccountDetails(account._id);
+                            setTimeout(() => setIsApproveOpen(true), 100);
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            setIsDetailsOpen(true);
+                            setSelectedAccount(null);
+                            fetchAccountDetails(account._id);
+                            setTimeout(() => setIsRejectOpen(true), 100);
+                          }}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
 
-                                    {/* Status History */}
-                                    {selectedAccount.statusHistory && selectedAccount.statusHistory.length > 0 && (
-                                      <div>
-                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Status History</h4>
-                                        <div className="space-y-2 text-sm">
-                                          {selectedAccount.statusHistory.map((entry, idx) => (
-                                            <div key={idx} className="flex items-start gap-3 py-2">
-                                              <div className="flex items-center justify-between">
-                                                <p className="font-medium text-sm capitalize">{entry.status}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-500">
-                                                  {new Date(entry.changedAt).toLocaleDateString()}
-                                                </p>
-                                              </div>
-                                              <p className="text-xs text-gray-600 dark:text-gray-400">{entry.changedBy?.firstName} {entry.changedBy?.lastName}</p>
-                                              {entry.notes && <p className="text-xs text-gray-600 dark:text-gray-400 italic mt-1">{entry.notes}</p>}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Paystack Status */}
-                                    {selectedAccount.status === 'approved' && (
-                                      <div>
-                                        <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">Paystack Setup</h3>
-                                        {selectedAccount.paystackMerchantId ? (
-                                          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded border border-green-200 dark:border-green-800">
-                                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                            <div>
-                                              <p className="font-medium text-sm text-green-900 dark:text-green-300">Setup Complete</p>
-                                              <p className="text-xs text-green-700 dark:text-green-400">{selectedAccount.paystackMerchantId}</p>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-800">
-                                            <div>
-                                              <p className="font-medium text-sm text-amber-900 dark:text-amber-300">Not Set Up</p>
-                                              <p className="text-xs text-amber-700 dark:text-amber-400">Paystack subaccount not yet created</p>
-                                            </div>
-                                            <Dialog open={isSetupPaystackOpen} onOpenChange={setIsSetupPaystackOpen}>
-                                              <DialogTrigger asChild>
-                                                <Button size="sm" className="ml-2">
-                                                  Setup Now
-                                                </Button>
-                                              </DialogTrigger>
-                                              <DialogContent>
-                                                <DialogHeader>
-                                                  <DialogTitle>Setup Paystack Subaccount</DialogTitle>
-                                                  <DialogDescription>
-                                                    Create a Paystack subaccount for {selectedAccount.businessName}
-                                                  </DialogDescription>
-                                                </DialogHeader>
-                                                <div className="space-y-4">
-                                                  <Alert>
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    <AlertDescription>
-                                                      This will create a Paystack merchant subaccount using the submitted bank details.
-                                                    </AlertDescription>
-                                                  </Alert>
-                                                  <Button
-                                                    onClick={handleSetupPaystack}
-                                                    disabled={isProcessing}
-                                                    className="w-full"
-                                                  >
-                                                    {isProcessing ? (
-                                                      <>
-                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                        Setting up...
-                                                      </>
-                                                    ) : (
-                                                      'Confirm Setup'
-                                                    )}
-                                                  </Button>
-                                                </div>
-                                              </DialogContent>
-                                            </Dialog>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Action Buttons Footer */}
-                                  <div className="border-t px-6 py-4 flex gap-2 flex-wrap">
-                                    {selectedAccount.status === 'pending' && (
-                                      <>
-                                        <Dialog open={isApproveOpen} onOpenChange={(open) => {
-                                          setIsApproveOpen(open);
-                                          if (!open) setApproveNotes('');
-                                        }}>
-                                          <DialogTrigger asChild>
-                                            <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white min-w-[120px]">
-                                              <CheckCircle className="h-4 w-4 mr-2" />
-                                              Approve
-                                            </Button>
-                                          </DialogTrigger>
-                                          <DialogContent>
-                                            <DialogHeader>
-                                              <DialogTitle>Approve Finance Account</DialogTitle>
-                                              <DialogDescription>
-                                                Approve {selectedAccount.businessName} for {selectedAccount.organizationId?.churchName}
-                                              </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="space-y-4">
-                                              <div>
-                                                <Label htmlFor="approveNotes">Approval Notes (Optional)</Label>
-                                                <Textarea
-                                                  id="approveNotes"
-                                                  placeholder="Add any notes about this approval..."
-                                                  value={approveNotes}
-                                                  onChange={(e) => setApproveNotes(e.target.value)}
-                                                />
-                                              </div>
-                                              <Button
-                                                onClick={handleApprove}
-                                                disabled={isProcessing}
-                                                className="w-full bg-green-600 hover:bg-green-700"
-                                              >
-                                                {isProcessing ? (
-                                                  <>
-                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    Approving...
-                                                  </>
-                                                ) : (
-                                                  'Confirm Approval'
-                                                )}
-                                              </Button>
-                                            </div>
-                                          </DialogContent>
-                                        </Dialog>
-
-                                        <Dialog open={isRejectOpen} onOpenChange={(open) => {
-                                          setIsRejectOpen(open);
-                                          if (!open) setRejectionReason('');
-                                        }}>
-                                          <DialogTrigger asChild>
-                                            <Button variant="destructive" className="flex-1 min-w-[120px]">
-                                              <XCircle className="h-4 w-4 mr-2" />
-                                              Reject
-                                            </Button>
-                                          </DialogTrigger>
-                                          <DialogContent>
-                                            <DialogHeader>
-                                              <DialogTitle>Reject Finance Account</DialogTitle>
-                                              <DialogDescription>
-                                                Reject {selectedAccount.businessName} for {selectedAccount.organizationId?.churchName}
-                                              </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="space-y-4">
-                                              <div>
-                                                <Label htmlFor="rejectionReason">Rejection Reason *</Label>
-                                                <Textarea
-                                                  id="rejectionReason"
-                                                  placeholder="Provide a detailed reason for rejection..."
-                                                  value={rejectionReason}
-                                                  onChange={(e) => setRejectionReason(e.target.value)}
-                                                  required
-                                                />
-                                              </div>
-                                              <Button
-                                                onClick={handleReject}
-                                                disabled={isProcessing || !rejectionReason.trim()}
-                                                variant="destructive"
-                                                className="w-full"
-                                              >
-                                                {isProcessing ? (
-                                                  <>
-                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    Rejecting...
-                                                  </>
-                                                ) : (
-                                                  'Confirm Rejection'
-                                                )}
-                                              </Button>
-                                            </div>
-                                          </DialogContent>
-                                        </Dialog>
-                                      </>
-                                    )}
-
-                                    {selectedAccount.status === 'approved' && (
-                                      <Dialog open={isRevokeOpen} onOpenChange={(open) => {
-                                        setIsRevokeOpen(open);
-                                        if (!open) setRevokeReason('');
-                                      }}>
-                                        <DialogTrigger asChild>
-                                          <Button variant="destructive" className="w-full">
-                                            <Lock className="h-4 w-4 mr-2" />
-                                            Revoke Access
-                                          </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                          <DialogHeader>
-                                            <DialogTitle>Revoke Finance Access</DialogTitle>
-                                            <DialogDescription>
-                                              Remove access for {selectedAccount.businessName}
-                                            </DialogDescription>
-                                          </DialogHeader>
-                                          <div className="space-y-4">
-                                            <Alert variant="destructive">
-                                              <AlertCircle className="h-4 w-4" />
-                                              <AlertDescription>
-                                                This will revoke finance access and disable their Paystack account.
-                                              </AlertDescription>
-                                            </Alert>
-                                            <div>
-                                              <Label htmlFor="revokeReason">Reason for Revocation *</Label>
-                                              <Textarea
-                                                id="revokeReason"
-                                                placeholder="Provide reason for revoking access..."
-                                                value={revokeReason}
-                                                onChange={(e) => setRevokeReason(e.target.value)}
-                                                required
-                                              />
-                                            </div>
-                                            <Button
-                                              onClick={handleRevoke}
-                                              disabled={isProcessing || !revokeReason.trim()}
-                                              variant="destructive"
-                                              className="w-full"
-                                            >
-                                              {isProcessing ? (
-                                                <>
-                                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                  Revoking...
-                                                </>
-                                              ) : (
-                                                'Confirm Revocation'
-                                              )}
-                                            </Button>
-                                          </div>
-                                        </DialogContent>
-                                      </Dialog>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setPage((p) => (p * limit < total ? p + 1 : p))}
-                    disabled={page * limit >= total}
-                  >
-                    Next
-                  </Button>
+                    {account.status === 'approved' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 dark:text-red-400"
+                        onClick={() => {
+                          setIsDetailsOpen(true);
+                          setSelectedAccount(null);
+                          fetchAccountDetails(account._id);
+                          setTimeout(() => setIsRevokeOpen(true), 100);
+                        }}
+                      >
+                        <Lock className="h-4 w-4 mr-2" />
+                        Revoke
+                      </Button>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {total > limit && (
+            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * limit >= total}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Details Modal */}
+      <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        setIsDetailsOpen(open);
+        if (!open) {
+          setSelectedAccount(null);
+          setIsApproveOpen(false);
+          setIsRejectOpen(false);
+          setIsRevokeOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 flex flex-col">
+          {selectedAccount && (
+            <>
+              {/* Header - Fixed */}
+              <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedAccount.businessName}</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedAccount.organizationId?.churchName}</p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-3 flex-shrink-0">
+                    {getStatusBadge(selectedAccount.status)}
+                    <button
+                      onClick={() => setIsDetailsOpen(false)}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                      title="Close"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                {/* Business Information */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Business Information</h3>
+                  <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Business Type</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{selectedAccount.businessType?.replace(/_/g, ' ')}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Registration Number</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.businessRegistration}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Address</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.businessAddress}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Owner Information */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Owner Information</h3>
+                  <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 space-y-4">
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Full Name</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.ownerFullName}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Email</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white break-all">{selectedAccount.ownerEmail}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Phone</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.ownerPhone}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">ID Type</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{selectedAccount.ownerIdType?.replace(/_/g, ' ')}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">ID Number</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">{selectedAccount.ownerIdNumber}</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Bank Account */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Bank Account</h3>
+                  <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 space-y-4">
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Bank Name</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{banks.find((b) => b.code === selectedAccount.bankCode)?.name || selectedAccount.bankCode}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Account Number</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">{selectedAccount.bankAccountNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Account Type</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{selectedAccount.accountType}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Account Holder</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.bankAccountName}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Documents */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Documents</h3>
+                  <div className="space-y-2">
+                    {selectedAccount.businessRegistrationDoc ? (
+                      <a
+                        href={selectedAccount.businessRegistrationDoc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                      >
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-medium">Business Registration Document</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm">Business Registration Document - Not available</span>
+                      </div>
+                    )}
+                    {selectedAccount.ownerIdDoc ? (
+                      <a
+                        href={selectedAccount.ownerIdDoc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                      >
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-medium">Owner ID Document</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm">Owner ID Document - Not available</span>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Status History */}
+                {selectedAccount.statusHistory && selectedAccount.statusHistory.length > 0 && (
+                  <section>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Status History</h3>
+                    <div className="space-y-2">
+                      {selectedAccount.statusHistory.map((entry, idx) => (
+                        <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-sm text-gray-900 dark:text-white capitalize">{entry.status}</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-400">{formatDate(entry.changedAt)}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">By: {entry.changedBy?.firstName} {entry.changedBy?.lastName}</p>
+                          {entry.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">{entry.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Paystack Status */}
+                {selectedAccount.status === 'approved' && (
+                  <section>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Paystack Setup</h3>
+                    {selectedAccount.paystackMerchantId ? (
+                      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm text-green-900 dark:text-green-200">Setup Complete</p>
+                          <p className="text-xs text-green-800 dark:text-green-300 mt-1 font-mono">{selectedAccount.paystackMerchantId}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-sm text-amber-900 dark:text-amber-200">Not Set Up</p>
+                          <p className="text-xs text-amber-800 dark:text-amber-300">Paystack subaccount not created</p>
+                        </div>
+                        <Dialog open={isSetupPaystackOpen} onOpenChange={setIsSetupPaystackOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm">Setup</Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Setup Paystack Subaccount</DialogTitle>
+                              <DialogDescription>Create Paystack merchant account</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                  Create a Paystack merchant subaccount using the submitted bank details.
+                                </AlertDescription>
+                              </Alert>
+                              <Button
+                                onClick={handleSetupPaystack}
+                                disabled={isProcessing}
+                                className="w-full"
+                              >
+                                {isProcessing ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Setting up...
+                                  </>
+                                ) : (
+                                  'Confirm Setup'
+                                )}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    )}
+                  </section>
+                )}
+              </div>
+
+              {/* Action Buttons - Fixed Footer */}
+              <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-wrap gap-2 flex-shrink-0">
+                {selectedAccount.status === 'pending' && (
+                  <>
+                    <Dialog open={isApproveOpen} onOpenChange={(open) => {
+                      setIsApproveOpen(open);
+                      if (!open) setApproveNotes('');
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button className="flex-1 bg-green-600 hover:bg-green-700" disabled={isProcessing}>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Approve Account</DialogTitle>
+                          <DialogDescription>
+                            Approve {selectedAccount.businessName}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Approval Notes (Optional)</Label>
+                            <Textarea
+                              placeholder="Add any notes about this approval..."
+                              value={approveNotes}
+                              onChange={(e) => setApproveNotes(e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            onClick={handleApprove}
+                            disabled={isProcessing}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Approving...
+                              </>
+                            ) : (
+                              'Confirm Approval'
+                            )}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isRejectOpen} onOpenChange={(open) => {
+                      setIsRejectOpen(open);
+                      if (!open) setRejectionReason('');
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button className="flex-1" variant="destructive" disabled={isProcessing}>
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Reject Account</DialogTitle>
+                          <DialogDescription>
+                            Reject {selectedAccount.businessName}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Rejection Reason *</Label>
+                            <Textarea
+                              placeholder="Provide a detailed reason for rejection..."
+                              value={rejectionReason}
+                              onChange={(e) => setRejectionReason(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <Button
+                            onClick={handleReject}
+                            disabled={isProcessing || !rejectionReason.trim()}
+                            className="w-full"
+                            variant="destructive"
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Rejecting...
+                              </>
+                            ) : (
+                              'Confirm Rejection'
+                            )}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
+
+                {selectedAccount.status === 'approved' && (
+                  <Dialog open={isRevokeOpen} onOpenChange={(open) => {
+                    setIsRevokeOpen(open);
+                    if (!open) setRevokeReason('');
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button className="flex-1" variant="destructive" disabled={isProcessing}>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Revoke Access
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Revoke Access</DialogTitle>
+                        <DialogDescription>
+                          Remove access for {selectedAccount.businessName}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            This will revoke finance access and disable their Paystack account.
+                          </AlertDescription>
+                        </Alert>
+                        <div>
+                          <Label>Revocation Reason *</Label>
+                          <Textarea
+                            placeholder="Provide reason for revoking access..."
+                            value={revokeReason}
+                            onChange={(e) => setRevokeReason(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <Button
+                          onClick={handleRevoke}
+                          disabled={isProcessing || !revokeReason.trim()}
+                          className="w-full"
+                          variant="destructive"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Revoking...
+                            </>
+                          ) : (
+                            'Confirm Revocation'
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

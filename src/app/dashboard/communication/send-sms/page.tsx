@@ -299,66 +299,88 @@ export default function SendSmsPage() {
 
   const renderRecipientField = () => {
     switch (sendOption) {
-      case 'single':
+      case 'single': {
+        const selectedMemberObj = recipientValue ? members.find((m: Member) => m._id === recipientValue) : null;
         return (
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-foreground mb-3">
+            <label className="block text-sm font-semibold text-foreground">
               Select Member
             </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search member name or phone..."
-              className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder-muted focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-            {membersLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 text-muted animate-spin" />
+
+            {selectedMemberObj ? (
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-primary/40 bg-primary/5">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm flex-shrink-0">
+                    {selectedMemberObj.firstName?.[0]}{selectedMemberObj.lastName?.[0]}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">
+                      {selectedMemberObj.firstName} {selectedMemberObj.lastName}
+                    </p>
+                    <p className="text-xs text-muted">{selectedMemberObj.phone}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setRecipientValue(''); setSearchTerm(''); }}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Change
+                </button>
               </div>
             ) : (
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-64 overflow-y-auto bg-white dark:bg-gray-800">
-                {filteredMembers.length === 0 ? (
-                  <div className="p-4 text-center text-muted text-sm">
-                    No members found
+              <>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search member name or phone..."
+                  className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder-muted focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+                {membersLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 text-muted animate-spin" />
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredMembers.map((member: Member) => (
-                      <button
-                        key={member._id}
-                        onClick={() => {
-                          setRecipientValue(member._id);
-                          setSearchTerm('');
-                        }}
-                        className={`w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                          recipientValue === member._id ? 'bg-primary-light/20' : ''
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {member.firstName} {member.lastName}
-                            </p>
-                            <p className="text-sm text-muted">{member.phone}</p>
-                          </div>
-                          {recipientValue === member._id && (
-                            <Check className="w-5 h-5 text-primary" />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-64 overflow-y-auto bg-white dark:bg-gray-800">
+                    {filteredMembers.length === 0 ? (
+                      <div className="p-4 text-center text-muted text-sm">
+                        No members found
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredMembers.map((member: Member) => (
+                          <button
+                            key={member._id}
+                            type="button"
+                            onClick={() => {
+                              setRecipientValue(member._id);
+                              setSearchTerm('');
+                            }}
+                            className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium text-xs flex-shrink-0">
+                                {member.firstName?.[0]}{member.lastName?.[0]}
+                              </div>
+                              <div>
+                                <p className="font-medium text-foreground text-sm">
+                                  {member.firstName} {member.lastName}
+                                </p>
+                                <p className="text-xs text-muted">{member.phone}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-            {recipientValue && (
-              <p className="text-xs text-muted">
-                Selected: {members.find((m: Member) => m._id === recipientValue)?.firstName} {members.find((m: Member) => m._id === recipientValue)?.lastName}
-              </p>
+              </>
             )}
           </div>
         );
+      }
 
       case 'all':
         return (
@@ -557,7 +579,7 @@ export default function SendSmsPage() {
                 <option value="">Select a template...</option>
                 {templates.map((template: any) => (
                   <option key={template._id} value={template._id}>
-                    {template.name} ({template.message.length}/160)
+                    {template.name} ({template.message.length} chars)
                   </option>
                 ))}
               </select>
@@ -581,17 +603,28 @@ export default function SendSmsPage() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type your message here..."
               rows={6}
-              maxLength={160}
               className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground placeholder-muted focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
             />
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-muted">
-                {message.length}/160 characters
-              </p>
-              {message.length >= 150 && (
-                <p className="text-xs text-warning">Approaching limit</p>
-              )}
-            </div>
+            {(() => {
+              const isUnicode = /[^ -ÿ€ŠšŽžŒœŸ]/.test(message);
+              const charsPerSegment = isUnicode ? 70 : 160;
+              const segments = message.length > 0 ? (Math.ceil(message.length / charsPerSegment) || 1) : 1;
+              const charsLeft = segments * charsPerSegment - message.length;
+              return (
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted">
+                    {message.length} chars
+                    {isUnicode && <span className="text-amber-500"> · Unicode (emoji/special chars)</span>}
+                    {message.length > 0 && (
+                      <> · <span className={segments > 1 ? 'text-amber-500 font-medium' : ''}>{segments} credit{segments > 1 ? 's' : ''} per recipient</span></>
+                    )}
+                  </p>
+                  {message.length > 0 && (
+                    <p className="text-xs text-muted">{charsLeft} left in segment</p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Schedule SMS Section */}
