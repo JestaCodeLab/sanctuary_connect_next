@@ -314,7 +314,7 @@ function TithesPageContent() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant="secondary" className="text-xs capitalize">
+                      <Badge variant="muted" className="text-xs capitalize">
                         {donation.paymentMethod || 'N/A'}
                       </Badge>
                     </td>

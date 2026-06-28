@@ -14,8 +14,10 @@ interface CreditRow {
 }
 
 interface BmsBalance {
-  success: boolean;
-  balance: number;
+  success?: boolean;
+  balance: number | null;
+  updatedAt?: string | null;
+  hasData?: boolean;
   message?: string;
 }
 
@@ -39,17 +41,29 @@ export default function SmsCreditsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
+  // Load stored BMS balance on mount (no SMS sent)
   const fetchBmsBalance = useCallback(() => {
     setBmsLoading(true);
     setBmsError('');
     api
-      .get('/api/sms/credits/bms-balance')
+      .get('/api/superadmin/sms-credits/bms-balance')
       .then((r) => setBmsBalance(r.data))
-      .catch(() => setBmsError('Failed to fetch BMS balance'))
+      .catch(() => setBmsError('Failed to load stored balance'))
       .finally(() => setBmsLoading(false));
   }, []);
 
   useEffect(() => { fetchBmsBalance(); }, [fetchBmsBalance]);
+
+  // Check live balance by sending a test SMS to SUPERADMIN_PHONE
+  const checkLiveBmsBalance = () => {
+    setBmsLoading(true);
+    setBmsError('');
+    api
+      .post('/api/superadmin/sms-credits/check-bms-balance')
+      .then((r) => setBmsBalance({ success: r.data.success, balance: r.data.balance, updatedAt: r.data.updatedAt }))
+      .catch(() => setBmsError('Balance check failed — see server logs'))
+      .finally(() => setBmsLoading(false));
+  };
 
   const fetchCredits = useCallback(() => {
     setLoading(true);
@@ -108,9 +122,11 @@ export default function SmsCreditsPage() {
       <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className={`flex items-center justify-center w-11 h-11 rounded-full flex-shrink-0 ${
-            bmsBalance?.success ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'
+            bmsBalance?.balance !== null && bmsBalance?.balance !== undefined
+              ? 'bg-green-100 dark:bg-green-900/30'
+              : 'bg-gray-100 dark:bg-gray-800'
           }`}>
-            {bmsBalance?.success
+            {bmsBalance?.balance !== null && bmsBalance?.balance !== undefined
               ? <Wifi className="w-5 h-5 text-green-600 dark:text-green-400" />
               : <WifiOff className="w-5 h-5 text-gray-400" />
             }
@@ -118,26 +134,35 @@ export default function SmsCreditsPage() {
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">BMS Africa Platform Credits</p>
             {bmsLoading ? (
-              <p className="text-sm text-muted-foreground">Fetching live balance...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">Sending test SMS to verify balance…</p>
             ) : bmsError ? (
               <p className="text-sm text-red-500">{bmsError}</p>
-            ) : bmsBalance?.success ? (
-              <p className="text-2xl font-bold text-foreground">
-                {bmsBalance.balance.toLocaleString()}
-                <span className="text-sm font-normal text-muted-foreground ml-2">credits remaining on BMS</span>
-              </p>
+            ) : bmsBalance?.balance !== null && bmsBalance?.balance !== undefined ? (
+              <div>
+                <p className="text-2xl font-bold text-foreground">
+                  {(bmsBalance.balance as number).toLocaleString()}
+                  <span className="text-sm font-normal text-muted-foreground ml-2">platform credits remaining</span>
+                </p>
+                {bmsBalance.updatedAt && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Last synced: {new Date(bmsBalance.updatedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">{bmsBalance?.message || 'Balance unavailable'}</p>
+              <p className="text-sm text-muted-foreground">
+                No balance data yet — click <span className="font-medium text-foreground">Check SMS Balance</span> to fetch
+              </p>
             )}
           </div>
         </div>
         <button
-          onClick={fetchBmsBalance}
+          onClick={checkLiveBmsBalance}
           disabled={bmsLoading}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-2 hover:bg-background transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-background transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${bmsLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          Check SMS Balance
         </button>
       </div>
 
