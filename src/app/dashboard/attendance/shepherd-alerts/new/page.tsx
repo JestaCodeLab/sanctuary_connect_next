@@ -137,7 +137,7 @@ export default function NewShepherdAlertPage() {
 
   const shepherdNames = formData.shepherds
     .map(s => members.find(m => m._id === s.memberId))
-    .filter(Boolean);
+    .filter((m): m is Member => Boolean(m));
 
   return (
     <div className="space-y-6">
