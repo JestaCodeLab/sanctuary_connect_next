@@ -191,12 +191,6 @@ export default function HistoryPage() {
                     Recipients
                   </th>
                   <th className="px-6 py-4 text-center text-xs font-semibold text-muted uppercase tracking-wider">
-                    Delivered
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-muted uppercase tracking-wider">
-                    Failed
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-muted uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-4 text-center text-xs font-semibold text-muted uppercase tracking-wider">
@@ -225,16 +219,6 @@ export default function HistoryPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-foreground">
                       {log.totalRecipients}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                        {log.successfulDeliveries}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                        {log.failedDeliveries}
-                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(log.overallStatus)}`}>

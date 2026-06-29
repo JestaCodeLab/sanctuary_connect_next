@@ -3,6 +3,7 @@
 interface BadgeProps {
   variant?: 'success' | 'warning' | 'error' | 'info' | 'muted';
   children: React.ReactNode;
+  className?: string;
 }
 
 const variantStyles = {
@@ -13,9 +14,9 @@ const variantStyles = {
   muted: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
 };
 
-export default function Badge({ variant = 'muted', children }: BadgeProps) {
+export default function Badge({ variant = 'muted', children, className = '' }: BadgeProps) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variantStyles[variant]}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variantStyles[variant]} ${className}`}>
       {children}
     </span>
   );
