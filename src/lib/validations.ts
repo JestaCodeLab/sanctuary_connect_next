@@ -89,6 +89,12 @@ export const fundBucketSchema = z.object({
 
 export type FundBucketFormData = z.infer<typeof fundBucketSchema>;
 
+// Returns true if a date string represents someone under 18
+const isUnder18 = (dob: string) => {
+  const ageDiffMs = Date.now() - new Date(dob).getTime();
+  return ageDiffMs / (1000 * 60 * 60 * 24 * 365.25) < 18;
+};
+
 // Member schema
 export const memberSchema = z.object({
   branchId: z.string().optional(),
@@ -96,7 +102,7 @@ export const memberSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email address').optional().or(z.literal('')),
-  phone: z.string().min(1, 'Phone number is required'),
+  phone: z.string().optional().or(z.literal('')),
   dateOfBirth: z.string().optional(),
   gender: z.string().optional(),
   maritalStatus: z.string().optional(),
@@ -116,6 +122,18 @@ export const memberSchema = z.object({
     })
   ).optional(),
   notes: z.string().max(2000, 'Notes must be under 2000 characters').optional(),
+}).superRefine((data, ctx) => {
+  const phoneProvided = !!data.phone?.trim();
+  if (!phoneProvided) {
+    const under18 = data.dateOfBirth && isUnder18(data.dateOfBirth);
+    if (!under18) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Phone number is required',
+        path: ['phone'],
+      });
+    }
+  }
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;

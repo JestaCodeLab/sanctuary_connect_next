@@ -163,6 +163,13 @@ export default function MemberForm({
   const selectedCountry = watch('country');
   const regionOptions = selectedCountry ? (regionsByCountry[selectedCountry] || []) : [];
 
+  const dateOfBirth = watch('dateOfBirth');
+  const memberIsUnder18 = (() => {
+    if (!dateOfBirth) return false;
+    const ageDiffMs = Date.now() - new Date(dateOfBirth).getTime();
+    return ageDiffMs / (1000 * 60 * 60 * 24 * 365.25) < 18;
+  })();
+
   // Load default family members
   useEffect(() => {
     if (defaultValues?.familyMembers && defaultValues.familyMembers.length > 0) {
@@ -207,7 +214,7 @@ export default function MemberForm({
               {...register('email')}
             />
             <Input
-              label="Phone"
+              label={memberIsUnder18 ? 'Phone (Optional — under 18)' : 'Phone'}
               type="tel"
               placeholder="+1 234 567 8900"
               leftIcon={<Phone className="w-4 h-4" />}
