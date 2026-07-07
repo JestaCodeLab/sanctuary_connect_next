@@ -77,8 +77,9 @@ interface AccountDetails extends FinanceAccount {
   bankCode: string;
   bankAccountName: string;
   bankAccountNumber: string;
-  accountType: string;
-  paystackMerchantId?: string;
+  bankAccountType: string;
+  tier: 'primary' | 'subaccount';
+  paystackKeysAddedAt?: string;
   statusHistory: Array<{
     status: string;
     changedAt: string;
@@ -102,7 +103,9 @@ export default function FinanceApprovalsPage() {
   const [approveNotes, setApproveNotes] = useState('');
   const [isRevokeOpen, setIsRevokeOpen] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
-  const [isSetupPaystackOpen, setIsSetupPaystackOpen] = useState(false);
+  const [isSetPaystackKeysOpen, setIsSetPaystackKeysOpen] = useState(false);
+  const [paystackSecretKeyInput, setPaystackSecretKeyInput] = useState('');
+  const [paystackPublicKeyInput, setPaystackPublicKeyInput] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
@@ -277,30 +280,40 @@ export default function FinanceApprovalsPage() {
     }
   };
 
-  const handleSetupPaystack = async () => {
+  const handleSetPaystackKeys = async () => {
     if (!selectedAccount) return;
+    if (!paystackSecretKeyInput.trim() || !paystackPublicKeyInput.trim()) {
+      toast.error('Both secret and public keys are required');
+      return;
+    }
 
     try {
       setIsProcessing(true);
       const response = await fetch(
-        `${API_BASE_URL}/api/superadmin/finance-accounts/${selectedAccount._id}/setup-paystack`,
+        `${API_BASE_URL}/api/superadmin/finance-accounts/${selectedAccount._id}/paystack-keys`,
         {
           method: 'POST',
           headers: getAuthHeaders(),
+          body: JSON.stringify({
+            paystackSecretKey: paystackSecretKeyInput.trim(),
+            paystackPublicKey: paystackPublicKeyInput.trim(),
+          }),
         }
       );
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to setup Paystack');
+        throw new Error(result.error || 'Failed to save Paystack keys');
       }
 
-      toast.success('Paystack setup completed');
-      setIsSetupPaystackOpen(false);
+      toast.success('Paystack keys saved');
+      setIsSetPaystackKeysOpen(false);
+      setPaystackSecretKeyInput('');
+      setPaystackPublicKeyInput('');
       fetchAccountDetails(selectedAccount._id);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to setup Paystack';
+      const msg = err instanceof Error ? err.message : 'Failed to save Paystack keys';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -807,7 +820,7 @@ export default function FinanceApprovalsPage() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Account Type</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{selectedAccount.accountType}</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{selectedAccount.bankAccountType}</p>
                       </div>
                     </div>
                     <div>
@@ -875,52 +888,74 @@ export default function FinanceApprovalsPage() {
                   </section>
                 )}
 
-                {/* Paystack Status */}
-                {selectedAccount.status === 'approved' && (
+                {/* Paystack Keys (primary account only) */}
+                {selectedAccount.status === 'approved' && selectedAccount.tier === 'primary' && (
                   <section>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Paystack Setup</h3>
-                    {selectedAccount.paystackMerchantId ? (
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Paystack Keys</h3>
+                    {selectedAccount.paystackKeysAddedAt ? (
                       <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                         <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="font-semibold text-sm text-green-900 dark:text-green-200">Setup Complete</p>
-                          <p className="text-xs text-green-800 dark:text-green-300 mt-1 font-mono">{selectedAccount.paystackMerchantId}</p>
+                          <p className="font-semibold text-sm text-green-900 dark:text-green-200">Keys Configured</p>
+                          <p className="text-xs text-green-800 dark:text-green-300 mt-1">Set on {formatDate(selectedAccount.paystackKeysAddedAt)}</p>
                         </div>
                       </div>
                     ) : (
                       <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center justify-between">
                         <div>
-                          <p className="font-semibold text-sm text-amber-900 dark:text-amber-200">Not Set Up</p>
-                          <p className="text-xs text-amber-800 dark:text-amber-300">Paystack subaccount not created</p>
+                          <p className="font-semibold text-sm text-amber-900 dark:text-amber-200">Not Configured</p>
+                          <p className="text-xs text-amber-800 dark:text-amber-300">No Paystack keys saved for this account yet</p>
                         </div>
-                        <Dialog open={isSetupPaystackOpen} onOpenChange={setIsSetupPaystackOpen}>
+                        <Dialog open={isSetPaystackKeysOpen} onOpenChange={setIsSetPaystackKeysOpen}>
                           <DialogTrigger asChild>
-                            <Button size="sm">Setup</Button>
+                            <Button size="sm">Add Keys</Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Setup Paystack Subaccount</DialogTitle>
-                              <DialogDescription>Create Paystack merchant account</DialogDescription>
+                              <DialogTitle>Add Paystack Keys</DialogTitle>
+                              <DialogDescription>
+                                Paste the secret and public keys from this church&apos;s own Paystack business account
+                              </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
                               <Alert>
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertDescription>
-                                  Create a Paystack merchant subaccount using the submitted bank details.
+                                  These keys are verified against Paystack before saving. The secret key is encrypted at
+                                  rest and never shown again after this step.
                                 </AlertDescription>
                               </Alert>
+                              <div>
+                                <Label htmlFor="paystackSecretKey">Secret Key</Label>
+                                <Input
+                                  id="paystackSecretKey"
+                                  type="password"
+                                  placeholder="sk_live_..."
+                                  value={paystackSecretKeyInput}
+                                  onChange={(e) => setPaystackSecretKeyInput(e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="paystackPublicKey">Public Key</Label>
+                                <Input
+                                  id="paystackPublicKey"
+                                  placeholder="pk_live_..."
+                                  value={paystackPublicKeyInput}
+                                  onChange={(e) => setPaystackPublicKeyInput(e.target.value)}
+                                />
+                              </div>
                               <Button
-                                onClick={handleSetupPaystack}
+                                onClick={handleSetPaystackKeys}
                                 disabled={isProcessing}
                                 className="w-full"
                               >
                                 {isProcessing ? (
                                   <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Setting up...
+                                    Verifying &amp; Saving...
                                   </>
                                 ) : (
-                                  'Confirm Setup'
+                                  'Save Keys'
                                 )}
                               </Button>
                             </div>

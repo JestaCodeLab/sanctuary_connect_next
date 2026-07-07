@@ -149,9 +149,13 @@ export interface CreateBranchRequest {
 export interface FundBucket {
   _id: string;
   organizationId: string;
+  branchId?: string | null;
   name: string;
   description?: string;
   enabled: boolean;
+  targetAmount?: number | null;
+  targetDate?: string | null;
+  status?: 'active' | 'completed' | 'archived';
   createdAt: string;
   updatedAt: string;
 }
@@ -161,6 +165,66 @@ export interface CreateFundBucketRequest {
   name: string;
   description?: string;
   enabled?: boolean;
+}
+
+// Project types (finance module view of FundBucket, with fundraising progress)
+export interface Project extends FundBucket {
+  raisedAmount: number;
+  donationCount: number;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  targetAmount?: number;
+  targetDate?: string;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  targetAmount?: number | null;
+  targetDate?: string | null;
+  status?: 'active' | 'completed' | 'archived';
+  enabled?: boolean;
+}
+
+// Offering Type types (dynamic, branch-scoped, merchant-defined)
+export interface OfferingType {
+  _id: string;
+  organizationId: string;
+  branchId: string;
+  name: string;
+  isDefault: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOfferingTypeRequest {
+  name: string;
+}
+
+export interface UpdateOfferingTypeRequest {
+  name?: string;
+  enabled?: boolean;
+}
+
+// Branch finance account summary (Finance Settings screen)
+export interface BranchAccountSummary {
+  branchId: string;
+  branchName: string;
+  isHeadOffice: boolean;
+  hasAccount: boolean;
+  tier: 'primary' | 'subaccount' | null;
+  status: 'none' | 'pending' | 'approved' | 'rejected' | 'revoked';
+  paystackKeysConfigured: boolean | null;
+}
+
+export interface CreateBranchSubaccountRequest {
+  bankCode: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
 }
 
 // API Error type
@@ -364,6 +428,13 @@ export interface Donation {
   fundBucketId?: {
     _id: string;
     name: string;
+    targetAmount?: number | null;
+    targetDate?: string | null;
+    status?: 'active' | 'completed' | 'archived';
+  };
+  offeringTypeId?: {
+    _id: string;
+    name: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -379,6 +450,7 @@ export interface CreateDonationRequest {
   transactionId?: string;
   notes?: string;
   fundBucketId?: string;
+  offeringTypeId?: string;
 }
 
 export interface DonationStats {

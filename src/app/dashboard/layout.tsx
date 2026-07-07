@@ -34,6 +34,7 @@ import {
   Badge,
   Zap,
   ArrowLeftRight,
+  Target,
   AlertCircle,
   Settings2,
   UserCheck,
@@ -109,9 +110,11 @@ const sidebarLinks: SidebarLink[] = [
     children: [
       { label: 'Offerings', href: '/dashboard/finance/offerings', icon: TrendingUp },
       { label: 'Tithes', href: '/dashboard/finance/tithes', icon: TrendingUp },
+      { label: 'Projects', href: '/dashboard/finance/projects', icon: Target },
       { label: 'Expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
       { label: 'Transactions', href: '/dashboard/transactions', icon: ArrowLeftRight },
       { label: 'Reports', href: '/dashboard/finance/reports', icon: FileText, featureKey: 'advanced_financial_reporting' },
+      { label: 'Settings', href: '/dashboard/finance/settings', icon: Settings2 },
     ],
   },
   {

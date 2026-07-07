@@ -89,6 +89,26 @@ export const fundBucketSchema = z.object({
 
 export type FundBucketFormData = z.infer<typeof fundBucketSchema>;
 
+// Project schema (finance module fundraising project)
+export const projectSchema = z.object({
+  name: z.string().min(1, 'Project name is required').max(50, 'Project name is too long'),
+  description: z.string().optional(),
+  targetAmount: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0.01, 'Target must be greater than 0').optional()
+  ),
+  targetDate: z.string().optional(),
+});
+
+export type ProjectFormData = z.infer<typeof projectSchema>;
+
+// Offering type schema
+export const offeringTypeSchema = z.object({
+  name: z.string().min(1, 'Type name is required').max(50, 'Type name is too long'),
+});
+
+export type OfferingTypeFormData = z.infer<typeof offeringTypeSchema>;
+
 // Returns true if a date string represents someone under 18
 const isUnder18 = (dob: string) => {
   const ageDiffMs = Date.now() - new Date(dob).getTime();
@@ -176,6 +196,7 @@ export const donationSchema = z.object({
   transactionId: z.string().optional(),
   notes: z.string().optional(),
   fundBucketId: z.string().optional(),
+  offeringTypeId: z.string().optional(),
 });
 
 export type DonationFormData = z.infer<typeof donationSchema>;

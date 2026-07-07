@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, TrendingUp, TrendingDown, Wallet, ArrowRight, CreditCard, Smartphone, Banknote, Globe } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Wallet, ArrowRight, CreditCard, Smartphone, Banknote, Globe, Target, ArrowLeftRight, FileText } from 'lucide-react';
 
 import { PageHeader, StatsGrid } from '@/components/dashboard';
 import { Card, Button } from '@/components/ui';
@@ -30,9 +30,12 @@ const methodIcons: Record<string, typeof DollarSign> = {
 };
 
 const quickLinks = [
-  { label: 'Income', description: 'Record and manage donations', href: '/dashboard/finance/income', icon: TrendingUp },
+  { label: 'Offerings', description: 'Record and manage offerings', href: '/dashboard/finance/offerings', icon: TrendingUp },
+  { label: 'Tithes', description: 'Record and manage tithes', href: '/dashboard/finance/tithes', icon: TrendingUp },
+  { label: 'Projects', description: 'Mission, building & special funds', href: '/dashboard/finance/projects', icon: Target },
   { label: 'Expenses', description: 'Track and manage expenses', href: '/dashboard/finance/expenses', icon: TrendingDown },
-  { label: 'Reports', description: 'Generate financial reports', href: '/dashboard/finance/reports', icon: Wallet },
+  { label: 'Transactions', description: 'View the full payment ledger', href: '/dashboard/transactions', icon: ArrowLeftRight },
+  { label: 'Reports', description: 'Generate financial reports', href: '/dashboard/finance/reports', icon: FileText },
 ];
 
 function FinanceOverviewContent() {

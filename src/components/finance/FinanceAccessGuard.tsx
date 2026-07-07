@@ -12,12 +12,13 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui';
-import { AlertCircle, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Clock, XCircle, Loader2, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useBranchStore } from '@/store/branchStore';
 
 interface FinanceAccountStatus {
-  status: 'not_started' | 'pending' | 'approved' | 'rejected' | 'revoked';
+  status: 'not_started' | 'no_branch_account' | 'pending' | 'approved' | 'rejected' | 'revoked' | 'no_branch_selected';
   message: string;
   rejectionReason?: string;
   revokedReason?: string;
@@ -30,16 +31,23 @@ interface FinanceAccessGuardProps {
   setupPath?: string;
 }
 
-export function FinanceAccessGuard({ 
-  children, 
+export function FinanceAccessGuard({
+  children,
   fallback,
-  setupPath = '/finance/setup' 
+  setupPath = '/finance/setup'
 }: FinanceAccessGuardProps) {
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const [status, setStatus] = useState<FinanceAccountStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedBranchId) {
+      setStatus(null);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchStatus = async () => {
       try {
         setIsLoading(true);
@@ -54,7 +62,29 @@ export function FinanceAccessGuard({
     };
 
     fetchStatus();
-  }, []);
+  }, [selectedBranchId]);
+
+  // No specific branch selected ("All Branches") — the finance module requires one
+  if (!selectedBranchId) {
+    return (
+      <Card className="w-full border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Building2 className="mr-2 h-5 w-5 text-blue-600" />
+            Select a Branch
+          </CardTitle>
+          <CardDescription>
+            The finance module is branch-specific
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-700">
+            Select a specific branch from the branch switcher to access finance features. Each branch has its own finance account.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -83,7 +113,7 @@ export function FinanceAccessGuard({
     );
   }
 
-  // Account not started
+  // Account not started — this branch can become the org's primary account
   if (status?.status === 'not_started') {
     return (
       <Card className="w-full border-yellow-200 bg-yellow-50">
@@ -97,13 +127,42 @@ export function FinanceAccessGuard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-700 mb-4">
-            To use the finance module for payment processing, please complete your merchant account setup. 
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+            To use the finance module for payment processing, please complete your merchant account setup.
             This will require your business information, owner details, and bank account information.
           </p>
           <Link href={setupPath}>
             <Button className="bg-yellow-600 hover:bg-yellow-700">
               Start Setup
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // This branch has no finance account, but the org already has a primary
+  // elsewhere — hard cut, guide to Finance Settings instead of the KYC wizard.
+  if (status?.status === 'no_branch_account') {
+    return (
+      <Card className="w-full border-yellow-200 bg-yellow-50">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Building2 className="mr-2 h-5 w-5 text-yellow-600" />
+            Branch Not Set Up
+          </CardTitle>
+          <CardDescription>
+            This branch doesn&apos;t have a finance account yet
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-700 mb-4">
+            Your organization already has a primary finance account on another branch. Set up an
+            account for this branch from Finance Settings to start collecting payments here.
+          </p>
+          <Link href="/dashboard/finance/settings">
+            <Button className="bg-yellow-600 hover:bg-yellow-700">
+              Go to Finance Settings
             </Button>
           </Link>
         </CardContent>
@@ -126,7 +185,6 @@ export function FinanceAccessGuard({
         </CardHeader>
         <CardContent>
           <Alert className="bg-red-100 border-red-300">
-            {/* <Clock className="h-4 w-4" /> */}
             <AlertTitle>Awaiting Approval</AlertTitle>
             <AlertDescription>
               Your merchant account application is under review.
@@ -231,11 +289,18 @@ export function FinanceAccessGuard({
 
 // Hook to get finance account status
 export function useFinanceAccountStatus() {
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const [status, setStatus] = useState<FinanceAccountStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedBranchId) {
+      setStatus(null);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchStatus = async () => {
       try {
         setIsLoading(true);
@@ -250,7 +315,7 @@ export function useFinanceAccountStatus() {
     };
 
     fetchStatus();
-  }, []);
+  }, [selectedBranchId]);
 
   return { status, isLoading, error };
 }

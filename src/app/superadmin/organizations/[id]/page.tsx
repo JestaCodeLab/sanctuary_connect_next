@@ -1124,13 +1124,13 @@ export default function OrgDetailPage() {
                 </div>
               </div>
 
-              {/* Paystack Merchant ID (if approved) */}
-              {financeAccount.paystackMerchantId && (
+              {/* Paystack Keys (primary account only) */}
+              {financeAccount.tier === 'primary' && financeAccount.paystackKeysAddedAt && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-green-800">Paystack Subaccount Created</p>
-                    <p className="text-sm font-mono text-green-700">{financeAccount.paystackMerchantId}</p>
+                    <p className="text-sm font-medium text-green-800">Paystack Keys Configured</p>
+                    <p className="text-sm text-green-700">Set on {new Date(financeAccount.paystackKeysAddedAt).toLocaleDateString()}</p>
                   </div>
                 </div>
               )}
@@ -1187,7 +1187,7 @@ export default function OrgDetailPage() {
                     <div className="flex justify-between"><dt className="text-muted-foreground">Bank Code</dt><dd>{financeAccount.bankCode || '—'}</dd></div>
                     <div className="flex justify-between"><dt className="text-muted-foreground">Account Name</dt><dd>{financeAccount.bankAccountName || '—'}</dd></div>
                     <div className="flex justify-between"><dt className="text-muted-foreground">Account Number</dt><dd>{financeAccount.bankAccountNumber || '—'}</dd></div>
-                    <div className="flex justify-between"><dt className="text-muted-foreground">Account Type</dt><dd className="capitalize">{financeAccount.accountType || '—'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Account Type</dt><dd className="capitalize">{financeAccount.bankAccountType || '—'}</dd></div>
                   </dl>
                 </div>
 

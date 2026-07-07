@@ -496,7 +496,7 @@ function TithesPageContent() {
 
       {/* Print Receipt Modal */}
       <Modal isOpen={!!receiptTarget} onClose={() => setReceiptTarget(null)} title="Tithe Receipt">
-        {receiptTarget && <DonationReceipt donation={receiptTarget} />}
+        {receiptTarget && <DonationReceipt donation={receiptTarget} onClose={() => setReceiptTarget(null)} />}
       </Modal>
     </div>
   );

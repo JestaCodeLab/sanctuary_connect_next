@@ -20,12 +20,16 @@ import {
 } from '@/components/ui';
 import { Loader2, AlertCircle, CheckCircle, Upload } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useBranchStore } from '@/store/branchStore';
 
 type FormStep = 'basic' | 'owner' | 'bank' | 'review';
 
 const FORM_STEPS: FormStep[] = ['basic', 'owner', 'bank', 'review'];
 
 interface FormData {
+  // Branch this primary account will be tied to
+  branchId: string;
+
   // Business Info
   businessName: string;
   businessType: string;
@@ -45,7 +49,7 @@ interface FormData {
   bankCode: string;
   bankAccountName: string;
   bankAccountNumber: string;
-  accountType: string;
+  bankAccountType: string;
 }
 
 interface FinanceAccountSetupFormProps {
@@ -54,11 +58,13 @@ interface FinanceAccountSetupFormProps {
 }
 
 export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: FinanceAccountSetupFormProps) {
+  const { branches, selectedBranchId } = useBranchStore();
   const [currentStep, setCurrentStep] = useState<FormStep>('basic');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState<FormData>({
+    branchId: selectedBranchId || '',
     businessName: '',
     businessType: '',
     businessRegistration: '',
@@ -73,7 +79,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
     bankCode: '',
     bankAccountName: '',
     bankAccountNumber: '',
-    accountType: 'business',
+    bankAccountType: 'business',
   });
 
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({
@@ -160,6 +166,10 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
   const validateStep = (step: FormStep): boolean => {
     switch (step) {
       case 'basic':
+        if (!formData.branchId) {
+          setError('Branch is required');
+          return false;
+        }
         if (!formData.businessName?.trim()) {
           setError('Business name is required');
           return false;
@@ -226,7 +236,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           setError('Account number must be exactly 10 digits');
           return false;
         }
-        if (!formData.accountType) {
+        if (!formData.bankAccountType) {
           setError('Account type is required');
           return false;
         }
@@ -284,6 +294,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       const submitData = new FormData();
 
       // Add all text fields
+      submitData.append('branchId', formData.branchId);
       submitData.append('businessName', formData.businessName);
       submitData.append('businessType', formData.businessType);
       submitData.append('businessRegistration', formData.businessRegistration);
@@ -296,7 +307,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
       submitData.append('bankCode', formData.bankCode);
       submitData.append('bankAccountName', formData.bankAccountName);
       submitData.append('bankAccountNumber', formData.bankAccountNumber);
-      submitData.append('accountType', formData.accountType);
+      submitData.append('bankAccountType', formData.bankAccountType);
 
       // Add files if they exist
       if (formData.businessRegistrationDoc) {
@@ -382,6 +393,25 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           {currentStep === 'basic' && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg text-foreground">Business Information</h3>
+
+              <div>
+                <Label htmlFor="branchId">Branch *</Label>
+                <SelectRoot value={formData.branchId} onValueChange={(value) => handleInputChange('branchId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select the branch for this account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch._id} value={branch._id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+                <p className="text-xs text-muted mt-1">
+                  This becomes your organization&apos;s primary Paystack business account. Other branches can be added later from Finance Settings.
+                </p>
+              </div>
 
               <div>
                 <Label htmlFor="businessName">Business Name *</Label>
@@ -602,8 +632,8 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
               </div>
 
               <div>
-                <Label htmlFor="accountType">Account Type *</Label>
-                <SelectRoot value={formData.accountType} onValueChange={(value) => handleInputChange('accountType', value)}>
+                <Label htmlFor="bankAccountType">Account Type *</Label>
+                <SelectRoot value={formData.bankAccountType} onValueChange={(value) => handleInputChange('bankAccountType', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select account type" />
                   </SelectTrigger>
@@ -625,6 +655,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                 <div>
                   <h4 className="font-semibold text-sm text-muted mb-3">Business Information</h4>
                   <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted">Branch</p>
+                      <p className="font-medium text-foreground">
+                        {branches.find((b) => b._id === formData.branchId)?.name || formData.branchId}
+                      </p>
+                    </div>
                     <div>
                       <p className="text-xs text-muted">Business Name</p>
                       <p className="font-medium text-foreground">{formData.businessName}</p>
@@ -681,7 +717,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                     </div>
                     <div>
                       <p className="text-xs text-muted">Account Type</p>
-                      <p className="font-medium text-foreground capitalize">{formData.accountType}</p>
+                      <p className="font-medium text-foreground capitalize">{formData.bankAccountType}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted">Account Holder Name</p>

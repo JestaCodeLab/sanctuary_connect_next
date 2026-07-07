@@ -17,6 +17,14 @@ import type {
   Branch,
   CreateFundBucketRequest,
   FundBucket,
+  Project,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  OfferingType,
+  CreateOfferingTypeRequest,
+  UpdateOfferingTypeRequest,
+  BranchAccountSummary,
+  CreateBranchSubaccountRequest,
   ApiError,
   Member,
   CreateMemberRequest,
@@ -174,10 +182,16 @@ api.interceptors.response.use(
         fullResponse: error.response?.data,
       });
       
-      if (typeof window !== 'undefined') {
+      // Finance-account gating codes (branch-scoped KYC/subaccount status) are
+      // handled in-context by FinanceAccessGuard on the finance pages — never
+      // a global app-wide block, since non-finance widgets (e.g. the dashboard
+      // overview's recent-donations card) can hit these same endpoints.
+      const financeGateCodes = ['NO_ORG_CONTEXT', 'NO_BRANCH_SELECTED', 'FINANCE_ACCOUNT_NOT_APPROVED'];
+
+      if (typeof window !== 'undefined' && !financeGateCodes.includes(code)) {
         const isOnBlockedPage = window.location.pathname.startsWith('/feature-blocked');
         const isOnOnboarding = window.location.pathname.startsWith('/onboarding');
-        
+
         // If NO_SUB (no subscription), redirect to subscription onboarding
         if (code === 'NO_SUB' && !isOnOnboarding) {
           console.warn('[API Interceptor] No subscription found - redirecting to onboarding/subscription');
@@ -801,6 +815,38 @@ export const financeApi = {
     const response = await api.get('/api/finance/reports', {
       params: { startDate, endDate },
     });
+    return response.data;
+  },
+  getOfferingTypes: async (): Promise<OfferingType[]> => {
+    const response = await api.get<OfferingType[]>('/api/finance/offering-types');
+    return response.data;
+  },
+  createOfferingType: async (data: CreateOfferingTypeRequest): Promise<OfferingType> => {
+    const response = await api.post<OfferingType>('/api/finance/offering-types', data);
+    return response.data;
+  },
+  updateOfferingType: async (id: string, data: UpdateOfferingTypeRequest): Promise<OfferingType> => {
+    const response = await api.put<OfferingType>(`/api/finance/offering-types/${id}`, data);
+    return response.data;
+  },
+  getProjects: async (): Promise<Project[]> => {
+    const response = await api.get<Project[]>('/api/finance/projects');
+    return response.data;
+  },
+  createProject: async (data: CreateProjectRequest): Promise<Project> => {
+    const response = await api.post<Project>('/api/finance/projects', data);
+    return response.data;
+  },
+  updateProject: async (id: string, data: UpdateProjectRequest): Promise<Project> => {
+    const response = await api.put<Project>(`/api/finance/projects/${id}`, data);
+    return response.data;
+  },
+  getBranchAccounts: async (): Promise<BranchAccountSummary[]> => {
+    const response = await api.get<BranchAccountSummary[]>('/api/finance/branch-accounts');
+    return response.data;
+  },
+  createBranchSubaccount: async (branchId: string, data: CreateBranchSubaccountRequest) => {
+    const response = await api.post(`/api/finance/branch-accounts/${branchId}/subaccount`, data);
     return response.data;
   },
 };

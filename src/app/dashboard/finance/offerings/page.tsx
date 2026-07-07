@@ -5,17 +5,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye } from 'lucide-react';
+import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Settings, Check, X } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
-import { donationsApi, organizationApi, membersApi } from '@/lib/api';
-import { donationSchema, type DonationFormData } from '@/lib/validations';
+import { donationsApi, financeApi, membersApi } from '@/lib/api';
+import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
-import BranchField from '@/components/dashboard/BranchField';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
-import type { Donation } from '@/types';
+import type { Donation, OfferingType } from '@/types';
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'Cash' },
@@ -82,8 +81,117 @@ function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsRec
   );
 }
 
+function ManageTypesModal({ isOpen, onClose, offeringTypes }: {
+  isOpen: boolean;
+  onClose: () => void;
+  offeringTypes: OfferingType[];
+}) {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<OfferingTypeFormData>({
+    resolver: zodResolver(offeringTypeSchema),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: OfferingTypeFormData) => financeApi.createOfferingType(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'offering-types'] });
+      reset();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to add offering type');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; enabled?: boolean } }) =>
+      financeApi.updateOfferingType(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'offering-types'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update offering type');
+    },
+  });
+
+  const startRename = (type: OfferingType) => {
+    setEditingId(type._id);
+    setEditingName(type.name);
+  };
+
+  const saveRename = (id: string) => {
+    if (!editingName.trim()) return;
+    updateMutation.mutate({ id, data: { name: editingName.trim() } });
+    setEditingId(null);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Manage Offering Types">
+      <div className="space-y-4">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {offeringTypes.map((type) => (
+            <div key={type._id} className="flex items-center justify-between gap-2 px-3 py-2 border border-border rounded-lg">
+              {editingId === type._id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Input
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="flex-1"
+                    autoFocus
+                  />
+                  <button onClick={() => saveRename(type._id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => startRename(type)} className="text-sm text-foreground text-left flex-1 hover:underline">
+                    {type.name}
+                    {type.isDefault && <span className="ml-2 text-xs text-muted">(default)</span>}
+                  </button>
+                  <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={type.enabled}
+                      onChange={(e) => updateMutation.mutate({ id: type._id, data: { enabled: e.target.checked } })}
+                    />
+                    Enabled
+                  </label>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <form
+          onSubmit={handleSubmit((data) => createMutation.mutate(data))}
+          className="flex items-start gap-2 pt-4 border-t border-border"
+        >
+          <div className="flex-1">
+            <Input placeholder="New offering type name" {...register('name')} />
+            {errors.name && <span className="text-sm text-red-600">{errors.name.message}</span>}
+          </div>
+          <Button type="submit" disabled={createMutation.isPending} isLoading={createMutation.isPending}>
+            Add
+          </Button>
+        </form>
+
+        <div className="flex justify-end pt-2">
+          <Button variant="outline" onClick={onClose}>Done</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function OfferingsPageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isManageTypesOpen, setIsManageTypesOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
@@ -98,9 +206,9 @@ function OfferingsPageContent() {
   // Filter to only offerings
   const donations = allDonations.filter((d: Donation) => d.donationType === 'offering');
 
-  const { data: orgData } = useQuery({
-    queryKey: ['organization'],
-    queryFn: () => organizationApi.getMyOrganization(),
+  const { data: offeringTypes = [] } = useQuery({
+    queryKey: ['finance', 'offering-types'],
+    queryFn: financeApi.getOfferingTypes,
   });
 
   const { data: members = [] } = useQuery({
@@ -116,14 +224,17 @@ function OfferingsPageContent() {
     })),
   ];
 
-  const fundBuckets = orgData?.fundBuckets ?? [];
+  const enabledTypeOptions = offeringTypes
+    .filter((t) => t.enabled)
+    .map((t) => ({ value: t._id, label: t.name }));
+
+  const defaultTypeId = offeringTypes.find((t) => t.isDefault)?._id || offeringTypes[0]?._id || '';
 
   const {
     register,
     handleSubmit,
     reset,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<DonationFormData>({
     resolver: zodResolver(donationSchema) as any,
@@ -133,10 +244,17 @@ function OfferingsPageContent() {
       donationType: 'offering',
       donationDate: new Date().toISOString().split('T')[0],
       paymentMethod: '',
-      fundBucketId: '',
+      offeringTypeId: '',
       notes: '',
     },
   });
+
+  // Default the type select to the org's default offering type once loaded
+  useEffect(() => {
+    if (defaultTypeId) {
+      setValue('offeringTypeId', defaultTypeId);
+    }
+  }, [defaultTypeId, setValue]);
 
   const createMutation = useMutation({
     mutationFn: (data: DonationFormData) => donationsApi.create(data),
@@ -213,7 +331,7 @@ function OfferingsPageContent() {
       donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
       paymentMethod: viewTarget.paymentMethod || '',
       notes: viewTarget.notes || '',
-      fundBucketId: viewTarget.fundBucketId?._id || '',
+      offeringTypeId: viewTarget.offeringTypeId?._id || '',
     });
     setIsEditMode(true);
   };
@@ -237,11 +355,6 @@ function OfferingsPageContent() {
     { label: 'This Month', value: formatCurrency(thisMonthTotal), icon: DollarSign },
   ];
 
-  const fundBucketOptions = fundBuckets.map((bucket) => ({
-    value: bucket._id,
-    label: bucket.name,
-  }));
-
   return (
     <div>
       <PageHeader
@@ -254,21 +367,24 @@ function OfferingsPageContent() {
 
       <StatsGrid stats={stats} />
 
-      {fundBuckets.length > 0 && (
-        <Card padding="md" className="mb-8">
-          <h2 className="text-sm font-semibold text-foreground mb-3">Fund Buckets</h2>
-          <div className="flex flex-wrap gap-2">
-            {fundBuckets.map((bucket) => (
-              <span
-                key={bucket._id}
-                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-light text-primary"
-              >
-                {bucket.name}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
+      <Card padding="md" className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground">Offering Types</h2>
+          <Button variant="outline" size="sm" onClick={() => setIsManageTypesOpen(true)} leftIcon={<Settings className="w-3.5 h-3.5" />}>
+            Manage Types
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {offeringTypes.filter((t) => t.enabled).map((type) => (
+            <span
+              key={type._id}
+              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-light text-primary"
+            >
+              {type.name}
+            </span>
+          ))}
+        </div>
+      </Card>
 
       <Card padding="none">
         <div className="p-6 border-b border-border">
@@ -294,6 +410,7 @@ function OfferingsPageContent() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Donor</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Type</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Amount</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Payment Method</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Date</th>
@@ -309,8 +426,12 @@ function OfferingsPageContent() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
+                      <Badge variant="info">
+                        {donation.offeringTypeId?.name || 'General'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
                       <span className="text-sm font-semibold text-foreground">
-                        {/* Currency formatting would go here */}
                         {formatCurrency(donation.amount)}
                       </span>
                     </td>
@@ -355,6 +476,20 @@ function OfferingsPageContent() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Offering Type</label>
+            <select
+              {...register('offeringTypeId')}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {enabledTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
             <Input
               type="number"
@@ -386,23 +521,6 @@ function OfferingsPageContent() {
               {...register('donationDate')}
             />
           </div>
-
-          {fundBucketOptions.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Fund Bucket (Optional)</label>
-              <select
-                {...register('fundBucketId')}
-                className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select bucket...</option>
-                {fundBucketOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Notes (Optional)</label>
@@ -447,6 +565,10 @@ function OfferingsPageContent() {
                     </p>
                   </div>
                   <div>
+                    <p className="text-sm text-muted">Type</p>
+                    <p className="font-medium">{viewTarget.offeringTypeId?.name || 'General'}</p>
+                  </div>
+                  <div>
                     <p className="text-sm text-muted">Amount</p>
                     <p className="font-medium">{formatCurrency(viewTarget.amount)}</p>
                   </div>
@@ -473,6 +595,20 @@ function OfferingsPageContent() {
                 updateMutation.mutate({ id: viewTarget._id, data });
               })} className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Offering Type</label>
+                  <select
+                    {...editForm.register('offeringTypeId')}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {enabledTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
                   <Input
                     type="number"
@@ -497,8 +633,14 @@ function OfferingsPageContent() {
 
       {/* Print Receipt Modal */}
       <Modal isOpen={!!receiptTarget} onClose={() => setReceiptTarget(null)} title="Offering Receipt">
-        {receiptTarget && <DonationReceipt donation={receiptTarget} />}
+        {receiptTarget && <DonationReceipt donation={receiptTarget} onClose={() => setReceiptTarget(null)} />}
       </Modal>
+
+      <ManageTypesModal
+        isOpen={isManageTypesOpen}
+        onClose={() => setIsManageTypesOpen(false)}
+        offeringTypes={offeringTypes}
+      />
     </div>
   );
 }
