@@ -85,7 +85,9 @@ export default function DonationReceipt({ donation, churchName = 'Church', onClo
             </tr>
             <tr>
               <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>Type</td>
-              <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', textTransform: 'capitalize' }}>{donation.donationType || 'General'}</td>
+              <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', textTransform: 'capitalize' }}>
+                {donation.offeringTypeId?.name || donation.donationType || 'General'}
+              </td>
             </tr>
             <tr>
               <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>Payment Method</td>

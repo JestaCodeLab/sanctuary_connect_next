@@ -24,9 +24,8 @@ import { Badge } from '@/components/dashboard';
 import { useAuthStore } from '@/store/authStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { useBranchStore } from '@/store/branchStore';
-import { useCurrency } from '@/lib/hooks/useCurrency';
-import { membersApi, eventsApi, donationsApi, attendanceApi } from '@/lib/api';
-import type { Member, ChurchEvent, Donation } from '@/types';
+import { membersApi, eventsApi, attendanceApi } from '@/lib/api';
+import type { Member, ChurchEvent } from '@/types';
 
 function getTimeAgo(dateString: string): string {
   const now = new Date();
@@ -47,7 +46,6 @@ function getTimeAgo(dateString: string): string {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const { formatCurrency } = useCurrency();
   const { selectedBranchId, branches } = useBranchStore();
 
   const { data: members = [] } = useQuery({
@@ -89,11 +87,6 @@ export default function DashboardPage() {
     })));
   }
 
-  const { data: donations = [] } = useQuery({
-    queryKey: ['donations'],
-    queryFn: donationsApi.getAll,
-  });
-
   const { data: attendanceStats } = useQuery({
     queryKey: ['attendance', 'stats'],
     queryFn: attendanceApi.getStats,
@@ -101,8 +94,7 @@ export default function DashboardPage() {
 
   // Compute current month stats (use filteredMembers for branch-aware stats)
   const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  
+
   const totalMembers = filteredMembers.length;
   const newMembersThisMonth = filteredMembers.filter((m: Member) => {
     const date = new Date(m.createdAt);
@@ -112,23 +104,6 @@ export default function DashboardPage() {
   const ongoingEvents = events.filter((e: ChurchEvent) => e.status === 'ongoing').length;
   const upcomingEvents = events.filter((e: ChurchEvent) => e.status === 'scheduled').length;
   
-  const monthlyDonations = donations
-    .filter((d: Donation) => {
-      const date = new Date(d.donationDate);
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    })
-    .reduce((sum: number, d: Donation) => sum + d.amount, 0);
-
-  const lastMonthDonations = donations
-    .filter((d: Donation) => {
-      const date = new Date(d.donationDate);
-      return date.getMonth() === lastMonth.getMonth() && date.getFullYear() === lastMonth.getFullYear();
-    })
-    .reduce((sum: number, d: Donation) => sum + d.amount, 0);
-
-  const donationTrend = lastMonthDonations === 0 ? 0 : 
-    ((monthlyDonations - lastMonthDonations) / lastMonthDonations) * 100;
-
   // Calculate a simple attendance rate: check-ins across all events (placeholder metric)
   const totalCheckIns = attendanceStats?.totalCheckIns ?? 0;
 
@@ -182,13 +157,6 @@ export default function DashboardPage() {
       time: m.createdAt,
       icon: UserPlus,
       color: 'text-blue-500',
-    })),
-    ...donations.slice(0, 3).map((d: Donation) => ({
-      action: 'Donation received',
-      name: `${formatCurrency(d.amount)} - ${d.donationType || 'General'}`,
-      time: d.createdAt,
-      icon: DollarSign,
-      color: 'text-green-500',
     })),
     ...events.slice(0, 3).map((e: ChurchEvent) => ({
       action: e.status === 'scheduled' ? 'Event scheduled' : 'Event created',

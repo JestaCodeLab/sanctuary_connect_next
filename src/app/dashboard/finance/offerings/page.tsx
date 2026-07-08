@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Settings, Check, X } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
-import { Button, Input, Card, Select } from '@/components/ui';
+import { Button, Input, Card } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, financeApi, membersApi } from '@/lib/api';
 import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
@@ -261,7 +261,15 @@ function OfferingsPageContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['donations'] });
       toast.success('Offering recorded successfully');
-      reset();
+      reset({
+        donorId: '',
+        amount: undefined,
+        donationType: 'offering',
+        donationDate: new Date().toISOString().split('T')[0],
+        paymentMethod: '',
+        offeringTypeId: defaultTypeId,
+        notes: '',
+      });
       setIsModalOpen(false);
     },
     onError: () => {
@@ -331,7 +339,7 @@ function OfferingsPageContent() {
       donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
       paymentMethod: viewTarget.paymentMethod || '',
       notes: viewTarget.notes || '',
-      offeringTypeId: viewTarget.offeringTypeId?._id || '',
+      offeringTypeId: viewTarget.offeringTypeId?._id || defaultTypeId,
     });
     setIsEditMode(true);
   };
