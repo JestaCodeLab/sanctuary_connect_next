@@ -301,7 +301,7 @@ export interface CreateMemberRequest {
   firstName: string;
   lastName: string;
   email?: string;
-  phone: string;
+  phone?: string;
   dateOfBirth?: string;
   gender?: string;
   maritalStatus?: string;
