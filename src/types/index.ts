@@ -440,6 +440,17 @@ export interface Donation {
   updatedAt: string;
 }
 
+export interface PaginatedDonationsResponse {
+  donations: Donation[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalAmount: number;
+  averageAmount: number;
+  monthlyTotal: number;
+}
+
 export interface CreateDonationRequest {
   branchId?: string;
   donorId?: string;

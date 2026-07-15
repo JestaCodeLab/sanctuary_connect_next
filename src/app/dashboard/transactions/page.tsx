@@ -58,10 +58,12 @@ const statusBadgeVariant: Record<string, 'success' | 'error' | 'warning' | 'mute
 };
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 

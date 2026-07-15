@@ -89,6 +89,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
+  const [bankSearchTerm, setBankSearchTerm] = useState('');
 
   // Fetch list of Ghanaian banks on component mount
   useEffect(() => {
@@ -232,8 +233,8 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           setError('Account holder name is required');
           return false;
         }
-        if (!formData.bankAccountNumber || formData.bankAccountNumber.length !== 10) {
-          setError('Account number must be exactly 10 digits');
+        if (!formData.bankAccountNumber || formData.bankAccountNumber.length < 10 || formData.bankAccountNumber.length > 15) {
+          setError('Account number must be between 10-15 digits');
           return false;
         }
         if (!formData.bankAccountType) {
@@ -317,16 +318,16 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         submitData.append('ownerIdDoc', formData.ownerIdDoc);
       }
 
-      const { data: result } = await api.post('/api/finance/account/submit', submitData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Don't set Content-Type header - let axios/browser handle it automatically with FormData
+      const { data: result } = await api.post('/api/finance/account/submit', submitData);
 
       setSuccess(true);
       if (onSubmitSuccess) {
         onSubmitSuccess(result);
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while submitting your form';
+      const errorMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'An error occurred while submitting your form';
+      console.error('Form submission error:', err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -398,7 +399,11 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                 <Label htmlFor="branchId">Branch *</Label>
                 <SelectRoot value={formData.branchId} onValueChange={(value) => handleInputChange('branchId', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select the branch for this account" />
+                    {formData.branchId ? (
+                      <span>{branches.find((b) => b._id === formData.branchId)?.name || 'Select branch'}</span>
+                    ) : (
+                      <SelectValue placeholder="Select the branch for this account" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map((branch) => (
@@ -488,7 +493,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
           {/* Step 2: Owner Information */}
           {currentStep === 'owner' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg text-foreground">Owner/Principal Details</h3>
+              <h3 className="font-semibold text-lg text-foreground">Director Details</h3>
 
               <div>
                 <Label htmlFor="ownerFullName">Full Name *</Label>
@@ -585,16 +590,29 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                     {formData.bankCode ? (
                       <span>{banks.find((b) => b.code === formData.bankCode)?.name || formData.bankCode}</span>
                     ) : (
-                      <SelectValue placeholder={loadingBanks ? 'Loading banks...' : 'Select your bank'} />
+                      <SelectValue placeholder={loadingBanks ? 'Loading banks...' : 'Search and select your bank'} />
                     )}
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="px-2 py-2 border-b border-border">
+                      <Input
+                        placeholder="Search banks..."
+                        value={bankSearchTerm}
+                        onChange={(e) => setBankSearchTerm(e.target.value.toLowerCase())}
+                        className="h-8"
+                      />
+                    </div>
                     {banks.length > 0 ? (
-                      banks.map((bank) => (
-                        <SelectItem key={bank.code} value={bank.code}>
-                          {bank.name}
-                        </SelectItem>
-                      ))
+                      banks
+                        .filter((bank) =>
+                          bank.name.toLowerCase().includes(bankSearchTerm) ||
+                          bank.code.includes(bankSearchTerm)
+                        )
+                        .map((bank) => (
+                          <SelectItem key={bank.code} value={bank.code}>
+                            <span className="text-sm">{bank.name}</span>
+                          </SelectItem>
+                        ))
                     ) : (
                       <div className="px-2 py-1.5 text-sm text-gray-500">No banks available</div>
                     )}
@@ -613,20 +631,20 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
               </div>
 
               <div>
-                <Label htmlFor="bankAccountNumber">Account Number * (10 digits)</Label>
+                <Label htmlFor="bankAccountNumber">Account Number * (10-15 digits)</Label>
                 <Input
                   id="bankAccountNumber"
-                  placeholder="Enter 10-digit account number"
+                  placeholder="Enter account number (10-15 digits)"
                   value={formData.bankAccountNumber}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 15);
                     handleInputChange('bankAccountNumber', value);
                   }}
-                  maxLength={10}
+                  maxLength={15}
                 />
-                {formData.bankAccountNumber && formData.bankAccountNumber.length < 10 && (
+                {formData.bankAccountNumber && (formData.bankAccountNumber.length < 10 || formData.bankAccountNumber.length > 15) && (
                   <p className="text-xs text-amber-600 mt-1">
-                    {10 - formData.bankAccountNumber.length} digits remaining
+                    Account number must be between 10-15 digits. Currently: {formData.bankAccountNumber.length}
                   </p>
                 )}
               </div>
@@ -681,7 +699,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-sm text-muted mb-3">Owner Information</h4>
+                  <h4 className="font-semibold text-sm text-muted mb-3">Director Information</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted">Full Name</p>
@@ -747,7 +765,7 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
                       ) : (
                         <AlertCircle className="w-4 h-4 text-amber-600" />
                       )}
-                      <span>Owner ID Document</span>
+                      <span>Director ID Document</span>
                     </li>
                   </ul>
                 </div>

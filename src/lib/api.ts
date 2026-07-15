@@ -35,6 +35,7 @@ import type {
   CreateEventRequest,
   UpdateEventRequest,
   Donation,
+  PaginatedDonationsResponse,
   CreateDonationRequest,
   DonationStats,
   AttendanceRecord,
@@ -616,8 +617,18 @@ export const eventsApi = {
 
 // Donations API
 export const donationsApi = {
-  getAll: async (): Promise<Donation[]> => {
-    const response = await api.get<Donation[]>('/api/donations');
+  getAll: async (params?: { startDate?: string; endDate?: string; donationType?: string }): Promise<Donation[]> => {
+    const response = await api.get<Donation[]>('/api/donations', { params });
+    return response.data;
+  },
+  getAllPaginated: async (params: {
+    startDate?: string;
+    endDate?: string;
+    donationType?: string;
+    page: number;
+    limit: number;
+  }): Promise<PaginatedDonationsResponse> => {
+    const response = await api.get<PaginatedDonationsResponse>('/api/donations', { params });
     return response.data;
   },
   getById: async (id: string): Promise<Donation> => {
@@ -827,6 +838,10 @@ export const financeApi = {
   },
   updateOfferingType: async (id: string, data: UpdateOfferingTypeRequest): Promise<OfferingType> => {
     const response = await api.put<OfferingType>(`/api/finance/offering-types/${id}`, data);
+    return response.data;
+  },
+  deleteOfferingType: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/finance/offering-types/${id}`);
     return response.data;
   },
   getProjects: async (): Promise<Project[]> => {

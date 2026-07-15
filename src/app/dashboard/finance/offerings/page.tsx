@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Settings, Check, X } from 'lucide-react';
+import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Settings, Check, X, Trash2, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
@@ -14,6 +14,7 @@ import { donationsApi, financeApi, membersApi } from '@/lib/api';
 import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
+import { type DatePreset, datePresetOptions, getPresetRange } from '@/lib/dateFilter';
 import type { Donation, OfferingType } from '@/types';
 
 const paymentMethodOptions = [
@@ -25,11 +26,15 @@ const paymentMethodOptions = [
   { value: 'online', label: 'Online' },
 ];
 
+// Uses createdAt (the actual transaction timestamp) rather than donationDate,
+// which is a date-only, admin-editable field with no time-of-day component.
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -116,6 +121,22 @@ function ManageTypesModal({ isOpen, onClose, offeringTypes }: {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => financeApi.deleteOfferingType(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'offering-types'] });
+      toast.success('Offering type deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to delete offering type');
+    },
+  });
+
+  const handleDelete = (type: OfferingType) => {
+    if (!window.confirm(`Delete offering type "${type.name}"? This cannot be undone.`)) return;
+    deleteMutation.mutate(type._id);
+  };
+
   const startRename = (type: OfferingType) => {
     setEditingId(type._id);
     setEditingName(type.name);
@@ -162,6 +183,14 @@ function ManageTypesModal({ isOpen, onClose, offeringTypes }: {
                     />
                     Enabled
                   </label>
+                  <button
+                    onClick={() => handleDelete(type)}
+                    disabled={deleteMutation.isPending}
+                    className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded disabled:opacity-50"
+                    title="Remove offering type"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </>
               )}
             </div>
@@ -195,16 +224,52 @@ function OfferingsPageContent() {
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
+  const [donorType, setDonorType] = useState<'member' | 'guest'>('member');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [appliedCustomRange, setAppliedCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 20;
   const queryClient = useQueryClient();
   const { formatCurrency } = useCurrency();
 
-  const { data: allDonations = [], isLoading } = useQuery({
-    queryKey: ['donations'],
-    queryFn: donationsApi.getAll,
+  const dateRange = datePreset === 'custom' ? appliedCustomRange : getPresetRange(datePreset);
+  const isRangeReady = datePreset !== 'custom' || !!appliedCustomRange;
+
+  const changeDatePreset = (preset: DatePreset) => {
+    setDatePreset(preset);
+    setPage(1);
+  };
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['donations', 'offering', dateRange?.start, dateRange?.end, page],
+    queryFn: () =>
+      donationsApi.getAllPaginated({
+        donationType: 'offering',
+        startDate: dateRange?.start,
+        endDate: dateRange?.end,
+        page,
+        limit,
+      }),
+    enabled: isRangeReady,
   });
 
-  // Filter to only offerings
-  const donations = allDonations.filter((d: Donation) => d.donationType === 'offering');
+  const filteredDonations = data?.donations || [];
+  const totalPages = data?.totalPages || 1;
+  const totalRecords = data?.total || 0;
+
+  const handleCustomSearch = () => {
+    if (!customStart || !customEnd) return;
+    if (customStart > customEnd) {
+      toast.error('Start date must be before end date');
+      return;
+    }
+    setAppliedCustomRange({ start: customStart, end: customEnd });
+    setPage(1);
+  };
 
   const { data: offeringTypes = [] } = useQuery({
     queryKey: ['finance', 'offering-types'],
@@ -235,11 +300,16 @@ function OfferingsPageContent() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<DonationFormData>({
     resolver: zodResolver(donationSchema) as any,
     defaultValues: {
+      donorType: 'member',
       donorId: '',
+      donorName: '',
+      donorEmail: '',
+      donorPhone: '',
       amount: undefined,
       donationType: 'offering',
       donationDate: new Date().toISOString().split('T')[0],
@@ -248,6 +318,8 @@ function OfferingsPageContent() {
       notes: '',
     },
   });
+
+  const formDonorType = watch('donorType');
 
   // Default the type select to the org's default offering type once loaded
   useEffect(() => {
@@ -262,7 +334,11 @@ function OfferingsPageContent() {
       queryClient.invalidateQueries({ queryKey: ['donations'] });
       toast.success('Offering recorded successfully');
       reset({
+        donorType: 'member',
         donorId: '',
+        donorName: '',
+        donorEmail: '',
+        donorPhone: '',
         amount: undefined,
         donationType: 'offering',
         donationDate: new Date().toISOString().split('T')[0],
@@ -271,9 +347,13 @@ function OfferingsPageContent() {
         notes: '',
       });
       setIsModalOpen(false);
+      setMemberSearch('');
+      setDonorType('member');
+      setPage(1);
     },
-    onError: () => {
-      toast.error('Failed to record offering');
+    onError: (error: any) => {
+      const msg = error?.response?.data?.details || error?.response?.data?.error || 'Failed to record offering';
+      toast.error(msg);
     },
   });
 
@@ -290,8 +370,9 @@ function OfferingsPageContent() {
       setIsEditMode(false);
       editForm.reset();
     },
-    onError: () => {
-      toast.error('Failed to update offering');
+    onError: (error: any) => {
+      const msg = error?.response?.data?.details || error?.response?.data?.error || 'Failed to update offering';
+      toast.error(msg);
     },
   });
 
@@ -344,70 +425,123 @@ function OfferingsPageContent() {
     setIsEditMode(true);
   };
 
-  const totalDonations = donations.length;
-  const totalAmount = donations.reduce((sum: number, d: Donation) => sum + d.amount, 0);
-  const averageDonation = totalDonations > 0 ? totalAmount / totalDonations : 0;
-
-  const now = new Date();
-  const thisMonthTotal = donations
-    .filter((d: Donation) => {
-      const date = new Date(d.donationDate);
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    })
-    .reduce((sum: number, d: Donation) => sum + d.amount, 0);
-
+  // Totals reflect the full filtered set (server-aggregated), not just the current page.
   const stats = [
-    { label: 'Total Offerings', value: totalDonations.toLocaleString(), icon: DollarSign },
-    { label: 'Total Amount', value: formatCurrency(totalAmount), icon: Wallet },
-    { label: 'Average Offering', value: formatCurrency(averageDonation), icon: TrendingUp },
-    { label: 'This Month', value: formatCurrency(thisMonthTotal), icon: DollarSign },
+    { label: 'Total Offerings', value: totalRecords.toLocaleString(), icon: DollarSign },
+    { label: 'Total Amount', value: formatCurrency(data?.totalAmount || 0), icon: Wallet },
+    { label: 'Average Offering', value: formatCurrency(data?.averageAmount || 0), icon: TrendingUp },
+    { label: 'This Month', value: formatCurrency(data?.monthlyTotal || 0), icon: DollarSign },
   ];
+
+  const handleExportCSV = async () => {
+    if (totalRecords === 0) {
+      toast.error('No offerings to export');
+      return;
+    }
+
+    // Export the full filtered set, not just the current page.
+    const allFilteredDonations = await donationsApi.getAll({
+      donationType: 'offering',
+      startDate: dateRange?.start,
+      endDate: dateRange?.end,
+    });
+
+    const rows: string[][] = [
+      ['Donor', 'Type', 'Amount', 'Payment Method', 'Date'],
+      ...allFilteredDonations.map((d: Donation) => [
+        d.donorId ? `${d.donorId.firstName} ${d.donorId.lastName}` : 'Anonymous',
+        d.offeringTypeId?.name || 'General',
+        d.amount.toString(),
+        d.paymentMethod || 'N/A',
+        formatDate(d.createdAt),
+      ]),
+    ];
+
+    const csvContent = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `offerings-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div>
-      <PageHeader
-        title="Offerings"
-        description="Track and manage offerings received"
-        actionLabel="Record Offering"
-        actionIcon={Plus}
-        onAction={() => setIsModalOpen(true)}
-      />
+      <PageHeader title="Offerings" description="Track and manage offerings received" />
+
+      <div className="flex items-center justify-end gap-3 -mt-4 mb-8">
+        <Button variant="outline" onClick={() => setIsManageTypesOpen(true)} leftIcon={<Settings className="w-4 h-4" />}>
+          Manage Types
+        </Button>
+        <Button onClick={() => setIsModalOpen(true)} leftIcon={<Plus className="w-4 h-4" />}>
+          Record Offering
+        </Button>
+      </div>
+
+      <Card padding="md" className="mb-8">
+        <div className="flex flex-wrap items-center gap-2">
+          {datePresetOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => changeDatePreset(option.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                datePreset === option.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-background hover:bg-muted'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {datePreset === 'custom' && (
+          <div className="flex flex-wrap items-end gap-3 mt-4 pt-4 border-t border-border">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
+              <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
+              <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+            </div>
+            <Button onClick={handleCustomSearch} leftIcon={<Search className="w-4 h-4" />}>
+              Search
+            </Button>
+          </div>
+        )}
+      </Card>
 
       <StatsGrid stats={stats} />
 
-      <Card padding="md" className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground">Offering Types</h2>
-          <Button variant="outline" size="sm" onClick={() => setIsManageTypesOpen(true)} leftIcon={<Settings className="w-3.5 h-3.5" />}>
-            Manage Types
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {offeringTypes.filter((t) => t.enabled).map((type) => (
-            <span
-              key={type._id}
-              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-light text-primary"
-            >
-              {type.name}
-            </span>
-          ))}
-        </div>
-      </Card>
-
       <Card padding="none">
-        <div className="p-6 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Offerings</h2>
-          <p className="text-sm text-muted mt-1">A record of all offerings received</p>
+        <div className="p-6 border-b border-border flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Offerings</h2>
+            <p className="text-sm text-muted mt-1">A record of all offerings received</p>
+          </div>
+          <Button variant="outline" onClick={handleExportCSV} leftIcon={<Download className="w-4 h-4" />}>
+            Export
+          </Button>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : donations.length === 0 ? (
+        ) : !isRangeReady ? (
           <EmptyState
-            title="No Offerings Yet"
-            description="Start tracking offerings by recording your first offering."
+            title="Choose a Custom Range"
+            description="Select a start and end date, then click Search to view offerings."
+            icon={Search}
+          />
+        ) : filteredDonations.length === 0 ? (
+          <EmptyState
+            title="No Offerings Found"
+            description="No offerings were recorded in the selected period."
             icon={DollarSign}
             actionLabel="Record Offering"
             onAction={() => setIsModalOpen(true)}
@@ -426,7 +560,7 @@ function OfferingsPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {donations.map((donation: Donation) => (
+                {filteredDonations.map((donation: Donation) => (
                   <tr key={donation._id} className="border-b border-border hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-foreground">
@@ -448,7 +582,7 @@ function OfferingsPageContent() {
                         {donation.paymentMethod || 'N/A'}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-sm text-muted">{formatDate(donation.donationDate)}</td>
+                    <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{formatDate(donation.createdAt)}</td>
                     <td className="px-6 py-4 text-right">
                       <ActionMenu
                         donation={donation}
@@ -464,24 +598,174 @@ function OfferingsPageContent() {
             </table>
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+            <p className="text-sm text-muted">
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, totalRecords)} of {totalRecords}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+                leftIcon={<ChevronLeft className="w-4 h-4" />}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted px-2">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                rightIcon={<ChevronRight className="w-4 h-4" />}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Record Offering Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Offering">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Donor Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Donor</label>
-            <select
-              {...register('donorId')}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {donorOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-foreground mb-3">Donor Type</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setValue('donorType', 'member');
+                  setValue('donorId', '');
+                  setValue('donorName', '');
+                  setValue('donorEmail', '');
+                  setValue('donorPhone', '');
+                  setMemberSearch('');
+                  setIsSearchOpen(false);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  formDonorType === 'member'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border bg-background hover:bg-muted'
+                }`}
+              >
+                Member
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setValue('donorType', 'guest');
+                  setValue('donorId', '');
+                  setMemberSearch('');
+                  setIsSearchOpen(false);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  formDonorType === 'guest'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border bg-background hover:bg-muted'
+                }`}
+              >
+                Guest
+              </button>
+            </div>
           </div>
+
+          {/* Member Selection */}
+          {formDonorType === 'member' && (
+            <div className="relative">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Select Member *
+                {watch('donorId') && <span className="text-green-600 text-xs ml-2">✓ Selected</span>}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search and click a member..."
+                  value={memberSearch}
+                  onChange={(e) => {
+                    setMemberSearch(e.target.value);
+                    setIsSearchOpen(true);
+                  }}
+                  onFocus={() => setIsSearchOpen(true)}
+                  className={`w-full px-3 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary ${
+                    errors.donorId ? 'border-red-500' : 'border-border'
+                  }`}
+                />
+                {isSearchOpen && memberSearch && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {members
+                      .filter((m: any) =>
+                        `${m.firstName} ${m.lastName}`.toLowerCase().includes(memberSearch.toLowerCase())
+                      )
+                      .map((member: any) => (
+                        <button
+                          key={member._id}
+                          type="button"
+                          onClick={() => {
+                            setValue('donorId', member._id);
+                            setMemberSearch(`${member.firstName} ${member.lastName}`);
+                            setIsSearchOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0 active:bg-primary active:text-primary-foreground"
+                        >
+                          <div className="font-medium">{member.firstName} {member.lastName}</div>
+                          {member.email && <div className="text-xs opacity-75">{member.email}</div>}
+                        </button>
+                      ))}
+                    {members.filter((m: any) =>
+                      `${m.firstName} ${m.lastName}`.toLowerCase().includes(memberSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted">No members found - try another name</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {errors.donorId && (
+                <span className="text-sm text-red-600 mt-1 block font-medium">
+                  ⚠ {errors.donorId.message}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Guest Donor Info */}
+          {formDonorType === 'guest' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Donor Name *</label>
+                <Input
+                  placeholder="Full name"
+                  {...register('donorName')}
+                />
+                {errors.donorName && <span className="text-sm text-red-600">{errors.donorName.message}</span>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Email (Optional)</label>
+                <Input
+                  type="email"
+                  placeholder="donor@example.com"
+                  {...register('donorEmail')}
+                />
+                {errors.donorEmail && <span className="text-sm text-red-600">{errors.donorEmail.message}</span>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Phone (Optional)</label>
+                <Input
+                  placeholder="Phone number"
+                  {...register('donorPhone')}
+                />
+                {errors.donorPhone && <span className="text-sm text-red-600">{errors.donorPhone.message}</span>}
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Offering Type</label>
@@ -586,7 +870,7 @@ function OfferingsPageContent() {
                   </div>
                   <div>
                     <p className="text-sm text-muted">Date</p>
-                    <p className="font-medium">{formatDate(viewTarget.donationDate)}</p>
+                    <p className="font-medium">{formatDate(viewTarget.createdAt)}</p>
                   </div>
                 </div>
                 <div className="flex gap-3 pt-4 border-t border-border">

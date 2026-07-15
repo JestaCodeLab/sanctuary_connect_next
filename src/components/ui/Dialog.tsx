@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, createContext, useContext } from 'react';
 import { X } from 'lucide-react';
 
 interface DialogProps {
@@ -36,6 +36,9 @@ interface DialogCloseProps {
   children: ReactNode;
   onClick?: () => void;
 }
+
+// Context to track dialog nesting depth
+const DialogDepthContext = createContext<number>(0);
 
 export function DialogTrigger({ children, asChild, onClick }: DialogTriggerProps) {
   return (
@@ -81,8 +84,10 @@ export function DialogDescription({ children }: DialogDescriptionProps) {
 
 export function Dialog({ open: initialOpen, onOpenChange, children }: DialogProps) {
   const [internalOpen, setInternalOpen] = useState(initialOpen ?? false);
+  const parentDepth = useContext(DialogDepthContext);
+  const currentDepth = parentDepth + 1;
   const open = initialOpen !== undefined ? initialOpen : internalOpen;
-  
+
   const handleOpenChange = (newOpen: boolean) => {
     setInternalOpen(newOpen);
     onOpenChange?.(newOpen);
@@ -90,24 +95,31 @@ export function Dialog({ open: initialOpen, onOpenChange, children }: DialogProp
 
   if (!open) return null;
 
+  // Calculate z-index based on nesting depth
+  // Base: backdrop z-40, content z-50
+  // Each nested level adds 10 to prevent overlap issues
+  const backdropZIndex = 40 + (currentDepth - 1) * 10;
+  const contentZIndex = 50 + (currentDepth - 1) * 10;
+
   return (
-    <>
+    <DialogDepthContext.Provider value={currentDepth}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 bg-black/50"
+        style={{ zIndex: backdropZIndex }}
         onClick={() => handleOpenChange(false)}
       />
       {/* Dialog */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: contentZIndex }}>
         {children}
       </div>
-    </>
+    </DialogDepthContext.Provider>
   );
 }
 
 export function DialogContent({ children, className = '' }: DialogContentProps) {
   return (
-    <div className={`bg-background rounded-lg shadow-lg z-50 ${className}`}>
+    <div className={`bg-background rounded-lg shadow-lg ${className}`}>
       {children}
     </div>
   );

@@ -185,7 +185,11 @@ export type EventFormData = z.infer<typeof eventSchema>;
 // Donation schema
 export const donationSchema = z.object({
   branchId: z.string().optional(),
+  donorType: z.enum(['member', 'guest']).default('member'),
   donorId: z.string().optional(),
+  donorName: z.string().optional(),
+  donorEmail: z.string().email().optional().or(z.literal('')),
+  donorPhone: z.string().optional(),
   amount: z.preprocess(
     (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
     z.number().min(0.01, 'Amount must be greater than 0')
@@ -197,7 +201,18 @@ export const donationSchema = z.object({
   notes: z.string().optional(),
   fundBucketId: z.string().optional(),
   offeringTypeId: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.donorType === 'member') {
+      return !!data.donorId; // donorId required for member
+    }
+    return !!data.donorName; // donorName required for guest
+  },
+  {
+    message: 'Please select a member or enter donor name',
+    path: ['donorId'], // Show error on donorId field
+  }
+);
 
 export type DonationFormData = z.infer<typeof donationSchema>;
 
