@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Download } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import toast from 'react-hot-toast';
 
 import { PageHeader, Badge } from '@/components/dashboard';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
@@ -109,6 +111,20 @@ function ReportsContent() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      const blob = await financeApi.downloadReportPdf(startDate, endDate);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `finance-report-${startDate}-to-${endDate}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to download PDF report');
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Financial Reports" description="Generate and download detailed financial reports" />
@@ -128,10 +144,16 @@ function ReportsContent() {
             Generate Report
           </Button>
           {report && (
-            <Button variant="outline" onClick={handleDownloadCSV}>
-              <Download className="w-4 h-4 mr-1" />
-              Download CSV
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleDownloadCSV}>
+                <Download className="w-4 h-4 mr-1" />
+                Download CSV
+              </Button>
+              <Button variant="outline" onClick={handleDownloadPdf}>
+                <Download className="w-4 h-4 mr-1" />
+                Download PDF
+              </Button>
+            </>
           )}
         </div>
       </Card>
@@ -217,14 +239,87 @@ function ReportsContent() {
 
             <div className="p-6">
               {activeTab === 'summary' && (
-                <div className="text-center py-8">
-                  <FileText className="w-10 h-10 text-muted mx-auto mb-3" />
-                  <p className="text-foreground font-medium">
-                    Report for {formatDate(startDate)} — {formatDate(endDate)}
+                <div className="space-y-6">
+                  <p className="text-sm text-muted">
+                    Statement for {formatDate(startDate)} — {formatDate(endDate)} ({report.donations.length} donations, {report.expenses.length} expenses)
                   </p>
-                  <p className="text-sm text-muted mt-1">
-                    {report.donations.length} donations, {report.expenses.length} expenses
-                  </p>
+
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: 'Income', value: report.totalIncome, color: '#22c55e' },
+                          { name: 'Expenses', value: report.totalExpenses, color: '#ef4444' },
+                        ]}
+                        margin={{ top: 10, right: 10, left: -10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                          axisLine={{ stroke: 'var(--color-border)' }}
+                        />
+                        <YAxis
+                          tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                          axisLine={{ stroke: 'var(--color-border)' }}
+                          allowDecimals={false}
+                        />
+                        <Tooltip
+                          formatter={(value: any) => formatCurrency(Number(value))}
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            borderColor: 'var(--color-border)',
+                            borderRadius: '8px',
+                            color: 'var(--color-foreground)',
+                          }}
+                          labelStyle={{ color: 'var(--color-foreground)', fontWeight: 600 }}
+                          cursor={{ fill: 'var(--color-muted)', opacity: 0.1 }}
+                        />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          {[{ color: '#22c55e' }, { color: '#ef4444' }].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="border border-border rounded-lg divide-y divide-border">
+                    <div className="px-4 py-2 bg-background">
+                      <p className="text-xs font-semibold text-muted uppercase">Income</p>
+                    </div>
+                    {Object.entries(report.incomeByType).map(([type, amount]) => (
+                      <div key={type} className="px-4 py-2 flex justify-between text-sm">
+                        <span className="text-foreground capitalize pl-2">{type}</span>
+                        <span className="text-foreground">{formatCurrency(amount)}</span>
+                      </div>
+                    ))}
+                    <div className="px-4 py-2 flex justify-between text-sm font-semibold">
+                      <span className="text-foreground">Total Income</span>
+                      <span className="text-green-600">{formatCurrency(report.totalIncome)}</span>
+                    </div>
+
+                    <div className="px-4 py-2 bg-background">
+                      <p className="text-xs font-semibold text-muted uppercase">Expenses</p>
+                    </div>
+                    {Object.entries(report.expensesByCategory).map(([category, amount]) => (
+                      <div key={category} className="px-4 py-2 flex justify-between text-sm">
+                        <span className="text-foreground capitalize pl-2">{category}</span>
+                        <span className="text-foreground">{formatCurrency(amount)}</span>
+                      </div>
+                    ))}
+                    <div className="px-4 py-2 flex justify-between text-sm font-semibold">
+                      <span className="text-foreground">Total Expenses</span>
+                      <span className="text-red-600">{formatCurrency(report.totalExpenses)}</span>
+                    </div>
+
+                    <div className="px-4 py-3 flex justify-between font-bold">
+                      <span className="text-foreground">Net Balance</span>
+                      <span className={report.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {formatCurrency(report.netBalance)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 

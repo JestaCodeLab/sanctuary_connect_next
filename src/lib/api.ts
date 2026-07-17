@@ -23,6 +23,12 @@ import type {
   OfferingType,
   CreateOfferingTypeRequest,
   UpdateOfferingTypeRequest,
+  ExpenseCategory,
+  CreateExpenseCategoryRequest,
+  UpdateExpenseCategoryRequest,
+  ProjectGroup,
+  CreateProjectGroupRequest,
+  UpdateProjectGroupRequest,
   BranchAccountSummary,
   CreateBranchSubaccountRequest,
   ApiError,
@@ -617,7 +623,7 @@ export const eventsApi = {
 
 // Donations API
 export const donationsApi = {
-  getAll: async (params?: { startDate?: string; endDate?: string; donationType?: string }): Promise<Donation[]> => {
+  getAll: async (params?: { startDate?: string; endDate?: string; donationType?: string; fundBucketId?: string }): Promise<Donation[]> => {
     const response = await api.get<Donation[]>('/api/donations', { params });
     return response.data;
   },
@@ -625,6 +631,7 @@ export const donationsApi = {
     startDate?: string;
     endDate?: string;
     donationType?: string;
+    fundBucketId?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedDonationsResponse> => {
@@ -794,8 +801,8 @@ export const departmentsApi = {
 
 // Expenses API
 export const expensesApi = {
-  getAll: async (): Promise<Expense[]> => {
-    const response = await api.get<Expense[]>('/api/expenses');
+  getAll: async (params?: { status?: 'pending' | 'approved' | 'rejected' }): Promise<Expense[]> => {
+    const response = await api.get<Expense[]>('/api/expenses', { params });
     return response.data;
   },
   getById: async (id: string): Promise<Expense> => {
@@ -808,6 +815,14 @@ export const expensesApi = {
   },
   update: async (id: string, data: Partial<CreateExpenseRequest>): Promise<Expense> => {
     const response = await api.put<Expense>(`/api/expenses/${id}`, data);
+    return response.data;
+  },
+  approve: async (id: string): Promise<Expense> => {
+    const response = await api.post<Expense>(`/api/expenses/${id}/approve`);
+    return response.data;
+  },
+  reject: async (id: string, rejectionReason: string): Promise<Expense> => {
+    const response = await api.post<Expense>(`/api/expenses/${id}/reject`, { rejectionReason });
     return response.data;
   },
   delete: async (id: string): Promise<{ message: string }> => {
@@ -828,6 +843,13 @@ export const financeApi = {
     });
     return response.data;
   },
+  downloadReportPdf: async (startDate?: string, endDate?: string): Promise<Blob> => {
+    const response = await api.get('/api/finance/reports/pdf', {
+      params: { startDate, endDate },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
   getOfferingTypes: async (): Promise<OfferingType[]> => {
     const response = await api.get<OfferingType[]>('/api/finance/offering-types');
     return response.data;
@@ -844,6 +866,22 @@ export const financeApi = {
     const response = await api.delete<{ message: string }>(`/api/finance/offering-types/${id}`);
     return response.data;
   },
+  getExpenseCategories: async (): Promise<ExpenseCategory[]> => {
+    const response = await api.get<ExpenseCategory[]>('/api/finance/expense-categories');
+    return response.data;
+  },
+  createExpenseCategory: async (data: CreateExpenseCategoryRequest): Promise<ExpenseCategory> => {
+    const response = await api.post<ExpenseCategory>('/api/finance/expense-categories', data);
+    return response.data;
+  },
+  updateExpenseCategory: async (id: string, data: UpdateExpenseCategoryRequest): Promise<ExpenseCategory> => {
+    const response = await api.put<ExpenseCategory>(`/api/finance/expense-categories/${id}`, data);
+    return response.data;
+  },
+  deleteExpenseCategory: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/finance/expense-categories/${id}`);
+    return response.data;
+  },
   getProjects: async (): Promise<Project[]> => {
     const response = await api.get<Project[]>('/api/finance/projects');
     return response.data;
@@ -854,6 +892,22 @@ export const financeApi = {
   },
   updateProject: async (id: string, data: UpdateProjectRequest): Promise<Project> => {
     const response = await api.put<Project>(`/api/finance/projects/${id}`, data);
+    return response.data;
+  },
+  getProjectGroups: async (): Promise<ProjectGroup[]> => {
+    const response = await api.get<ProjectGroup[]>('/api/finance/project-groups');
+    return response.data;
+  },
+  createProjectGroup: async (data: CreateProjectGroupRequest): Promise<ProjectGroup> => {
+    const response = await api.post<ProjectGroup>('/api/finance/project-groups', data);
+    return response.data;
+  },
+  updateProjectGroup: async (id: string, data: UpdateProjectGroupRequest): Promise<ProjectGroup> => {
+    const response = await api.put<ProjectGroup>(`/api/finance/project-groups/${id}`, data);
+    return response.data;
+  },
+  deleteProjectGroup: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/finance/project-groups/${id}`);
     return response.data;
   },
   getBranchAccounts: async (): Promise<BranchAccountSummary[]> => {

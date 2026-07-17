@@ -10,7 +10,7 @@ import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, Mess
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
-import { donationsApi, financeApi, membersApi } from '@/lib/api';
+import { donationsApi, financeApi, membersApi, eventsApi } from '@/lib/api';
 import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
@@ -281,6 +281,20 @@ function OfferingsPageContent() {
     queryFn: () => membersApi.getAll(),
   });
 
+  // Recent events (last 60 days) to optionally link an offering to the
+  // service it was collected at.
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const { data: recentEvents = [] } = useQuery({
+    queryKey: ['events', 'recent-for-offerings'],
+    queryFn: () => eventsApi.getAll({ startDate: sixtyDaysAgo.toISOString().split('T')[0] }),
+  });
+
+  const eventOptions = [
+    { value: '', label: 'No specific event' },
+    ...recentEvents.map((e) => ({ value: e._id, label: `${e.title} — ${new Date(e.startDate).toLocaleDateString()}` })),
+  ];
+
   const donorOptions = [
     { value: '', label: 'Anonymous' },
     ...members.map((m: any) => ({
@@ -292,6 +306,14 @@ function OfferingsPageContent() {
   const enabledTypeOptions = offeringTypes
     .filter((t) => t.enabled)
     .map((t) => ({ value: t._id, label: t.name }));
+
+  // The edit form must still be able to show a type that's since been
+  // disabled — otherwise saving without touching the dropdown would silently
+  // reassign the donation to whatever option happens to render first.
+  const currentEditTypeId = viewTarget?.offeringTypeId?._id;
+  const editTypeOptions = currentEditTypeId && !enabledTypeOptions.some((o) => o.value === currentEditTypeId)
+    ? [...enabledTypeOptions, { value: currentEditTypeId, label: `${viewTarget?.offeringTypeId?.name} (disabled)` }]
+    : enabledTypeOptions;
 
   const defaultTypeId = offeringTypes.find((t) => t.isDefault)?._id || offeringTypes[0]?._id || '';
 
@@ -421,6 +443,7 @@ function OfferingsPageContent() {
       paymentMethod: viewTarget.paymentMethod || '',
       notes: viewTarget.notes || '',
       offeringTypeId: viewTarget.offeringTypeId?._id || defaultTypeId,
+      eventId: viewTarget.eventId?._id || '',
     });
     setIsEditMode(true);
   };
@@ -782,6 +805,20 @@ function OfferingsPageContent() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Event (Optional)</label>
+            <select
+              {...register('eventId')}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {eventOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
             <Input
               type="number"
@@ -860,6 +897,12 @@ function OfferingsPageContent() {
                     <p className="text-sm text-muted">Type</p>
                     <p className="font-medium">{viewTarget.offeringTypeId?.name || 'General'}</p>
                   </div>
+                  {viewTarget.eventId && (
+                    <div>
+                      <p className="text-sm text-muted">Event</p>
+                      <p className="font-medium">{viewTarget.eventId.title} — {formatDate(viewTarget.eventId.startDate)}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-muted">Amount</p>
                     <p className="font-medium">{formatCurrency(viewTarget.amount)}</p>
@@ -892,7 +935,21 @@ function OfferingsPageContent() {
                     {...editForm.register('offeringTypeId')}
                     className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    {enabledTypeOptions.map((option) => (
+                    {editTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Event (Optional)</label>
+                  <select
+                    {...editForm.register('eventId')}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {eventOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, MapPin, Clock, Users as UsersIcon } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users as UsersIcon, Heart } from 'lucide-react';
 import { eventsApi } from '@/lib/api';
 
 export default function PublicEventPage() {
@@ -132,6 +133,28 @@ export default function PublicEventPage() {
             <p className="text-sm text-gray-600">
               {event.organizerId.firstName} {event.organizerId.lastName}
             </p>
+          </div>
+        )}
+
+        {event.organizationId && (
+          <div className="mt-6 bg-white rounded-xl p-6 border border-gray-200 text-center">
+            <Heart className="w-6 h-6 text-[#3AAFDC] mx-auto mb-2" />
+            <h2 className="font-semibold text-gray-900 mb-1">Want to give?</h2>
+            <p className="text-sm text-gray-600 mb-4">Give your tithe, offering, or support a project — securely online.</p>
+            <Link
+              href={{
+                pathname: `/give/${event.organizationId}`,
+                query: {
+                  ...(event.branchId ? { branchId: event.branchId } : {}),
+                  eventId: event._id,
+                  eventTitle: event.title,
+                  eventDate: event.startDate,
+                },
+              }}
+              className="inline-block px-6 py-2.5 bg-[#3AAFDC] text-white text-sm font-medium rounded-lg hover:bg-[#2f9bc7] transition-colors"
+            >
+              Give Online
+            </Link>
           </div>
         )}
 

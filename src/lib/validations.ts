@@ -98,6 +98,7 @@ export const projectSchema = z.object({
     z.number().min(0.01, 'Target must be greater than 0').optional()
   ),
   targetDate: z.string().optional(),
+  groupId: z.string().optional(),
 });
 
 export type ProjectFormData = z.infer<typeof projectSchema>;
@@ -108,6 +109,13 @@ export const offeringTypeSchema = z.object({
 });
 
 export type OfferingTypeFormData = z.infer<typeof offeringTypeSchema>;
+
+// Project group schema (categorization tags for projects)
+export const projectGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required').max(50, 'Group name is too long'),
+});
+
+export type ProjectGroupFormData = z.infer<typeof projectGroupSchema>;
 
 // Returns true if a date string represents someone under 18
 const isUnder18 = (dob: string) => {
@@ -201,6 +209,7 @@ export const donationSchema = z.object({
   notes: z.string().optional(),
   fundBucketId: z.string().optional(),
   offeringTypeId: z.string().optional(),
+  eventId: z.string().optional(),
 }).refine(
   (data) => {
     if (data.donorType === 'member') {
@@ -273,7 +282,7 @@ export const expenseSchema = z.object({
     (val) => (val === '' || val === undefined || val === null ? 0 : Number(val)),
     z.number().min(0.01, 'Amount must be greater than 0')
   ),
-  category: z.string().min(1, 'Category is required'),
+  categoryId: z.string().min(1, 'Category is required'),
   description: z.string().optional(),
   date: z.string().min(1, 'Date is required'),
   vendor: z.string().optional(),
@@ -282,6 +291,13 @@ export const expenseSchema = z.object({
 });
 
 export type ExpenseFormData = z.infer<typeof expenseSchema>;
+
+// Expense category schema (dynamic, branch-defined)
+export const expenseCategorySchema = z.object({
+  name: z.string().min(1, 'Category name is required').max(50, 'Category name is too long'),
+});
+
+export type ExpenseCategoryFormData = z.infer<typeof expenseCategorySchema>;
 
 // Password strength checker
 export const getPasswordStrength = (password: string): {

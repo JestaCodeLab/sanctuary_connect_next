@@ -152,6 +152,7 @@ export interface FundBucket {
   branchId?: string | null;
   name: string;
   description?: string;
+  groupId?: { _id: string; name: string } | string | null;
   enabled: boolean;
   targetAmount?: number | null;
   targetDate?: string | null;
@@ -178,6 +179,7 @@ export interface CreateProjectRequest {
   description?: string;
   targetAmount?: number;
   targetDate?: string;
+  groupId?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -187,6 +189,7 @@ export interface UpdateProjectRequest {
   targetDate?: string | null;
   status?: 'active' | 'completed' | 'archived';
   enabled?: boolean;
+  groupId?: string | null;
 }
 
 // Offering Type types (dynamic, branch-scoped, merchant-defined)
@@ -206,6 +209,48 @@ export interface CreateOfferingTypeRequest {
 }
 
 export interface UpdateOfferingTypeRequest {
+  name?: string;
+  enabled?: boolean;
+}
+
+// Expense Category types (dynamic, branch-scoped, merchant-defined)
+export interface ExpenseCategory {
+  _id: string;
+  organizationId: string;
+  branchId: string;
+  name: string;
+  isDefault: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExpenseCategoryRequest {
+  name: string;
+}
+
+export interface UpdateExpenseCategoryRequest {
+  name?: string;
+  enabled?: boolean;
+}
+
+// Project Group types (dynamic, branch-scoped, merchant-defined categories for projects)
+export interface ProjectGroup {
+  _id: string;
+  organizationId: string;
+  branchId: string;
+  name: string;
+  isDefault: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectGroupRequest {
+  name: string;
+}
+
+export interface UpdateProjectGroupRequest {
   name?: string;
   enabled?: boolean;
 }
@@ -419,6 +464,10 @@ export interface Donation {
     lastName: string;
     email: string;
   };
+  // Free-text donor info for guest/public givers who aren't a registered Member
+  donorName?: string;
+  donorEmail?: string;
+  donorPhone?: string;
   amount: number;
   donationType?: string;
   donationDate: string;
@@ -435,6 +484,11 @@ export interface Donation {
   offeringTypeId?: {
     _id: string;
     name: string;
+  };
+  eventId?: {
+    _id: string;
+    title: string;
+    startDate: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -454,6 +508,9 @@ export interface PaginatedDonationsResponse {
 export interface CreateDonationRequest {
   branchId?: string;
   donorId?: string;
+  donorName?: string;
+  donorEmail?: string;
+  donorPhone?: string;
   amount: number;
   donationType?: string;
   donationDate: string;
@@ -462,6 +519,7 @@ export interface CreateDonationRequest {
   notes?: string;
   fundBucketId?: string;
   offeringTypeId?: string;
+  eventId?: string;
 }
 
 export interface DonationStats {
@@ -599,15 +657,24 @@ export interface Expense {
   branchId?: string;
   amount: number;
   category: string;
+  categoryId?: string;
   description?: string;
   date: string;
   vendor?: string;
   receiptUrl?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedBy?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+  };
   approvedBy?: {
     _id: string;
     firstName: string;
     lastName: string;
   };
+  approvedAt?: string;
+  rejectionReason?: string;
   paymentMethod?: string;
   createdAt: string;
   updatedAt: string;
@@ -616,7 +683,8 @@ export interface Expense {
 export interface CreateExpenseRequest {
   branchId?: string;
   amount: number;
-  category: string;
+  category?: string;
+  categoryId?: string;
   description?: string;
   date: string;
   vendor?: string;

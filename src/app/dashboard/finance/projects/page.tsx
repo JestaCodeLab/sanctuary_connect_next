@@ -1,19 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Target, Plus, TrendingUp, Wallet, Calendar, Pencil } from 'lucide-react';
+import { Target, Plus, TrendingUp, Wallet, Calendar, Pencil, Settings, Check, X, Trash2 } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
-import { Button, Input, Card, ProgressBar } from '@/components/ui';
+import { Button, Input, Card, ProgressBar, Select } from '@/components/ui';
 import { donationsApi, financeApi, membersApi } from '@/lib/api';
-import { donationSchema, projectSchema, type DonationFormData, type ProjectFormData } from '@/lib/validations';
+import { donationSchema, projectSchema, type DonationFormData, type ProjectFormData, projectGroupSchema, type ProjectGroupFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
-import type { Donation, Project } from '@/types';
+import type { Donation, Project, ProjectGroup } from '@/types';
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'Cash' },
@@ -33,11 +34,16 @@ function formatDate(dateString?: string | null): string {
   });
 }
 
-function NewProjectModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function NewProjectModal({ isOpen, onClose, groups }: { isOpen: boolean; onClose: () => void; groups: ProjectGroup[] }) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema) as any,
   });
+
+  const groupOptions = [
+    { value: '', label: 'No group' },
+    ...groups.filter((g) => g.enabled).map((g) => ({ value: g._id, label: g.name })),
+  ];
 
   const createMutation = useMutation({
     mutationFn: (data: ProjectFormData) => financeApi.createProject(data),
@@ -66,6 +72,8 @@ function NewProjectModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
           <Input placeholder="What is this project for?" {...register('description')} />
         </div>
 
+        <Select label="Group (Optional)" options={groupOptions} {...register('groupId')} />
+
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Target Amount (Optional)</label>
           <Input type="number" placeholder="0.00" {...register('targetAmount')} />
@@ -90,8 +98,10 @@ function NewProjectModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
   );
 }
 
-function EditProjectModal({ project, onClose }: { project: Project | null; onClose: () => void }) {
+function EditProjectModal({ project, groups, onClose }: { project: Project | null; groups: ProjectGroup[]; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const currentGroupId = typeof project?.groupId === 'string' ? project.groupId : project?.groupId?._id;
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema) as any,
     values: project ? {
@@ -99,8 +109,16 @@ function EditProjectModal({ project, onClose }: { project: Project | null; onClo
       description: project.description || '',
       targetAmount: project.targetAmount || undefined,
       targetDate: project.targetDate ? new Date(project.targetDate).toISOString().split('T')[0] : '',
+      groupId: currentGroupId || '',
     } : undefined,
   });
+
+  // Same guard as expense categories: keep a since-disabled group selectable
+  // in the edit form so saving doesn't silently reassign it.
+  const groupOptions = [
+    { value: '', label: 'No group' },
+    ...groups.filter((g) => g.enabled || g._id === currentGroupId).map((g) => ({ value: g._id, label: g.name })),
+  ];
 
   const updateMutation = useMutation({
     mutationFn: (data: ProjectFormData) => financeApi.updateProject(project!._id, data),
@@ -128,6 +146,8 @@ function EditProjectModal({ project, onClose }: { project: Project | null; onClo
           <Input {...register('description')} />
         </div>
 
+        <Select label="Group (Optional)" options={groupOptions} {...register('groupId')} />
+
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Target Amount (Optional)</label>
           <Input type="number" {...register('targetAmount')} />
@@ -147,6 +167,138 @@ function EditProjectModal({ project, onClose }: { project: Project | null; onClo
           </Button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function ManageGroupsModal({ isOpen, onClose, groups }: {
+  isOpen: boolean;
+  onClose: () => void;
+  groups: ProjectGroup[];
+}) {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProjectGroupFormData>({
+    resolver: zodResolver(projectGroupSchema),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: ProjectGroupFormData) => financeApi.createProjectGroup(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'project-groups'] });
+      reset();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to add project group');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; enabled?: boolean } }) =>
+      financeApi.updateProjectGroup(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'project-groups'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update project group');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => financeApi.deleteProjectGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'project-groups'] });
+      toast.success('Project group deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to delete project group');
+    },
+  });
+
+  const handleDelete = (group: ProjectGroup) => {
+    if (!window.confirm(`Delete project group "${group.name}"? This cannot be undone.`)) return;
+    deleteMutation.mutate(group._id);
+  };
+
+  const startRename = (group: ProjectGroup) => {
+    setEditingId(group._id);
+    setEditingName(group.name);
+  };
+
+  const saveRename = (id: string) => {
+    if (!editingName.trim()) return;
+    updateMutation.mutate({ id, data: { name: editingName.trim() } });
+    setEditingId(null);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Manage Project Groups">
+      <div className="space-y-4">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {groups.map((group) => (
+            <div key={group._id} className="flex items-center justify-between gap-2 px-3 py-2 border border-border rounded-lg">
+              {editingId === group._id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Input
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="flex-1"
+                    autoFocus
+                  />
+                  <button onClick={() => saveRename(group._id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => startRename(group)} className="text-sm text-foreground text-left flex-1 hover:underline">
+                    {group.name}
+                    {group.isDefault && <span className="ml-2 text-xs text-muted">(default)</span>}
+                  </button>
+                  <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={group.enabled}
+                      onChange={(e) => updateMutation.mutate({ id: group._id, data: { enabled: e.target.checked } })}
+                    />
+                    Enabled
+                  </label>
+                  <button
+                    onClick={() => handleDelete(group)}
+                    disabled={deleteMutation.isPending}
+                    className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded disabled:opacity-50"
+                    title="Remove group"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <form
+          onSubmit={handleSubmit((data) => createMutation.mutate(data))}
+          className="flex items-start gap-2 pt-4 border-t border-border"
+        >
+          <div className="flex-1">
+            <Input placeholder="New group name" {...register('name')} />
+            {errors.name && <span className="text-sm text-red-600">{errors.name.message}</span>}
+          </div>
+          <Button type="submit" disabled={createMutation.isPending} isLoading={createMutation.isPending}>
+            Add
+          </Button>
+        </form>
+
+        <div className="flex justify-end pt-2">
+          <Button variant="outline" onClick={onClose}>Done</Button>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -257,6 +409,9 @@ function ProjectCard({ project, onRecordDonation, onEdit }: {
         <div>
           <h3 className="text-sm font-semibold text-foreground">{project.name}</h3>
           {project.description && <p className="text-xs text-muted mt-0.5">{project.description}</p>}
+          {project.groupId && typeof project.groupId !== 'string' && (
+            <Badge variant="info" className="mt-1">{project.groupId.name}</Badge>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {project.status === 'archived' && <Badge variant="muted">Archived</Badge>}
@@ -288,17 +443,26 @@ function ProjectCard({ project, onRecordDonation, onEdit }: {
         )}
       </div>
 
-      <Button size="sm" className="w-full mt-3" onClick={onRecordDonation}>
-        Record Donation
-      </Button>
+      <div className="flex gap-2 mt-3">
+        <Link href={`/dashboard/finance/projects/${project._id}`} className="flex-1">
+          <Button size="sm" variant="outline" className="w-full">
+            View Report
+          </Button>
+        </Link>
+        <Button size="sm" className="flex-1" onClick={onRecordDonation}>
+          Record Donation
+        </Button>
+      </div>
     </Card>
   );
 }
 
 function ProjectsPageContent() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [isManageGroupsOpen, setIsManageGroupsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [donationTarget, setDonationTarget] = useState<Project | null>(null);
+  const [groupFilter, setGroupFilter] = useState('');
   const { formatCurrency } = useCurrency();
 
   const { data: projects = [], isLoading } = useQuery({
@@ -306,9 +470,19 @@ function ProjectsPageContent() {
     queryFn: financeApi.getProjects,
   });
 
-  const activeProjects = projects.filter((p) => p.status !== 'archived');
-  const totalRaised = projects.reduce((sum, p) => sum + p.raisedAmount, 0);
-  const totalTarget = projects.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
+  const { data: groups = [] } = useQuery({
+    queryKey: ['finance', 'project-groups'],
+    queryFn: financeApi.getProjectGroups,
+  });
+
+  const filteredProjects = groupFilter
+    ? projects.filter((p) => (typeof p.groupId === 'string' ? p.groupId : p.groupId?._id) === groupFilter)
+    : projects;
+
+  // Keep these three stats consistent with each other — all "active" (non-archived) only.
+  const activeProjects = filteredProjects.filter((p) => p.status !== 'archived');
+  const totalRaised = activeProjects.reduce((sum, p) => sum + p.raisedAmount, 0);
+  const totalTarget = activeProjects.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
 
   const stats = [
     { label: 'Active Projects', value: activeProjects.length.toLocaleString(), icon: Target },
@@ -316,15 +490,26 @@ function ProjectsPageContent() {
     { label: 'Combined Goal', value: formatCurrency(totalTarget), icon: TrendingUp },
   ];
 
+  const groupFilterOptions = [
+    { value: '', label: 'All Groups' },
+    ...groups.map((g) => ({ value: g._id, label: g.name })),
+  ];
+
   return (
     <div>
-      <PageHeader
-        title="Projects"
-        description="Track mission, building, and other special-fund campaigns"
-        actionLabel="New Project"
-        actionIcon={Plus}
-        onAction={() => setIsNewProjectOpen(true)}
-      />
+      <PageHeader title="Projects" description="Track mission, building, and other special-fund campaigns" />
+
+      <div className="flex items-center justify-end gap-3 -mt-4 mb-8">
+        <div className="w-48">
+          <Select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)} options={groupFilterOptions} />
+        </div>
+        <Button variant="outline" onClick={() => setIsManageGroupsOpen(true)} leftIcon={<Settings className="w-4 h-4" />}>
+          Manage Groups
+        </Button>
+        <Button onClick={() => setIsNewProjectOpen(true)} leftIcon={<Plus className="w-4 h-4" />}>
+          New Project
+        </Button>
+      </div>
 
       <StatsGrid stats={stats} />
 
@@ -332,7 +517,7 @@ function ProjectsPageContent() {
         <div className="flex items-center justify-center py-16">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : projects.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <EmptyState
           title="No Projects Yet"
           description="Create a project to track mission trips, building funds, or other special campaigns."
@@ -342,7 +527,7 @@ function ProjectsPageContent() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <ProjectCard
               key={project._id}
               project={project}
@@ -353,9 +538,10 @@ function ProjectsPageContent() {
         </div>
       )}
 
-      <NewProjectModal isOpen={isNewProjectOpen} onClose={() => setIsNewProjectOpen(false)} />
-      <EditProjectModal project={editTarget} onClose={() => setEditTarget(null)} />
+      <NewProjectModal isOpen={isNewProjectOpen} onClose={() => setIsNewProjectOpen(false)} groups={groups} />
+      <EditProjectModal project={editTarget} groups={groups} onClose={() => setEditTarget(null)} />
       <RecordDonationModal project={donationTarget} onClose={() => setDonationTarget(null)} />
+      <ManageGroupsModal isOpen={isManageGroupsOpen} onClose={() => setIsManageGroupsOpen(false)} groups={groups} />
     </div>
   );
 }
