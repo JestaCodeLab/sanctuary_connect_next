@@ -48,6 +48,7 @@ export { default as Checkbox } from './Checkbox';
 export type { CheckboxProps } from './Checkbox';
 export { default as Logo } from './Logo';
 export { ImageUpload } from './ImageUpload';
+export { AttachmentUpload } from './AttachmentUpload';
 export { MapWithGeofence } from './MapWithGeofence';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as NotificationBell } from './NotificationBell';

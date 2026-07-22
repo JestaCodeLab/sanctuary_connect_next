@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AttachmentUpload } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, membersApi } from '@/lib/api';
 import { donationSchema, type DonationFormData } from '@/lib/validations';
@@ -19,12 +19,15 @@ import type { Donation } from '@/types';
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'Cash' },
-  { value: 'check', label: 'Check' },
-  { value: 'card', label: 'Card' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'mobile_money', label: 'Mobile Money' },
   { value: 'online', label: 'Online' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cheque', label: 'Cheque' },
 ];
+
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
 
 // Uses createdAt (the actual transaction timestamp) rather than donationDate,
 // which is a date-only, admin-editable field with no time-of-day component.
@@ -98,6 +101,7 @@ function TithesPageContent() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [appliedCustomRange, setAppliedCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
   const [page, setPage] = useState(1);
   const limit = 20;
   const queryClient = useQueryClient();
@@ -112,12 +116,13 @@ function TithesPageContent() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['donations', 'tithe', dateRange?.start, dateRange?.end, page],
+    queryKey: ['donations', 'tithe', dateRange?.start, dateRange?.end, paymentMethodFilter, page],
     queryFn: () =>
       donationsApi.getAllPaginated({
         donationType: 'tithe',
         startDate: dateRange?.start,
         endDate: dateRange?.end,
+        paymentMethod: paymentMethodFilter || undefined,
         page,
         limit,
       }),
@@ -161,12 +166,17 @@ function TithesPageContent() {
       amount: undefined,
       donationType: 'tithe',
       donationDate: new Date().toISOString().split('T')[0],
+      paidForMonth: currentMonth(),
       paymentMethod: '',
+      chequeNumber: '',
+      paymentAttachmentUrl: '',
+      paymentAttachmentName: '',
       notes: '',
     },
   });
 
   const formDonorType = watch('donorType');
+  const formPaymentMethod = watch('paymentMethod');
 
   const createMutation = useMutation({
     mutationFn: (data: DonationFormData) => donationsApi.create(data),
@@ -182,7 +192,11 @@ function TithesPageContent() {
         amount: undefined,
         donationType: 'tithe',
         donationDate: new Date().toISOString().split('T')[0],
+        paidForMonth: currentMonth(),
         paymentMethod: '',
+        chequeNumber: '',
+        paymentAttachmentUrl: '',
+        paymentAttachmentName: '',
         notes: '',
       });
       setIsModalOpen(false);
@@ -256,11 +270,17 @@ function TithesPageContent() {
       amount: viewTarget.amount,
       donationType: 'tithe',
       donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
+      paidForMonth: viewTarget.paidForMonth || new Date(viewTarget.donationDate).toISOString().slice(0, 7),
       paymentMethod: viewTarget.paymentMethod || '',
+      chequeNumber: viewTarget.chequeNumber || '',
+      paymentAttachmentUrl: viewTarget.paymentAttachmentUrl || '',
+      paymentAttachmentName: viewTarget.paymentAttachmentName || '',
       notes: viewTarget.notes || '',
     });
     setIsEditMode(true);
   };
+
+  const editPaymentMethod = editForm.watch('paymentMethod');
 
   const handleExportCSV = async () => {
     if (totalRecords === 0) {
@@ -273,14 +293,17 @@ function TithesPageContent() {
       donationType: 'tithe',
       startDate: dateRange?.start,
       endDate: dateRange?.end,
+      paymentMethod: paymentMethodFilter || undefined,
     });
 
     const rows: string[][] = [
-      ['Donor', 'Amount', 'Payment Method', 'Date'],
+      ['Donor', 'For Month', 'Amount', 'Payment Method', 'Cheque No.', 'Date'],
       ...allFilteredDonations.map((d: Donation) => [
         d.donorId ? `${d.donorId.firstName} ${d.donorId.lastName}` : 'Anonymous',
+        d.paidForMonth || 'N/A',
         d.amount.toString(),
         d.paymentMethod || 'N/A',
+        d.chequeNumber || '',
         formatDate(d.createdAt),
       ]),
     ];
@@ -314,21 +337,39 @@ function TithesPageContent() {
       />
 
       <Card padding="md" className="mb-8">
-        <div className="flex flex-wrap items-center gap-2">
-          {datePresetOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => changeDatePreset(option.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                datePreset === option.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border bg-background hover:bg-muted'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {datePresetOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => changeDatePreset(option.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  datePreset === option.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border bg-background hover:bg-muted'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={paymentMethodFilter}
+            onChange={(e) => {
+              setPaymentMethodFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All Payment Methods</option>
+            {paymentMethodOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {datePreset === 'custom' && (
@@ -385,6 +426,7 @@ function TithesPageContent() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Donor</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">For Month</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Amount</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Payment Method</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Date</th>
@@ -399,6 +441,7 @@ function TithesPageContent() {
                         {donation.donorId ? `${donation.donorId.firstName} ${donation.donorId.lastName}` : 'Anonymous'}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{donation.paidForMonth || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-semibold text-foreground">
                         {formatCurrency(donation.amount)}
@@ -406,7 +449,7 @@ function TithesPageContent() {
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="muted" className="capitalize">
-                        {donation.paymentMethod || 'N/A'}
+                        {donation.paymentMethod?.replace('_', ' ') || 'N/A'}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{formatDate(donation.createdAt)}</td>
@@ -605,6 +648,15 @@ function TithesPageContent() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Month Being Paid For</label>
+            <Input
+              type="month"
+              {...register('paidForMonth')}
+            />
+            {errors.paidForMonth && <span className="text-sm text-red-600">{errors.paidForMonth.message}</span>}
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-2">Payment Method</label>
             <select
               {...register('paymentMethod')}
@@ -618,6 +670,32 @@ function TithesPageContent() {
               ))}
             </select>
           </div>
+
+          {formPaymentMethod === 'cheque' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Cheque No.</label>
+              <Input
+                placeholder="Cheque number"
+                {...register('chequeNumber')}
+              />
+              {errors.chequeNumber && <span className="text-sm text-red-600">{errors.chequeNumber.message}</span>}
+            </div>
+          )}
+
+          {formPaymentMethod === 'bank_transfer' && (
+            <div>
+              <AttachmentUpload
+                label="Proof of Transfer"
+                value={watch('paymentAttachmentUrl')}
+                fileName={watch('paymentAttachmentName')}
+                onChange={(url, name) => {
+                  setValue('paymentAttachmentUrl', url || '');
+                  setValue('paymentAttachmentName', name || '');
+                }}
+              />
+              {errors.paymentAttachmentUrl && <span className="text-sm text-red-600">{errors.paymentAttachmentUrl.message}</span>}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Date</label>
@@ -673,10 +751,35 @@ function TithesPageContent() {
                     <p className="text-sm text-muted">Amount</p>
                     <p className="font-medium">{formatCurrency(viewTarget.amount)}</p>
                   </div>
+                  {viewTarget.paidForMonth && (
+                    <div>
+                      <p className="text-sm text-muted">Month Being Paid For</p>
+                      <p className="font-medium">{viewTarget.paidForMonth}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-muted">Payment Method</p>
                     <p className="font-medium capitalize">{viewTarget.paymentMethod}</p>
                   </div>
+                  {viewTarget.chequeNumber && (
+                    <div>
+                      <p className="text-sm text-muted">Cheque No.</p>
+                      <p className="font-medium">{viewTarget.chequeNumber}</p>
+                    </div>
+                  )}
+                  {viewTarget.paymentAttachmentUrl && (
+                    <div>
+                      <p className="text-sm text-muted">Proof of Transfer</p>
+                      <a
+                        href={viewTarget.paymentAttachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {viewTarget.paymentAttachmentName || 'View attachment'}
+                      </a>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-muted">Date</p>
                     <p className="font-medium">{formatDate(viewTarget.createdAt)}</p>
@@ -703,6 +806,62 @@ function TithesPageContent() {
                     {...editForm.register('amount', { valueAsNumber: true })}
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Month Being Paid For</label>
+                  <Input
+                    type="month"
+                    {...editForm.register('paidForMonth')}
+                  />
+                  {editForm.formState.errors.paidForMonth && (
+                    <span className="text-sm text-red-600">{editForm.formState.errors.paidForMonth.message}</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Payment Method</label>
+                  <select
+                    {...editForm.register('paymentMethod')}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select method...</option>
+                    {paymentMethodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {editPaymentMethod === 'cheque' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Cheque No.</label>
+                    <Input
+                      placeholder="Cheque number"
+                      {...editForm.register('chequeNumber')}
+                    />
+                    {editForm.formState.errors.chequeNumber && (
+                      <span className="text-sm text-red-600">{editForm.formState.errors.chequeNumber.message}</span>
+                    )}
+                  </div>
+                )}
+
+                {editPaymentMethod === 'bank_transfer' && (
+                  <div>
+                    <AttachmentUpload
+                      label="Proof of Transfer"
+                      value={editForm.watch('paymentAttachmentUrl')}
+                      fileName={editForm.watch('paymentAttachmentName')}
+                      onChange={(url, name) => {
+                        editForm.setValue('paymentAttachmentUrl', url || '');
+                        editForm.setValue('paymentAttachmentName', name || '');
+                      }}
+                    />
+                    {editForm.formState.errors.paymentAttachmentUrl && (
+                      <span className="text-sm text-red-600">{editForm.formState.errors.paymentAttachmentUrl.message}</span>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-4 border-t border-border">
                   <Button variant="outline" onClick={() => setIsEditMode(false)} className="flex-1">

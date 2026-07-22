@@ -623,7 +623,7 @@ export const eventsApi = {
 
 // Donations API
 export const donationsApi = {
-  getAll: async (params?: { startDate?: string; endDate?: string; donationType?: string; fundBucketId?: string }): Promise<Donation[]> => {
+  getAll: async (params?: { startDate?: string; endDate?: string; donationType?: string; fundBucketId?: string; paymentMethod?: string }): Promise<Donation[]> => {
     const response = await api.get<Donation[]>('/api/donations', { params });
     return response.data;
   },
@@ -632,6 +632,7 @@ export const donationsApi = {
     endDate?: string;
     donationType?: string;
     fundBucketId?: string;
+    paymentMethod?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedDonationsResponse> => {
@@ -801,7 +802,7 @@ export const departmentsApi = {
 
 // Expenses API
 export const expensesApi = {
-  getAll: async (params?: { status?: 'pending' | 'approved' | 'rejected' }): Promise<Expense[]> => {
+  getAll: async (params?: { status?: 'pending' | 'approved' | 'rejected'; projectId?: string }): Promise<Expense[]> => {
     const response = await api.get<Expense[]>('/api/expenses', { params });
     return response.data;
   },

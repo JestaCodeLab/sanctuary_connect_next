@@ -446,7 +446,7 @@ function ProjectCard({ project, onRecordDonation, onEdit }: {
       <div className="flex gap-2 mt-3">
         <Link href={`/dashboard/finance/projects/${project._id}`} className="flex-1">
           <Button size="sm" variant="outline" className="w-full">
-            View Report
+            View Detail
           </Button>
         </Link>
         <Button size="sm" className="flex-1" onClick={onRecordDonation}>

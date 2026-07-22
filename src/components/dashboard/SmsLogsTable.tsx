@@ -163,7 +163,7 @@ export default function SmsLogsTable() {
                           onClick={() => handleRefreshStatus(log._id)}
                           disabled={refreshingStatus === log._id}
                           className="text-primary hover:text-primary-hover disabled:opacity-50 transition-colors"
-                          title="Refresh delivery status from Hubtel"
+                          title="Refresh delivery status"
                         >
                           <RefreshCw className={`h-4 w-4 ${refreshingStatus === log._id ? 'animate-spin' : ''}`} />
                         </button>

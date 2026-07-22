@@ -118,7 +118,7 @@ export default function SmsCreditsPage() {
         <p className="text-muted-foreground text-sm mt-1">Manage SMS credit balances across all churches</p>
       </div>
 
-      {/* BMS Platform Balance */}
+      {/* FlockText Platform Balance */}
       <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className={`flex items-center justify-center w-11 h-11 rounded-full flex-shrink-0 ${
@@ -132,7 +132,7 @@ export default function SmsCreditsPage() {
             }
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">BMS Africa Platform Credits</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">FlockText Platform Credits</p>
             {bmsLoading ? (
               <p className="text-sm text-muted-foreground animate-pulse">Sending test SMS to verify balance…</p>
             ) : bmsError ? (

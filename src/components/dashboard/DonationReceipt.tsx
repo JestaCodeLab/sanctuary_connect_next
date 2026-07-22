@@ -28,7 +28,9 @@ export default function DonationReceipt({ donation, churchName = 'Church', onClo
 
   const donorName = donation.donorId
     ? `${donation.donorId.firstName} ${donation.donorId.lastName}`
-    : 'Anonymous';
+    : donation.donorType === 'collective'
+      ? (donation.donorName ? `Collective — ${donation.donorName}` : 'Collective Offering')
+      : 'Anonymous';
 
   const handlePrint = () => {
     const content = receiptRef.current;
@@ -93,6 +95,18 @@ export default function DonationReceipt({ donation, churchName = 'Church', onClo
               <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>Payment Method</td>
               <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', textTransform: 'capitalize' }}>{donation.paymentMethod?.replace('_', ' ') || 'N/A'}</td>
             </tr>
+            {donation.chequeNumber && (
+              <tr>
+                <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>Cheque No.</td>
+                <td style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>{donation.chequeNumber}</td>
+              </tr>
+            )}
+            {donation.paidForMonth && (
+              <tr>
+                <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>For Month</td>
+                <td style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>{donation.paidForMonth}</td>
+              </tr>
+            )}
             {donation.fundBucketId && (
               <tr>
                 <td style={{ padding: '10px 0', borderBottom: '1px solid #eee', color: '#666' }}>Fund</td>

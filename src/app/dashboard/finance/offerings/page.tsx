@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Settings, Check, X, Trash2, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AttachmentUpload } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, financeApi, membersApi, eventsApi } from '@/lib/api';
 import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
@@ -19,11 +19,10 @@ import type { Donation, OfferingType } from '@/types';
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'Cash' },
-  { value: 'check', label: 'Check' },
-  { value: 'card', label: 'Card' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'mobile_money', label: 'Mobile Money' },
   { value: 'online', label: 'Online' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cheque', label: 'Cheque' },
 ];
 
 // Uses createdAt (the actual transaction timestamp) rather than donationDate,
@@ -36,6 +35,12 @@ function formatDate(dateString: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function donorLabel(donation: Donation): string {
+  if (donation.donorId) return `${donation.donorId.firstName} ${donation.donorId.lastName}`;
+  if (donation.donorType === 'collective') return donation.donorName ? `Collective — ${donation.donorName}` : 'Collective Offering';
+  return 'Anonymous';
 }
 
 function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsReceipt }: {
@@ -224,13 +229,14 @@ function OfferingsPageContent() {
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
-  const [donorType, setDonorType] = useState<'member' | 'guest'>('member');
+  const [donorType, setDonorType] = useState<'member' | 'guest' | 'collective'>('member');
   const [memberSearch, setMemberSearch] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [appliedCustomRange, setAppliedCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
   const [page, setPage] = useState(1);
   const limit = 20;
   const queryClient = useQueryClient();
@@ -245,12 +251,13 @@ function OfferingsPageContent() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['donations', 'offering', dateRange?.start, dateRange?.end, page],
+    queryKey: ['donations', 'offering', dateRange?.start, dateRange?.end, paymentMethodFilter, page],
     queryFn: () =>
       donationsApi.getAllPaginated({
         donationType: 'offering',
         startDate: dateRange?.start,
         endDate: dateRange?.end,
+        paymentMethod: paymentMethodFilter || undefined,
         page,
         limit,
       }),
@@ -336,12 +343,16 @@ function OfferingsPageContent() {
       donationType: 'offering',
       donationDate: new Date().toISOString().split('T')[0],
       paymentMethod: '',
+      chequeNumber: '',
+      paymentAttachmentUrl: '',
+      paymentAttachmentName: '',
       offeringTypeId: '',
       notes: '',
     },
   });
 
   const formDonorType = watch('donorType');
+  const formPaymentMethod = watch('paymentMethod');
 
   // Default the type select to the org's default offering type once loaded
   useEffect(() => {
@@ -365,6 +376,9 @@ function OfferingsPageContent() {
         donationType: 'offering',
         donationDate: new Date().toISOString().split('T')[0],
         paymentMethod: '',
+        chequeNumber: '',
+        paymentAttachmentUrl: '',
+        paymentAttachmentName: '',
         offeringTypeId: defaultTypeId,
         notes: '',
       });
@@ -441,12 +455,17 @@ function OfferingsPageContent() {
       donationType: 'offering',
       donationDate: new Date(viewTarget.donationDate).toISOString().split('T')[0],
       paymentMethod: viewTarget.paymentMethod || '',
+      chequeNumber: viewTarget.chequeNumber || '',
+      paymentAttachmentUrl: viewTarget.paymentAttachmentUrl || '',
+      paymentAttachmentName: viewTarget.paymentAttachmentName || '',
       notes: viewTarget.notes || '',
       offeringTypeId: viewTarget.offeringTypeId?._id || defaultTypeId,
       eventId: viewTarget.eventId?._id || '',
     });
     setIsEditMode(true);
   };
+
+  const editPaymentMethod = editForm.watch('paymentMethod');
 
   // Totals reflect the full filtered set (server-aggregated), not just the current page.
   const stats = [
@@ -467,15 +486,17 @@ function OfferingsPageContent() {
       donationType: 'offering',
       startDate: dateRange?.start,
       endDate: dateRange?.end,
+      paymentMethod: paymentMethodFilter || undefined,
     });
 
     const rows: string[][] = [
-      ['Donor', 'Type', 'Amount', 'Payment Method', 'Date'],
+      ['Donor', 'Type', 'Amount', 'Payment Method', 'Cheque No.', 'Date'],
       ...allFilteredDonations.map((d: Donation) => [
-        d.donorId ? `${d.donorId.firstName} ${d.donorId.lastName}` : 'Anonymous',
+        donorLabel(d),
         d.offeringTypeId?.name || 'General',
         d.amount.toString(),
         d.paymentMethod || 'N/A',
+        d.chequeNumber || '',
         formatDate(d.createdAt),
       ]),
     ];
@@ -504,21 +525,39 @@ function OfferingsPageContent() {
       </div>
 
       <Card padding="md" className="mb-8">
-        <div className="flex flex-wrap items-center gap-2">
-          {datePresetOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => changeDatePreset(option.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                datePreset === option.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border bg-background hover:bg-muted'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {datePresetOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => changeDatePreset(option.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  datePreset === option.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border bg-background hover:bg-muted'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={paymentMethodFilter}
+            onChange={(e) => {
+              setPaymentMethodFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All Payment Methods</option>
+            {paymentMethodOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {datePreset === 'custom' && (
@@ -587,7 +626,7 @@ function OfferingsPageContent() {
                   <tr key={donation._id} className="border-b border-border hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-foreground">
-                        {donation.donorId ? `${donation.donorId.firstName} ${donation.donorId.lastName}` : 'Anonymous'}
+                        {donorLabel(donation)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -602,7 +641,7 @@ function OfferingsPageContent() {
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="muted" className="capitalize">
-                        {donation.paymentMethod || 'N/A'}
+                        {donation.paymentMethod?.replace('_', ' ') || 'N/A'}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{formatDate(donation.createdAt)}</td>
@@ -695,6 +734,25 @@ function OfferingsPageContent() {
                 }`}
               >
                 Guest
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setValue('donorType', 'collective');
+                  setValue('donorId', '');
+                  setValue('donorName', '');
+                  setValue('donorEmail', '');
+                  setValue('donorPhone', '');
+                  setMemberSearch('');
+                  setIsSearchOpen(false);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  formDonorType === 'collective'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border bg-background hover:bg-muted'
+                }`}
+              >
+                Collective
               </button>
             </div>
           </div>
@@ -790,6 +848,20 @@ function OfferingsPageContent() {
             </>
           )}
 
+          {/* Collective Offering Info */}
+          {formDonorType === 'collective' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Description (Optional)</label>
+              <Input
+                placeholder="e.g., Sunday Service, Tuesday Prayer Meeting"
+                {...register('donorName')}
+              />
+              <p className="text-xs text-muted mt-1">
+                For an ungrouped total collected at a service, with no individual donor attribution. Link the specific service below via the Event field.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Offering Type</label>
             <select
@@ -843,6 +915,32 @@ function OfferingsPageContent() {
             </select>
           </div>
 
+          {formPaymentMethod === 'cheque' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Cheque No.</label>
+              <Input
+                placeholder="Cheque number"
+                {...register('chequeNumber')}
+              />
+              {errors.chequeNumber && <span className="text-sm text-red-600">{errors.chequeNumber.message}</span>}
+            </div>
+          )}
+
+          {formPaymentMethod === 'bank_transfer' && (
+            <div>
+              <AttachmentUpload
+                label="Proof of Transfer"
+                value={watch('paymentAttachmentUrl')}
+                fileName={watch('paymentAttachmentName')}
+                onChange={(url, name) => {
+                  setValue('paymentAttachmentUrl', url || '');
+                  setValue('paymentAttachmentName', name || '');
+                }}
+              />
+              {errors.paymentAttachmentUrl && <span className="text-sm text-red-600">{errors.paymentAttachmentUrl.message}</span>}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Date</label>
             <Input
@@ -890,7 +988,7 @@ function OfferingsPageContent() {
                   <div>
                     <p className="text-sm text-muted">Donor</p>
                     <p className="font-medium">
-                      {viewTarget.donorId ? `${viewTarget.donorId.firstName} ${viewTarget.donorId.lastName}` : 'Anonymous'}
+                      {donorLabel(viewTarget)}
                     </p>
                   </div>
                   <div>
@@ -909,8 +1007,27 @@ function OfferingsPageContent() {
                   </div>
                   <div>
                     <p className="text-sm text-muted">Payment Method</p>
-                    <p className="font-medium capitalize">{viewTarget.paymentMethod}</p>
+                    <p className="font-medium capitalize">{viewTarget.paymentMethod?.replace('_', ' ')}</p>
                   </div>
+                  {viewTarget.chequeNumber && (
+                    <div>
+                      <p className="text-sm text-muted">Cheque No.</p>
+                      <p className="font-medium">{viewTarget.chequeNumber}</p>
+                    </div>
+                  )}
+                  {viewTarget.paymentAttachmentUrl && (
+                    <div>
+                      <p className="text-sm text-muted">Proof of Transfer</p>
+                      <a
+                        href={viewTarget.paymentAttachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {viewTarget.paymentAttachmentName || 'View attachment'}
+                      </a>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-muted">Date</p>
                     <p className="font-medium">{formatDate(viewTarget.createdAt)}</p>
@@ -965,6 +1082,51 @@ function OfferingsPageContent() {
                     {...editForm.register('amount', { valueAsNumber: true })}
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Payment Method</label>
+                  <select
+                    {...editForm.register('paymentMethod')}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select method...</option>
+                    {paymentMethodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {editPaymentMethod === 'cheque' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Cheque No.</label>
+                    <Input
+                      placeholder="Cheque number"
+                      {...editForm.register('chequeNumber')}
+                    />
+                    {editForm.formState.errors.chequeNumber && (
+                      <span className="text-sm text-red-600">{editForm.formState.errors.chequeNumber.message}</span>
+                    )}
+                  </div>
+                )}
+
+                {editPaymentMethod === 'bank_transfer' && (
+                  <div>
+                    <AttachmentUpload
+                      label="Proof of Transfer"
+                      value={editForm.watch('paymentAttachmentUrl')}
+                      fileName={editForm.watch('paymentAttachmentName')}
+                      onChange={(url, name) => {
+                        editForm.setValue('paymentAttachmentUrl', url || '');
+                        editForm.setValue('paymentAttachmentName', name || '');
+                      }}
+                    />
+                    {editForm.formState.errors.paymentAttachmentUrl && (
+                      <span className="text-sm text-red-600">{editForm.formState.errors.paymentAttachmentUrl.message}</span>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-4 border-t border-border">
                   <Button variant="outline" onClick={() => setIsEditMode(false)} className="flex-1">

@@ -60,8 +60,8 @@ export default function SenderIdPage() {
       return;
     }
 
-    if (senderName.length > 11) {
-      toast.error('Sender ID must be 11 characters or less');
+    if (senderName.length < 3 || senderName.length > 11) {
+      toast.error('Sender ID must be 3-11 characters');
       return;
     }
 
@@ -214,7 +214,7 @@ export default function SenderIdPage() {
 
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Info:</strong> After registration, BMS Africa will review your request. During this time, all SMS will appear from "Sanctuary". Once approved, they'll appear from your custom sender ID.
+              <strong>Info:</strong> After registration, FlockText will review your request. During this time, all SMS will appear from "Sanctuary". Once approved, they'll appear from your custom sender ID.
             </p>
           </div>
         </Card>
@@ -230,7 +230,7 @@ export default function SenderIdPage() {
           </li>
           <li className="flex gap-2">
             <span>•</span>
-            <span>Each sender ID must be registered and approved by BMS Africa before use</span>
+            <span>Each sender ID must be registered and approved by FlockText before use</span>
           </li>
           <li className="flex gap-2">
             <span>•</span>

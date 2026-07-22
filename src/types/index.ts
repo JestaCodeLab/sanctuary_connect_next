@@ -172,6 +172,9 @@ export interface CreateFundBucketRequest {
 export interface Project extends FundBucket {
   raisedAmount: number;
   donationCount: number;
+  // Approved-expense total tied to this project (excludes pending/rejected)
+  expensedAmount: number;
+  expenseCount: number;
 }
 
 export interface CreateProjectRequest {
@@ -464,7 +467,11 @@ export interface Donation {
     lastName: string;
     email: string;
   };
-  // Free-text donor info for guest/public givers who aren't a registered Member
+  // How the giver is identified: a registered member, a free-text guest,
+  // or an uncounted collective (e.g. a Sunday service offering basket)
+  donorType?: 'member' | 'guest' | 'collective';
+  // Free-text donor info for guest givers, or a description of the
+  // gathering for collective offerings (e.g. "Sunday Service")
   donorName?: string;
   donorEmail?: string;
   donorPhone?: string;
@@ -472,6 +479,11 @@ export interface Donation {
   donationType?: string;
   donationDate: string;
   paymentMethod?: string;
+  chequeNumber?: string;
+  paymentAttachmentUrl?: string;
+  paymentAttachmentName?: string;
+  // Month this donation covers, 'YYYY-MM' (tithes only — distinct from donationDate)
+  paidForMonth?: string;
   transactionId?: string;
   notes?: string;
   fundBucketId?: {
@@ -507,6 +519,7 @@ export interface PaginatedDonationsResponse {
 
 export interface CreateDonationRequest {
   branchId?: string;
+  donorType?: 'member' | 'guest' | 'collective';
   donorId?: string;
   donorName?: string;
   donorEmail?: string;
@@ -515,6 +528,10 @@ export interface CreateDonationRequest {
   donationType?: string;
   donationDate: string;
   paymentMethod?: string;
+  chequeNumber?: string;
+  paymentAttachmentUrl?: string;
+  paymentAttachmentName?: string;
+  paidForMonth?: string;
   transactionId?: string;
   notes?: string;
   fundBucketId?: string;
@@ -662,6 +679,10 @@ export interface Expense {
   date: string;
   vendor?: string;
   receiptUrl?: string;
+  projectId?: {
+    _id: string;
+    name: string;
+  } | null;
   status: 'pending' | 'approved' | 'rejected';
   submittedBy?: {
     _id: string;
@@ -690,6 +711,7 @@ export interface CreateExpenseRequest {
   vendor?: string;
   receiptUrl?: string;
   paymentMethod?: string;
+  projectId?: string;
 }
 
 // Finance types
@@ -765,7 +787,7 @@ export interface SmsRecipient {
   sentAt?: string;
   deliveredAt?: string;
   failureReason?: string;
-  hubtelMessageId?: string;
+  providerMessageId?: string;
   deliveryReport?: string;
 }
 

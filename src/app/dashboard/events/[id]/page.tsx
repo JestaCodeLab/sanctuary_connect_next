@@ -3,7 +3,7 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Edit2, Calendar, Clock, MapPin, Users, Tag, Share2, MessageSquare, Copy, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit2, Calendar, Clock, MapPin, Users, Tag, Share2, MessageSquare, Copy, Check, X, Heart, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
@@ -300,11 +300,65 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* Right Column - QR Code */}
-        <div className="sticky top-24 h-fit">
+        <div className="sticky top-24 h-fit space-y-6">
           <QRCodeDisplay eventId={event._id} eventTitle={event.title} isRecurring={event.isRecurring} />
+          {event.organizationId && (
+            <GiveOnlineSection
+              organizationId={event.organizationId}
+              branchId={event.branchId}
+              eventId={event._id}
+              eventTitle={event.title}
+              eventDate={event.startDate}
+            />
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function GiveOnlineSection({ organizationId, branchId, eventId, eventTitle, eventDate }: {
+  organizationId: string;
+  branchId?: string;
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const params = new URLSearchParams({ eventId, eventTitle, eventDate });
+  if (branchId) params.set('branchId', branchId);
+  const giveUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/give/${organizationId}?${params.toString()}`
+    : '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(giveUrl);
+    setCopied(true);
+    toast.success('Giving link copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Card padding="lg">
+      <div className="flex items-center gap-2 mb-3">
+        <Heart className="w-5 h-5 text-muted" />
+        <h2 className="text-lg font-semibold text-foreground">Give Online</h2>
+      </div>
+      <p className="text-sm text-muted mb-4">
+        Share this link so attendees can give their tithe, offering, or project support for this event online.
+      </p>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" onClick={handleCopy} leftIcon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}>
+          {copied ? 'Copied!' : 'Copy Link'}
+        </Button>
+        <a href={giveUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm" leftIcon={<ExternalLink className="w-4 h-4" />}>
+            Preview
+          </Button>
+        </a>
+      </div>
+    </Card>
   );
 }
 

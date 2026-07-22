@@ -193,7 +193,7 @@ export type EventFormData = z.infer<typeof eventSchema>;
 // Donation schema
 export const donationSchema = z.object({
   branchId: z.string().optional(),
-  donorType: z.enum(['member', 'guest']).default('member'),
+  donorType: z.enum(['member', 'guest', 'collective']).default('member'),
   donorId: z.string().optional(),
   donorName: z.string().optional(),
   donorEmail: z.string().email().optional().or(z.literal('')),
@@ -205,6 +205,11 @@ export const donationSchema = z.object({
   donationType: z.string().optional(),
   donationDate: z.string().min(1, 'Date is required'),
   paymentMethod: z.string().optional(),
+  chequeNumber: z.string().optional(),
+  paymentAttachmentUrl: z.string().optional(),
+  paymentAttachmentName: z.string().optional(),
+  // Month this donation covers, 'YYYY-MM' (tithes only — distinct from donationDate)
+  paidForMonth: z.string().optional(),
   transactionId: z.string().optional(),
   notes: z.string().optional(),
   fundBucketId: z.string().optional(),
@@ -215,11 +220,26 @@ export const donationSchema = z.object({
     if (data.donorType === 'member') {
       return !!data.donorId; // donorId required for member
     }
-    return !!data.donorName; // donorName required for guest
+    if (data.donorType === 'guest') {
+      return !!data.donorName; // donorName required for guest
+    }
+    return true; // collective offerings have no individual donor to identify
   },
   {
     message: 'Please select a member or enter donor name',
     path: ['donorId'], // Show error on donorId field
+  }
+).refine(
+  (data) => data.paymentMethod !== 'cheque' || !!data.chequeNumber,
+  {
+    message: 'Cheque number is required for cheque payments',
+    path: ['chequeNumber'],
+  }
+).refine(
+  (data) => data.paymentMethod !== 'bank_transfer' || !!data.paymentAttachmentUrl,
+  {
+    message: 'Attach proof of transfer for bank transfer payments',
+    path: ['paymentAttachmentUrl'],
   }
 );
 
@@ -288,6 +308,7 @@ export const expenseSchema = z.object({
   vendor: z.string().optional(),
   receiptUrl: z.string().optional(),
   paymentMethod: z.string().optional(),
+  projectId: z.string().optional(),
 });
 
 export type ExpenseFormData = z.infer<typeof expenseSchema>;

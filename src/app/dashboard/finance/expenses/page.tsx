@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -252,6 +253,11 @@ function ExpensesPageContent() {
     queryFn: financeApi.getExpenseCategories,
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['finance', 'projects'],
+    queryFn: financeApi.getProjects,
+  });
+
   const enabledCategoryOptions = categories
     .filter((c) => c.enabled)
     .map((c) => ({ value: c._id, label: c.name }));
@@ -262,6 +268,18 @@ function ExpensesPageContent() {
   const editCategoryOptions = viewTarget && viewTarget.categoryId && !enabledCategoryOptions.some((o) => o.value === viewTarget.categoryId)
     ? [...enabledCategoryOptions, { value: viewTarget.categoryId, label: `${viewTarget.category} (disabled)` }]
     : enabledCategoryOptions;
+
+  const activeProjectOptions = [
+    { value: '', label: 'No Project' },
+    ...projects.filter((p) => p.status !== 'archived').map((p) => ({ value: p._id, label: p.name })),
+  ];
+
+  // Same guard as categories: an expense tied to a project that's since been
+  // archived must still show it, or saving would silently untie it.
+  const currentProjectId = viewTarget?.projectId?._id;
+  const editProjectOptions = currentProjectId && !activeProjectOptions.some((o) => o.value === currentProjectId)
+    ? [...activeProjectOptions, { value: currentProjectId, label: `${viewTarget?.projectId?.name} (archived)` }]
+    : activeProjectOptions;
 
   const {
     register,
@@ -280,6 +298,7 @@ function ExpensesPageContent() {
       date: new Date().toISOString().split('T')[0],
       vendor: '',
       paymentMethod: '',
+      projectId: '',
     },
   });
 
@@ -348,6 +367,7 @@ function ExpensesPageContent() {
       date: new Date(viewTarget.date).toISOString().split('T')[0],
       vendor: viewTarget.vendor || '',
       paymentMethod: viewTarget.paymentMethod || '',
+      projectId: viewTarget.projectId?._id || '',
     });
     setIsEditMode(true);
   };
@@ -421,6 +441,7 @@ function ExpensesPageContent() {
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Description</th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Amount</th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Category</th>
+                  <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Project</th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Vendor</th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Status</th>
                   <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Actions</th>
@@ -439,6 +460,7 @@ function ExpensesPageContent() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge variant="muted">{expense.category}</Badge>
                     </td>
+                    <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{expense.projectId?.name || '—'}</td>
                     <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{expense.vendor || '—'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge variant={statusBadgeVariant[expense.status] || 'muted'}>
@@ -470,6 +492,7 @@ function ExpensesPageContent() {
           <BranchField value={watch('branchId')} onChange={(v) => setValue('branchId', v)} />
           <Input label="Amount" type="number" step="0.01" placeholder="0.00" error={errors.amount?.message} {...register('amount')} />
           <Select label="Category" options={enabledCategoryOptions} placeholder="Select category" error={errors.categoryId?.message} {...register('categoryId')} />
+          <Select label="Project (Optional)" options={activeProjectOptions} error={errors.projectId?.message} {...register('projectId')} />
           <Input label="Date" type="date" error={errors.date?.message} {...register('date')} />
           <Input label="Vendor" placeholder="Vendor name" error={errors.vendor?.message} {...register('vendor')} />
           <Select label="Payment Method" options={paymentMethodOptions} placeholder="Select payment method" error={errors.paymentMethod?.message} {...register('paymentMethod')} />
@@ -512,6 +535,16 @@ function ExpensesPageContent() {
               <div>
                 <p className="text-sm text-muted">Category</p>
                 <p className="text-foreground capitalize">{viewTarget.category}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">Project</p>
+                <p className="text-foreground">
+                  {viewTarget.projectId ? (
+                    <Link href={`/dashboard/finance/projects/${viewTarget.projectId._id}`} className="text-primary hover:underline">
+                      {viewTarget.projectId.name}
+                    </Link>
+                  ) : '—'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-muted">Vendor</p>
@@ -595,6 +628,7 @@ function ExpensesPageContent() {
           <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate({ id: viewTarget._id, data }))} className="space-y-5">
             <Input label="Amount" type="number" step="0.01" error={editForm.formState.errors.amount?.message} {...editForm.register('amount')} />
             <Select label="Category" options={editCategoryOptions} placeholder="Select category" error={editForm.formState.errors.categoryId?.message} {...editForm.register('categoryId')} />
+            <Select label="Project (Optional)" options={editProjectOptions} error={editForm.formState.errors.projectId?.message} {...editForm.register('projectId')} />
             <Input label="Date" type="date" error={editForm.formState.errors.date?.message} {...editForm.register('date')} />
             <Input label="Vendor" placeholder="Vendor name" error={editForm.formState.errors.vendor?.message} {...editForm.register('vendor')} />
             <Select label="Payment Method" options={paymentMethodOptions} placeholder="Select payment method" error={editForm.formState.errors.paymentMethod?.message} {...editForm.register('paymentMethod')} />
