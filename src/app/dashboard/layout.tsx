@@ -189,7 +189,7 @@ function SidebarItem({
         onClick={onNavigate}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
           isParentActive
-            ? 'bg-primary/20 text-primary'
+            ? 'bg-white text-primary'
             : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
         }`}
       >
@@ -212,7 +212,7 @@ function SidebarItem({
         onClick={() => setIsExpanded(!isExpanded)}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full ${
           isParentActive
-            ? 'bg-primary/20 text-primary'
+            ? 'bg-white text-primary'
             : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
         }`}
       >

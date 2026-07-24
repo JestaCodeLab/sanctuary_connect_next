@@ -43,7 +43,7 @@ export default function OnboardingLayout({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3AAFDC]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
       </div>
     );
   }
@@ -65,7 +65,7 @@ export default function OnboardingLayout({
             >
               Help Center
             </Link>
-            <button className="px-4 py-2 text-sm font-medium text-[#3AAFDC] hover:bg-[#E8F6FB] dark:hover:bg-[#3AAFDC]/20 rounded-lg transition-colors">
+            <button className="px-4 py-2 text-sm font-medium text-[#4F46E5] hover:bg-[#EEF2FF] dark:hover:bg-[#4F46E5]/20 rounded-lg transition-colors">
               Save Progress
             </button>
             {user && (
@@ -74,7 +74,7 @@ export default function OnboardingLayout({
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-[#3AAFDC] rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-8 h-8 bg-[#4F46E5] rounded-full flex items-center justify-center text-white text-sm font-medium">
                     {user.firstName?.[0]}{user.lastName?.[0]}
                   </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200 hidden sm:block">

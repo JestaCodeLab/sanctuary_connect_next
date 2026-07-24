@@ -1,45 +1,56 @@
 @import "tailwindcss";
+@import "@fontsource/manrope/latin-400.css";
+@import "@fontsource/manrope/latin-500.css";
+@import "@fontsource/manrope/latin-600.css";
+@import "@fontsource/manrope/latin-700.css";
+@import "@fontsource/manrope/latin-800.css";
 
 /* Enable class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --primary: #3AAFDC;
-  --primary-hover: #2D9AC7;
-  --primary-light: #E8F6FB;
-  --background: #F5F7FA;
+  --primary: #4F46E5;
+  --primary-hover: #4338CA;
+  --primary-light: #EEF2FF;
+  --secondary: #16A34A;
+  --secondary-hover: #15803D;
+  --secondary-light: #F0FDF4;
+  --background: #f4f4f5;
   --foreground: #1F2937;
   --card: #FFFFFF;
   --card-foreground: #1F2937;
-  --sidebar: #1E293B;
+  --sidebar: #172554;
   --sidebar-foreground: #F1F5F9;
   --muted: #6B7280;
   --muted-foreground: #9CA3AF;
   --border: #E5E7EB;
   --input: #E5E7EB;
   --input-background: #FFFFFF;
-  --ring: #3AAFDC;
+  --ring: #4F46E5;
   --success: #10B981;
   --warning: #F59E0B;
   --error: #EF4444;
 }
 
 .dark {
-  --primary: #3AAFDC;
-  --primary-hover: #5BC0E8;
-  --primary-light: #1E3A4C;
+  --primary: #4F46E5;
+  --primary-hover: #818CF8;
+  --primary-light: #312E81;
+  --secondary: #16A34A;
+  --secondary-hover: #4ADE80;
+  --secondary-light: #14532D;
   --background: #0F172A;
   --foreground: #F1F5F9;
   --card: #1E293B;
   --card-foreground: #F1F5F9;
-  --sidebar: #0A0F1A;
+  --sidebar: #0B1229;
   --sidebar-foreground: #F1F5F9;
   --muted: #94A3B8;
   --muted-foreground: #64748B;
   --border: #334155;
   --input: #334155;
   --input-background: #1E293B;
-  --ring: #3AAFDC;
+  --ring: #4F46E5;
   --success: #34D399;
   --warning: #FBBF24;
   --error: #F87171;
@@ -49,6 +60,9 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-light: var(--primary-light);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-light: var(--secondary-light);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -64,7 +78,6 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -75,8 +88,15 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Design review: some pages read flatter without the shared Card component's
+   default shadow. Applied per-page via this class rather than in the Card
+   component itself, which still uses shadows elsewhere. */
+.no-card-shadow .shadow-sm {
+  box-shadow: none;
 }
 
 /* Custom scrollbar */

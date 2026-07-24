@@ -54,7 +54,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               block w-full rounded-lg border bg-white dark:bg-gray-800 px-3 py-2.5
               text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
               transition-colors duration-200
-              focus:outline-none focus:ring-2 focus:ring-[#3AAFDC] focus:border-transparent
+              focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent
               disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:text-gray-500 disabled:cursor-not-allowed
               ${leftIcon ? 'pl-10' : ''}
               ${isPassword || rightIcon ? 'pr-10' : ''}

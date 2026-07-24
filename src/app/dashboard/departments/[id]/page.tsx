@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Users, UserPlus, X, Mail, Phone } from 'lucide-react';
 import { departmentsApi } from '@/lib/api';
 import { Card, Button } from '@/components/ui';
-import { Badge } from '@/components/dashboard';
+import { Badge, PageLoader } from '@/components/dashboard';
 import MemberSearch from '@/components/dashboard/MemberSearch';
 import FeatureGate from '@/components/dashboard/FeatureGate';
 import type { Member } from '@/types';
@@ -47,11 +47,7 @@ function DepartmentDetailContent({ id }: { id: string }) {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <PageLoader label="Loading department..." />;
   }
 
   if (!department) {
@@ -82,7 +78,7 @@ function DepartmentDetailContent({ id }: { id: string }) {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full no-card-shadow">
       <Link
         href="/dashboard/departments"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-6"

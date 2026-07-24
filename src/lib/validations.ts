@@ -340,7 +340,7 @@ export const getPasswordStrength = (password: string): {
   } else if (score <= 3) {
     return { score, label: 'Fair', color: '#F59E0B' };
   } else if (score <= 4) {
-    return { score, label: 'Good', color: '#3AAFDC' };
+    return { score, label: 'Good', color: '#4F46E5' };
   } else {
     return { score, label: 'Strong', color: '#10B981' };
   }

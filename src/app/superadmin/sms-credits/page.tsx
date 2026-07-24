@@ -54,7 +54,7 @@ export default function SmsCreditsPage() {
 
   useEffect(() => { fetchBmsBalance(); }, [fetchBmsBalance]);
 
-  // Check live balance by sending a test SMS to SUPERADMIN_PHONE
+  // Check live balance via FlockText's wallet balance endpoint
   const checkLiveBmsBalance = () => {
     setBmsLoading(true);
     setBmsError('');
@@ -134,7 +134,7 @@ export default function SmsCreditsPage() {
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">FlockText Platform Credits</p>
             {bmsLoading ? (
-              <p className="text-sm text-muted-foreground animate-pulse">Sending test SMS to verify balance…</p>
+              <p className="text-sm text-muted-foreground animate-pulse">Checking live balance…</p>
             ) : bmsError ? (
               <p className="text-sm text-red-500">{bmsError}</p>
             ) : bmsBalance?.balance !== null && bmsBalance?.balance !== undefined ? (

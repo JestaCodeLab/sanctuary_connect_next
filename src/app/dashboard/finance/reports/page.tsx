@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
 
-import { PageHeader, Badge } from '@/components/dashboard';
+import { PageHeader, PageLoader, Badge, EmptyState } from '@/components/dashboard';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 import { Button, Input, Card } from '@/components/ui';
 import { financeApi } from '@/lib/api';
@@ -126,7 +126,7 @@ function ReportsContent() {
   };
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader title="Financial Reports" description="Generate and download detailed financial reports" />
 
       {/* Date Range Picker */}
@@ -159,26 +159,45 @@ function ReportsContent() {
       </Card>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
+        <PageLoader label="Generating report..." />
       ) : report ? (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card padding="md">
-              <p className="text-sm text-muted">Total Income</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(report.totalIncome)}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted">Total Income</p>
+                  <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(report.totalIncome)}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
             </Card>
             <Card padding="md">
-              <p className="text-sm text-muted">Total Expenses</p>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(report.totalExpenses)}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(report.totalExpenses)}</p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center">
+                  <TrendingDown className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
             </Card>
             <Card padding="md">
-              <p className="text-sm text-muted">Net Balance</p>
-              <p className={`text-2xl font-bold ${report.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(report.netBalance)}
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted">Net Balance</p>
+                  <p className={`text-2xl font-bold mt-1 ${report.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(report.netBalance)}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${report.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                  <Scale className={`w-6 h-6 ${report.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                </div>
+              </div>
             </Card>
           </div>
 
@@ -394,10 +413,12 @@ function ReportsContent() {
           </Card>
         </>
       ) : (
-        <Card padding="md" className="text-center py-12">
-          <FileText className="w-12 h-12 text-muted mx-auto mb-3" />
-          <p className="text-foreground font-medium">Select a date range and generate a report</p>
-          <p className="text-sm text-muted mt-1">View income, expenses, and financial breakdowns</p>
+        <Card padding="none">
+          <EmptyState
+            icon={FileText}
+            title="Generate a Report"
+            description="Select a date range and click Generate Report to view income, expenses, and financial breakdowns."
+          />
         </Card>
       )}
     </div>

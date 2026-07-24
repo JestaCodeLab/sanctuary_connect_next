@@ -317,10 +317,10 @@ export default function EventsPage() {
   const completedCount = eventsWithActualStatus.filter((e) => e.status === 'completed').length;
 
   const stats = [
-    { label: 'Total Events', value: totalEvents, icon: Calendar },
-    { label: 'Upcoming', value: upcomingCount, icon: Clock },
-    { label: 'Ongoing', value: ongoingCount, icon: Users },
-    { label: 'Completed', value: completedCount, icon: Calendar },
+    { label: 'Total Events', value: totalEvents, icon: Calendar, tint: 'primary' as const },
+    { label: 'Upcoming', value: upcomingCount, icon: Clock, tint: 'secondary' as const },
+    { label: 'Ongoing', value: ongoingCount, icon: Users, tint: 'primary' as const },
+    { label: 'Completed', value: completedCount, icon: Calendar, tint: 'secondary' as const },
   ];
 
   // Client-side filtering - no expansion, just filter the original events
@@ -349,7 +349,7 @@ export default function EventsPage() {
   ];
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader
         title="Events"
         description="Manage church events and activities"

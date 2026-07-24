@@ -3,16 +3,22 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Target, Wallet, TrendingUp, Hash, Receipt } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { ArrowLeft, Download, Target, Wallet, Hash, Receipt } from 'lucide-react';
 
-import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
-import { Button, Card, ProgressBar } from '@/components/ui';
+import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { Button, Card, Input } from '@/components/ui';
 import { financeApi, donationsApi, expensesApi } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/useCurrency';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
+import { type DatePreset, datePresetOptions, getPresetRange } from '@/lib/dateFilter';
 import type { Donation, Expense } from '@/types';
 
 type Tab = 'donations' | 'expenses';
+
+// This page only offers week/month presets plus a custom range — "Last Month" is
+// dropped to keep the filter row compact.
+const projectDatePresetOptions = datePresetOptions.filter((o) => o.value !== 'last_month');
 
 const statusBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'error' | 'muted'> = {
   pending: 'warning',
@@ -32,8 +38,15 @@ function formatDate(dateString?: string | null): string {
 function ProjectReportContent({ id }: { id: string }) {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<Tab>('donations');
+  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [appliedCustomRange, setAppliedCustomRange] = useState<{ start: string; end: string } | null>(null);
   const limit = 20;
   const { formatCurrency } = useCurrency();
+
+  const dateRange = datePreset === 'custom' ? appliedCustomRange : getPresetRange(datePreset);
 
   const { data: projects = [], isLoading: isProjectLoading } = useQuery({
     queryKey: ['finance', 'projects'],
@@ -42,8 +55,8 @@ function ProjectReportContent({ id }: { id: string }) {
   const project = projects.find((p) => p._id === id);
 
   const { data, isLoading: isDonationsLoading } = useQuery({
-    queryKey: ['donations', 'project', id, page],
-    queryFn: () => donationsApi.getAllPaginated({ fundBucketId: id, page, limit }),
+    queryKey: ['donations', 'project', id, dateRange?.start, dateRange?.end, page],
+    queryFn: () => donationsApi.getAllPaginated({ fundBucketId: id, startDate: dateRange?.start, endDate: dateRange?.end, page, limit }),
     enabled: !!project,
   });
 
@@ -51,9 +64,12 @@ function ProjectReportContent({ id }: { id: string }) {
   const totalPages = data?.totalPages || 1;
   const totalRecords = data?.total || 0;
 
-  // Unpaginated — a project's tied expenses are expected to stay small
-  // relative to its donation history, matching the main Expenses page.
-  const { data: expenses = [], isLoading: isExpensesLoading } = useQuery({
+  // Unpaginated and unfiltered by date — a project's tied expenses are expected
+  // to stay small relative to its donation history, matching the main Expenses
+  // page. Fetched once regardless of status/date so "hasExpenses" below reflects
+  // whether the project has ANY expense ever tied to it, not just ones that fall
+  // in the currently selected date range.
+  const { data: allExpenses = [], isLoading: isExpensesLoading } = useQuery({
     queryKey: ['expenses', 'project', id],
     queryFn: () => expensesApi.getAll({ projectId: id }),
     enabled: !!project,
@@ -62,12 +78,42 @@ function ProjectReportContent({ id }: { id: string }) {
   // Tabs and the expense stat card only appear once at least one expense has
   // actually been tied to this project — otherwise the page stays exactly as
   // it was (donations only, no empty "Expenses" tab to click through).
-  const hasExpenses = expenses.length > 0;
+  const hasExpenses = allExpenses.length > 0;
+
+  const expenses = dateRange
+    ? allExpenses.filter((e) => {
+        const t = new Date(e.date).getTime();
+        return t >= new Date(dateRange.start).getTime() && t <= new Date(`${dateRange.end}T23:59:59.999`).getTime();
+      })
+    : allExpenses;
+
+  const changeDatePreset = (preset: DatePreset) => {
+    if (preset === 'custom') {
+      setCustomStart(appliedCustomRange?.start || '');
+      setCustomEnd(appliedCustomRange?.end || '');
+      setIsCustomModalOpen(true);
+      return;
+    }
+    setDatePreset(preset);
+    setPage(1);
+  };
+
+  const handleApplyCustomRange = () => {
+    if (!customStart || !customEnd) return;
+    if (customStart > customEnd) {
+      toast.error('Start date must be before end date');
+      return;
+    }
+    setAppliedCustomRange({ start: customStart, end: customEnd });
+    setDatePreset('custom');
+    setIsCustomModalOpen(false);
+    setPage(1);
+  };
 
   const handleExportDonationsCSV = async () => {
     if (totalRecords === 0) return;
 
-    const allDonations = await donationsApi.getAll({ fundBucketId: id });
+    const allDonations = await donationsApi.getAll({ fundBucketId: id, startDate: dateRange?.start, endDate: dateRange?.end });
 
     const rows: string[][] = [
       ['Donor', 'Amount', 'Payment Method', 'Event', 'Date'],
@@ -143,12 +189,9 @@ function ProjectReportContent({ id }: { id: string }) {
     );
   }
 
-  const progress = project.targetAmount ? (project.raisedAmount / project.targetAmount) * 100 : 0;
-
   const stats = [
     { label: 'Raised', value: formatCurrency(project.raisedAmount), icon: Wallet },
     { label: 'Target', value: project.targetAmount ? formatCurrency(project.targetAmount) : '—', icon: Target },
-    { label: 'Progress', value: project.targetAmount ? `${Math.round(progress)}%` : '—', icon: TrendingUp },
     { label: 'Donations', value: project.donationCount.toLocaleString(), icon: Hash },
     ...(hasExpenses
       ? [{ label: 'Total Expenses', value: formatCurrency(project.expensedAmount), icon: Receipt }]
@@ -165,7 +208,7 @@ function ProjectReportContent({ id }: { id: string }) {
 
       <PageHeader title={project.name} description={project.description || 'Project details'} />
 
-      <div className="flex items-center gap-2 -mt-6 mb-8">
+      <div className="flex items-center gap-2 -mt-6 mb-6">
         {project.groupId && typeof project.groupId !== 'string' && (
           <Badge variant="info">{project.groupId.name}</Badge>
         )}
@@ -174,18 +217,47 @@ function ProjectReportContent({ id }: { id: string }) {
         {project.targetDate && <span className="text-sm text-muted">Target date: {formatDate(project.targetDate)}</span>}
       </div>
 
-      {project.targetAmount ? (
-        <Card padding="md" className="mb-8">
-          <ProgressBar progress={progress} size="md" />
-        </Card>
-      ) : null}
+      <Card padding="md" className="mb-8">
+        <div className="flex flex-wrap items-center gap-2">
+          {projectDatePresetOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => changeDatePreset(option.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                datePreset === option.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-background hover:bg-muted'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <StatsGrid stats={stats} />
 
       <Card padding="none">
-        {hasExpenses ? (
-          <div className="px-6 pt-2 flex items-center justify-between border-b border-border">
-            <div className="flex gap-2">
+        <div className="p-6 border-b border-border">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {activeTab === 'donations' ? 'Donations' : 'Expenses'}
+              </h2>
+              <p className="text-sm text-muted mt-1">
+                {activeTab === 'donations'
+                  ? 'All donations recorded against this project'
+                  : 'All expenses recorded against this project'}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExportCSV} leftIcon={<Download className="w-3.5 h-3.5" />}>
+              Export
+            </Button>
+          </div>
+
+          {hasExpenses && (
+            <div className="flex gap-2 mt-4">
               {([
                 { id: 'donations' as const, label: 'Donations' },
                 { id: 'expenses' as const, label: 'Expenses' },
@@ -193,31 +265,18 @@ function ProjectReportContent({ id }: { id: string }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === tab.id
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border bg-background hover:bg-muted'
                   }`}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
-            <Button variant="outline" onClick={handleExportCSV} leftIcon={<Download className="w-4 h-4" />}>
-              Export
-            </Button>
-          </div>
-        ) : (
-          <div className="p-6 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Donations</h2>
-              <p className="text-sm text-muted mt-1">All donations recorded against this project</p>
-            </div>
-            <Button variant="outline" onClick={handleExportCSV} leftIcon={<Download className="w-4 h-4" />}>
-              Export
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         {isTableLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -227,8 +286,8 @@ function ProjectReportContent({ id }: { id: string }) {
           donations.length === 0 ? (
             <EmptyState
               icon={Wallet}
-              title="No donations yet"
-              description="Donations recorded against this project will appear here."
+              title="No Donations Found"
+              description="No donations were recorded against this project in the selected period."
             />
           ) : (
             <>
@@ -282,8 +341,8 @@ function ProjectReportContent({ id }: { id: string }) {
         ) : expenses.length === 0 ? (
           <EmptyState
             icon={Receipt}
-            title="No expenses yet"
-            description="Expenses recorded against this project will appear here."
+            title="No Expenses Found"
+            description="No expenses were recorded against this project in the selected period."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -322,6 +381,27 @@ function ProjectReportContent({ id }: { id: string }) {
           </div>
         )}
       </Card>
+
+      <Modal isOpen={isCustomModalOpen} onClose={() => setIsCustomModalOpen(false)} title="Custom Date Range" size="sm">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
+            <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
+            <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={() => setIsCustomModalOpen(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={handleApplyCustomRange} className="flex-1">
+              Apply
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

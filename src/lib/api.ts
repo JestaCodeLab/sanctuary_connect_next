@@ -802,7 +802,7 @@ export const departmentsApi = {
 
 // Expenses API
 export const expensesApi = {
-  getAll: async (params?: { status?: 'pending' | 'approved' | 'rejected'; projectId?: string }): Promise<Expense[]> => {
+  getAll: async (params?: { status?: 'pending' | 'approved' | 'rejected'; projectId?: string; startDate?: string; endDate?: string }): Promise<Expense[]> => {
     const response = await api.get<Expense[]>('/api/expenses', { params });
     return response.data;
   },

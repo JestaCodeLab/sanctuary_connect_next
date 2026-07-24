@@ -309,14 +309,14 @@ export default function OnboardingBranchesPage() {
               <span className="text-xs text-gray-500 dark:text-gray-400">Step 2 of 5</span>
             </div>
           </div>
-          <span className="text-sm text-[#3AAFDC]">40% Complete</span>
+          <span className="text-sm text-[#4F46E5]">40% Complete</span>
         </div>
         <ProgressBar progress={40} size="md" />
         <div className="flex justify-between mt-3">
           {steps.map((step) => (
             <span
               key={step.id}
-              className={`text-xs ${step.id === 2 ? 'text-[#3AAFDC] font-medium' : step.id < 2 ? 'text-green-500' : 'text-gray-400 dark:text-gray-500'}`}
+              className={`text-xs ${step.id === 2 ? 'text-[#4F46E5] font-medium' : step.id < 2 ? 'text-green-500' : 'text-gray-400 dark:text-gray-500'}`}
             >
               {step.id}. {step.name}
             </span>
@@ -339,7 +339,7 @@ export default function OnboardingBranchesPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Section Header */}
               <div className="flex items-center gap-2 pb-4 border-b dark:border-gray-700">
-                <div className="w-2 h-2 rounded-full bg-[#3AAFDC]" />
+                <div className="w-2 h-2 rounded-full bg-[#4F46E5]" />
                 <span className="font-medium text-gray-900 dark:text-gray-100">Head Office Details</span>
               </div>
 
@@ -416,7 +416,7 @@ export default function OnboardingBranchesPage() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Radius (Geofence Distance)
                   </label>
-                  <span className="text-sm text-[#3AAFDC] font-medium">{radius} Meters</span>
+                  <span className="text-sm text-[#4F46E5] font-medium">{radius} Meters</span>
                 </div>
                 <input
                   type="range"
@@ -424,7 +424,7 @@ export default function OnboardingBranchesPage() {
                   max="500"
                   value={radius}
                   onChange={(e) => setRadius(parseInt(e.target.value))}
-                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#3AAFDC]"
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#4F46E5]"
                 />
                 <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
                   <span>50m</span>
@@ -532,7 +532,7 @@ export default function OnboardingBranchesPage() {
                           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Geofence Radius
                           </label>
-                          <span className="text-sm text-[#3AAFDC] font-medium">{newBranchRadius}m</span>
+                          <span className="text-sm text-[#4F46E5] font-medium">{newBranchRadius}m</span>
                         </div>
                         <input
                           type="range"
@@ -540,7 +540,7 @@ export default function OnboardingBranchesPage() {
                           max="500"
                           value={newBranchRadius}
                           onChange={(e) => setNewBranchRadius(parseInt(e.target.value))}
-                          className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-[#3AAFDC]"
+                          className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-[#4F46E5]"
                         />
                       </div>
 
@@ -620,7 +620,7 @@ export default function OnboardingBranchesPage() {
               ))}
             </div>
 
-            <div className="mt-6 p-4 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-lg">
+            <div className="mt-6 p-4 bg-[#EEF2FF] dark:bg-[#4F46E5]/20 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-300">Need help?</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Our support team is available 24/7 to help you set up your locations.

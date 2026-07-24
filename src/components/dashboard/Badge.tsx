@@ -10,7 +10,7 @@ const variantStyles = {
   success: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   error: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  info: 'bg-[#E8F6FB] text-[#3AAFDC] dark:bg-[#3AAFDC]/20 dark:text-[#5BC0E8]',
+  info: 'bg-[#EEF2FF] text-[#4F46E5] dark:bg-[#4F46E5]/20 dark:text-[#818CF8]',
   muted: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
 };
 

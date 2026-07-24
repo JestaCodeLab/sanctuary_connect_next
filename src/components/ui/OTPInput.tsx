@@ -89,9 +89,9 @@ export default function OTPInput({
               w-14 h-14 text-center text-2xl font-semibold
               rounded-lg border-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
               transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-[#3AAFDC] focus:border-[#3AAFDC]
+              focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]
               disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed
-              ${error ? 'border-red-500' : focusedIndex === index ? 'border-[#3AAFDC]' : 'border-gray-300 dark:border-gray-600'}
+              ${error ? 'border-red-500' : focusedIndex === index ? 'border-[#4F46E5]' : 'border-gray-300 dark:border-gray-600'}
             `}
           />
         ))}

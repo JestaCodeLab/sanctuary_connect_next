@@ -18,7 +18,7 @@ export default function PublicEventPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3AAFDC]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function PublicEventPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-4">
-              <Calendar className="w-5 h-5 text-[#3AAFDC]" />
+              <Calendar className="w-5 h-5 text-[#4F46E5]" />
               <h2 className="font-semibold text-gray-900">Date & Time</h2>
             </div>
             <div className="space-y-2 text-sm text-gray-600">
@@ -99,7 +99,7 @@ export default function PublicEventPage() {
               {event.location && (
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <MapPin className="w-5 h-5 text-[#3AAFDC]" />
+                    <MapPin className="w-5 h-5 text-[#4F46E5]" />
                     <h2 className="font-semibold text-gray-900">Location</h2>
                   </div>
                   <p className="text-sm text-gray-600 ml-8">{event.location}</p>
@@ -107,7 +107,7 @@ export default function PublicEventPage() {
               )}
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <Clock className="w-5 h-5 text-[#3AAFDC]" />
+                  <Clock className="w-5 h-5 text-[#4F46E5]" />
                   <h2 className="font-semibold text-gray-900">Duration</h2>
                 </div>
                 <p className="text-sm text-gray-600 ml-8">
@@ -117,7 +117,7 @@ export default function PublicEventPage() {
               {event.maxCapacity && (
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <UsersIcon className="w-5 h-5 text-[#3AAFDC]" />
+                    <UsersIcon className="w-5 h-5 text-[#4F46E5]" />
                     <h2 className="font-semibold text-gray-900">Capacity</h2>
                   </div>
                   <p className="text-sm text-gray-600 ml-8">{event.maxCapacity} people</p>
@@ -138,7 +138,7 @@ export default function PublicEventPage() {
 
         {event.organizationId && (
           <div className="mt-6 bg-white rounded-xl p-6 border border-gray-200 text-center">
-            <Heart className="w-6 h-6 text-[#3AAFDC] mx-auto mb-2" />
+            <Heart className="w-6 h-6 text-[#4F46E5] mx-auto mb-2" />
             <h2 className="font-semibold text-gray-900 mb-1">Want to give?</h2>
             <p className="text-sm text-gray-600 mb-4">Give your tithe, offering, or support a project — securely online.</p>
             <Link
@@ -151,7 +151,7 @@ export default function PublicEventPage() {
                   eventDate: event.startDate,
                 },
               }}
-              className="inline-block px-6 py-2.5 bg-[#3AAFDC] text-white text-sm font-medium rounded-lg hover:bg-[#2f9bc7] transition-colors"
+              className="inline-block px-6 py-2.5 bg-[#4F46E5] text-white text-sm font-medium rounded-lg hover:bg-[#2f9bc7] transition-colors"
             >
               Give Online
             </Link>

@@ -22,7 +22,7 @@ const options: UploadWidgetConfig = {
   showRemoveButton: true,
   styles: {
     colors: {
-      primary: '#3AAFDC',
+      primary: '#4F46E5',
     },
     fontSizes: {
       base: 14,

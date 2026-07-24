@@ -223,10 +223,10 @@ export function MapWithGeofence({
           center={[currentLat, currentLng] as any}
           radius={Math.sqrt(radius / Math.PI) * 0.008}
           pathOptions={{
-            color: '#3AAFDC',
+            color: '#4F46E5',
             weight: 2,
             opacity: 0.8,
-            fillColor: '#3AAFDC',
+            fillColor: '#4F46E5',
             fillOpacity: 0.1,
           }}
         />
@@ -279,9 +279,9 @@ export function MapWithGeofence({
       {/* Coordinates Display */}
       <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg z-[999] font-mono text-xs">
         <p className="text-gray-700 dark:text-gray-300">
-          <span className="font-semibold text-[#3AAFDC]">{currentLat.toFixed(6)}</span>
+          <span className="font-semibold text-[#4F46E5]">{currentLat.toFixed(6)}</span>
           <span className="text-gray-500 mx-1">,</span>
-          <span className="font-semibold text-[#3AAFDC]">{currentLng.toFixed(6)}</span>
+          <span className="font-semibold text-[#4F46E5]">{currentLng.toFixed(6)}</span>
         </p>
         <p className="text-gray-500 text-xs mt-1">{radius}m radius</p>
       </div>

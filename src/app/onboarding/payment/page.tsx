@@ -132,7 +132,7 @@ export default function PaymentPage() {
               Step 5 of 5: Secure Payment
             </span>
           </div>
-          <span className="text-sm text-[#3AAFDC]">100%</span>
+          <span className="text-sm text-[#4F46E5]">100%</span>
         </div>
         <ProgressBar progress={100} size="md" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -162,8 +162,8 @@ export default function PaymentPage() {
           <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Order Summary</h2>
 
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-[#3AAFDC]" />
+            <div className="w-12 h-12 bg-[#EEF2FF] dark:bg-[#4F46E5]/20 rounded-xl flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-[#4F46E5]" />
             </div>
             <div>
               <p className="font-medium text-gray-900 dark:text-gray-100">{plan.name}</p>
@@ -186,7 +186,7 @@ export default function PaymentPage() {
             </div>
             <div className="flex justify-between pt-3 border-t dark:border-gray-700">
               <span className="font-semibold text-gray-900 dark:text-gray-100">Total Due</span>
-              <span className="text-xl font-bold text-[#3AAFDC]">GHS {total.toFixed(2)}</span>
+              <span className="text-xl font-bold text-[#4F46E5]">GHS {total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -213,17 +213,17 @@ export default function PaymentPage() {
                 onClick={() => setPaymentMethod('card')}
                 className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors ${
                   paymentMethod === 'card'
-                    ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/10'
+                    ? 'border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/10'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <div
                   className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    paymentMethod === 'card' ? 'border-[#3AAFDC]' : 'border-gray-300 dark:border-gray-600'
+                    paymentMethod === 'card' ? 'border-[#4F46E5]' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 >
                   {paymentMethod === 'card' && (
-                    <div className="w-2 h-2 rounded-full bg-[#3AAFDC]" />
+                    <div className="w-2 h-2 rounded-full bg-[#4F46E5]" />
                   )}
                 </div>
                 <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -237,17 +237,17 @@ export default function PaymentPage() {
                 onClick={() => setPaymentMethod('momo')}
                 className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors ${
                   paymentMethod === 'momo'
-                    ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/10'
+                    ? 'border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/10'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <div
                   className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    paymentMethod === 'momo' ? 'border-[#3AAFDC]' : 'border-gray-300 dark:border-gray-600'
+                    paymentMethod === 'momo' ? 'border-[#4F46E5]' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 >
                   {paymentMethod === 'momo' && (
-                    <div className="w-2 h-2 rounded-full bg-[#3AAFDC]" />
+                    <div className="w-2 h-2 rounded-full bg-[#4F46E5]" />
                   )}
                 </div>
                 <Smartphone className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -289,11 +289,11 @@ export default function PaymentPage() {
 
           <p className="text-xs text-center text-gray-400 dark:text-gray-500">
             By clicking continue, you agree to Sanctuary Connect&apos;s{' '}
-            <a href="#" className="text-[#3AAFDC] hover:underline">
+            <a href="#" className="text-[#4F46E5] hover:underline">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-[#3AAFDC] hover:underline">
+            <a href="#" className="text-[#4F46E5] hover:underline">
               Privacy Policy
             </a>
             .

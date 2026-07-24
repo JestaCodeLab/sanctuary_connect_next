@@ -1,4 +1,5 @@
 export { default as PageHeader } from './PageHeader';
+export { default as PageLoader } from './PageLoader';
 export { default as Modal } from './Modal';
 export { default as Badge } from './Badge';
 export { default as EmptyState } from './EmptyState';

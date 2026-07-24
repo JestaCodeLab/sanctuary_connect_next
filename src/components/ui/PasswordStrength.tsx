@@ -32,7 +32,7 @@ export default function PasswordStrength({
             let bgColor = 'bg-gray-200 dark:bg-gray-700';
             if (password) {
               if (strength.score >= 5 && segment <= 4) bgColor = 'bg-green-500';
-              else if (strength.score >= 4 && segment <= 3) bgColor = 'bg-[#3AAFDC]';
+              else if (strength.score >= 4 && segment <= 3) bgColor = 'bg-[#4F46E5]';
               else if (strength.score >= 3 && segment <= 2) bgColor = 'bg-yellow-500';
               else if (strength.score >= 1 && segment <= 1) bgColor = 'bg-red-500';
             }

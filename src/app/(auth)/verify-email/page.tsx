@@ -115,8 +115,8 @@ export default function VerifyEmailPage() {
         {/* Main Card */}
         <Card padding="lg" className="text-center">
           {/* Icon */}
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-full mb-6">
-            <Mail className="w-8 h-8 text-[#3AAFDC]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#EEF2FF] dark:bg-[#4F46E5]/20 rounded-full mb-6">
+            <Mail className="w-8 h-8 text-[#4F46E5]" />
           </div>
 
           {/* Title */}
@@ -151,13 +151,13 @@ export default function VerifyEmailPage() {
           <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
             Didn&apos;t receive the code?{' '}
             {resendCooldown > 0 ? (
-              <span className="text-[#3AAFDC]">
+              <span className="text-[#4F46E5]">
                 Resend in 0:{resendCooldown.toString().padStart(2, '0')}
               </span>
             ) : (
               <button
                 onClick={handleResend}
-                className="text-[#3AAFDC] hover:text-[#2D9AC7] font-medium"
+                className="text-[#4F46E5] hover:text-[#4338CA] font-medium"
               >
                 Resend
               </button>

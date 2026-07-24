@@ -6,9 +6,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Receipt, Plus, Trash2, Settings, Check, X } from 'lucide-react';
+import { Receipt, Plus, Trash2, Settings, Check, X, Hash, Calendar, Tag } from 'lucide-react';
 
-import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { PageHeader, PageLoader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, Select } from '@/components/ui';
 import { expensesApi, financeApi } from '@/lib/api';
 import { expenseSchema, type ExpenseFormData, expenseCategorySchema, type ExpenseCategoryFormData } from '@/lib/validations';
@@ -390,14 +390,14 @@ function ExpensesPageContent() {
   const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0];
 
   const stats = [
-    { label: 'Total Expenses', value: formatCurrency(totalExpenses), icon: Receipt },
-    { label: 'Total Records', value: totalCount.toLocaleString(), icon: Receipt },
-    { label: 'This Month', value: formatCurrency(thisMonthTotal), icon: Receipt },
-    { label: 'Top Category', value: topCategory ? topCategory[0].charAt(0).toUpperCase() + topCategory[0].slice(1) : '—', icon: Receipt },
+    { label: 'Total Expenses', value: formatCurrency(totalExpenses), icon: Receipt, tint: 'primary' as const },
+    { label: 'Total Records', value: totalCount.toLocaleString(), icon: Hash, tint: 'secondary' as const },
+    { label: 'This Month', value: formatCurrency(thisMonthTotal), icon: Calendar, tint: 'primary' as const },
+    { label: 'Top Category', value: topCategory ? topCategory[0].charAt(0).toUpperCase() + topCategory[0].slice(1) : '—', icon: Tag, tint: 'secondary' as const },
   ];
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader title="Expenses" description="Track and manage church expenses" />
 
       <div className="flex items-center justify-end gap-3 -mt-4 mb-8">
@@ -421,9 +421,7 @@ function ExpensesPageContent() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          <PageLoader label="Loading expenses..." />
         ) : expenses.length === 0 ? (
           <EmptyState
             icon={Receipt}

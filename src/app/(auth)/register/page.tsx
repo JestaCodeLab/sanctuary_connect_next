@@ -113,7 +113,7 @@ export default function RegisterPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <span className="text-xs font-medium text-[#3AAFDC] uppercase tracking-wide">
+                <span className="text-xs font-medium text-[#4F46E5] uppercase tracking-wide">
                   Step 1 of 2
                 </span>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Admin Details</h3>
@@ -199,7 +199,7 @@ export default function RegisterPage() {
           {/* Already have account */}
           <p className="text-center mt-4 text-sm text-gray-500 dark:text-gray-400">
             Already have an account?{' '}
-            <Link href="/login" className="text-[#3AAFDC] hover:text-[#2D9AC7] font-medium">
+            <Link href="/login" className="text-[#4F46E5] hover:text-[#4338CA] font-medium">
               Login
             </Link>
           </p>

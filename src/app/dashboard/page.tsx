@@ -115,6 +115,7 @@ export default function DashboardPage() {
       icon: Users,
       trend: newMembersThisMonth > 0 ? 'up' : 'neutral',
       href: '/dashboard/members',
+      tint: 'primary' as const,
     },
     {
       label: 'Upcoming Events',
@@ -123,6 +124,7 @@ export default function DashboardPage() {
       icon: Calendar,
       trend: 'neutral',
       href: '/dashboard/events',
+      tint: 'secondary' as const,
     },
     {
       label: 'Branches',
@@ -131,6 +133,7 @@ export default function DashboardPage() {
       icon: Building2,
       trend: 'neutral',
       href: '/dashboard/branches',
+      tint: 'primary' as const,
     },
     {
       label: 'Total Check-Ins',
@@ -139,14 +142,15 @@ export default function DashboardPage() {
       icon: TrendingUp,
       trend: attendanceStats?.recentCheckIns && attendanceStats?.recentCheckIns > 0 ? 'up' : 'neutral',
       href: '/dashboard/attendance',
+      tint: 'secondary' as const,
     },
   ];
 
   const quickActions = [
-    { label: 'Add New Member', icon: UserPlus, onClick: () => router.push('/dashboard/members/new'), color: 'text-blue-500' },
-    { label: 'Create Event', icon: Calendar, onClick: () => router.push('/dashboard/events/new'), color: 'text-green-500' },
-    { label: 'Record Donation', icon: DollarSign, onClick: () => router.push('/dashboard/finance/income'), color: 'text-yellow-500' },
-    { label: 'Record Attendance', icon: Activity, onClick: () => router.push('/dashboard/attendance'), color: 'text-purple-500' },
+    { label: 'Add New Member', icon: UserPlus, onClick: () => router.push('/dashboard/members/new'), color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Create Event', icon: Calendar, onClick: () => router.push('/dashboard/events/new'), color: 'text-secondary', bg: 'bg-secondary/10' },
+    { label: 'Record Donation', icon: DollarSign, onClick: () => router.push('/dashboard/finance/income'), color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+    { label: 'Record Attendance', icon: Activity, onClick: () => router.push('/dashboard/attendance'), color: 'text-purple-500', bg: 'bg-purple-500/10' },
   ];
 
   // Derive recent activity from real data
@@ -297,7 +301,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="no-card-shadow">
       {/* Welcome Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">
@@ -312,18 +316,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat) => {
           const TrendIcon = stat.trend === 'up' ? ArrowUpRight : stat.trend === 'down' ? ArrowDownRight : Minus;
-          const trendColor = stat.trend === 'up' ? 'text-green-500' : stat.trend === 'down' ? 'text-red-500' : 'text-muted';
-          
+          const trendColor = stat.trend === 'up' ? 'text-secondary' : stat.trend === 'down' ? 'text-error' : 'text-muted';
+          const isSecondary = stat.tint === 'secondary';
+
           return (
-            <Card 
-              key={stat.label} 
+            <Card
+              key={stat.label}
               padding="md"
-              className="hover:shadow-lg transition-shadow cursor-pointer"
+              className="cursor-pointer"
               onClick={() => router.push(stat.href)}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <stat.icon className="w-5 h-5 text-primary" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSecondary ? 'bg-secondary/10' : 'bg-primary/10'}`}>
+                  <stat.icon className={`w-5 h-5 ${isSecondary ? 'text-secondary' : 'text-primary'}`} />
                 </div>
                 <TrendIcon className={`w-4 h-4 ${trendColor}`} />
               </div>
@@ -353,7 +358,7 @@ export default function DashboardPage() {
                   onClick={action.onClick}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-background hover:border-primary/50 transition-all hover:scale-[1.02] group"
                 >
-                  <div className="w-8 h-8 bg-muted/30 rounded-lg flex items-center justify-center">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${action.bg}`}>
                     <Icon className={`w-4 h-4 ${action.color}`} />
                   </div>
                   <span className="text-sm text-foreground flex-1 text-left">{action.label}</span>

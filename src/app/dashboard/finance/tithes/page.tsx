@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, Wallet, MoreVertical, Printer, Mail, MessageSquare, Eye, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { PageHeader, PageLoader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, AttachmentUpload } from '@/components/ui';
 import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, membersApi } from '@/lib/api';
@@ -320,14 +320,14 @@ function TithesPageContent() {
 
   // Totals reflect the full filtered set (server-aggregated), not just the current page.
   const stats = [
-    { label: 'Total Tithes', value: totalRecords.toLocaleString(), icon: DollarSign },
-    { label: 'Total Amount', value: formatCurrency(data?.totalAmount || 0), icon: Wallet },
-    { label: 'Average Tithe', value: formatCurrency(data?.averageAmount || 0), icon: TrendingUp },
-    { label: 'This Month', value: formatCurrency(data?.monthlyTotal || 0), icon: DollarSign },
+    { label: 'Total Tithes', value: totalRecords.toLocaleString(), icon: DollarSign, tint: 'primary' as const },
+    { label: 'Total Amount', value: formatCurrency(data?.totalAmount || 0), icon: Wallet, tint: 'secondary' as const },
+    { label: 'Average Tithe', value: formatCurrency(data?.averageAmount || 0), icon: TrendingUp, tint: 'primary' as const },
+    { label: 'This Month', value: formatCurrency(data?.monthlyTotal || 0), icon: DollarSign, tint: 'secondary' as const },
   ];
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader
         title="Tithes"
         description="Track and manage tithes received"
@@ -403,9 +403,7 @@ function TithesPageContent() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          <PageLoader label="Loading tithes..." />
         ) : !isRangeReady ? (
           <EmptyState
             title="Choose a Custom Range"

@@ -152,14 +152,14 @@ export default function OnboardingIdentityPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Step 1 of 5: Identity</h2>
-            <span className="text-sm text-[#3AAFDC]">20% Complete</span>
+            <span className="text-sm text-[#4F46E5]">20% Complete</span>
           </div>
           <ProgressBar progress={20} size="md" />
           <div className="flex justify-between mt-3">
             {steps.map((step) => (
               <span
                 key={step.id}
-                className={`text-xs ${step.id === 1 ? 'text-[#3AAFDC] font-medium' : 'text-gray-400 dark:text-gray-500'}`}
+                className={`text-xs ${step.id === 1 ? 'text-[#4F46E5] font-medium' : 'text-gray-400 dark:text-gray-500'}`}
               >
                 {step.id}. {step.name}
               </span>
@@ -212,7 +212,7 @@ export default function OnboardingIdentityPage() {
       <div className="lg:col-span-1">
         <div className="sticky top-8">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-[#3AAFDC]" />
+            <div className="w-2 h-2 rounded-full bg-[#4F46E5]" />
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Quick Preview</span>
           </div>
 
@@ -220,7 +220,7 @@ export default function OnboardingIdentityPage() {
           <div className="bg-gray-900 rounded-3xl p-3 shadow-xl">
             <div className="bg-white rounded-2xl overflow-hidden">
               {/* Phone Header */}
-              <div className="bg-[#3AAFDC] p-6 text-center">
+              <div className="bg-[#4F46E5] p-6 text-center">
                 {logoUrl ? (
                   <div className="w-12 h-12 rounded-xl mx-auto mb-3 overflow-hidden bg-white">
                     <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />

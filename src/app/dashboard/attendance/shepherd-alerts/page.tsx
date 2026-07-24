@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertCircle, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { Plus, AlertCircle, Bell, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users } from 'lucide-react';
+import { Button, Card } from '@/components/ui';
+import { PageHeader, PageLoader, EmptyState, Badge } from '@/components/dashboard';
 import { api } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
 import toast from 'react-hot-toast';
@@ -108,140 +109,113 @@ export default function ShepherdAlertsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Shepherd Alerts</h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor member attendance and automatically notify shepherds
-          </p>
-        </div>
-        <Link href="/dashboard/attendance/shepherd-alerts/new">
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            New Alert
-          </Button>
-        </Link>
-      </div>
+    <div className="no-card-shadow">
+      <PageHeader
+        title="Shepherd Alerts"
+        description="Monitor member attendance and automatically notify shepherds"
+        actionLabel="New Alert"
+        actionIcon={Plus}
+        onAction={() => router.push('/dashboard/attendance/shepherd-alerts/new')}
+      />
 
       {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader className="w-6 h-6 animate-spin text-primary" />
-        </div>
-      )}
+      {loading && <PageLoader label="Loading alerts..." />}
 
       {/* Empty State */}
       {!loading && alerts.length === 0 && (
-        <div className="bg-card rounded-lg border border-border p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-1">No Alerts Yet</h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first Shepherd Alert to start monitoring member attendance
-          </p>
-          <Link href="/dashboard/attendance/shepherd-alerts/new">
-            <Button>Create Alert</Button>
-          </Link>
-        </div>
+        <Card padding="none">
+          <EmptyState
+            icon={AlertCircle}
+            title="No Alerts Yet"
+            description="Create your first Shepherd Alert to start monitoring member attendance."
+            actionLabel="Create Alert"
+            onAction={() => router.push('/dashboard/attendance/shepherd-alerts/new')}
+          />
+        </Card>
       )}
 
       {/* Alerts List */}
       {!loading && alerts.length > 0 && (
         <div className="space-y-3">
           {alerts.map(alert => (
-            <div
-              key={alert._id}
-              className="bg-card rounded-lg border border-border p-6 hover:border-primary/50 transition-colors"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{alert.name}</h3>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        alert.isActive
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                      }`}
-                    >
-                      {alert.isActive ? 'Active' : 'Inactive'}
-                    </span>
+            <Card key={alert._id} padding="lg" className="hover:border-primary/50 transition-colors">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bell className="w-5 h-5 text-primary" />
                   </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-semibold text-foreground">{alert.name}</h3>
+                      <Badge variant={alert.isActive ? 'success' : 'muted'}>
+                        {alert.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted mt-1 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      Notifying {(alert.shepherds || []).length} shepherd{(alert.shepherds || []).length !== 1 ? 's' : ''}
+                      {' · '}Last check: {alert.lastCheckAt ? new Date(alert.lastCheckAt).toLocaleDateString() : 'Never'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggle(alert._id)}
+                    disabled={toggling === alert._id}
+                    title={alert.isActive ? 'Deactivate' : 'Activate'}
+                  >
+                    {toggling === alert._id ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : alert.isActive ? (
+                      <ToggleRight className="w-4 h-4 text-secondary" />
+                    ) : (
+                      <ToggleLeft className="w-4 h-4 text-muted" />
+                    )}
+                  </Button>
+                  <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}`}>
+                    <Button variant="ghost" size="sm" title="Edit">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(alert._id)}
+                    disabled={deleting === alert._id}
+                    title="Delete"
+                  >
+                    {deleting === alert._id ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    )}
+                  </Button>
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 pb-4 border-b border-border">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Threshold</p>
-                  <p className="text-lg font-semibold">{alert.absenceThreshold || 3}x</p>
+                  <p className="text-xs text-muted mb-1">Threshold</p>
+                  <p className="text-lg font-semibold text-foreground">{alert.absenceThreshold || 3}x</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Period</p>
-                  <p className="text-lg font-semibold">{alert.lookbackPeriodDays || 30}d</p>
+                  <p className="text-xs text-muted mb-1">Period</p>
+                  <p className="text-lg font-semibold text-foreground">{alert.lookbackPeriodDays || 30}d</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Alerts Triggered</p>
-                  <p className="text-lg font-semibold">{alert.totalAlertsTriggered || 0}</p>
+                  <p className="text-xs text-muted mb-1">Triggered</p>
+                  <p className="text-lg font-semibold text-foreground">{alert.totalAlertsTriggered || 0}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">SMS Sent</p>
-                  <p className="text-lg font-semibold">{alert.smsSentCount || 0}</p>
+                  <p className="text-xs text-muted mb-1">SMS Sent</p>
+                  <p className="text-lg font-semibold text-foreground">{alert.smsSentCount || 0}</p>
                 </div>
               </div>
-
-              {/* Details */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-border text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Monitors all members
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Notifying {(alert.shepherds || []).length} shepherd{(alert.shepherds || []).length !== 1 ? 's' : ''}
-                </div>
-                <div>
-                  Last check: {alert.lastCheckAt ? new Date(alert.lastCheckAt).toLocaleDateString() : 'Never'}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggle(alert._id)}
-                  disabled={toggling === alert._id}
-                  className="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
-                  title={alert.isActive ? 'Deactivate' : 'Activate'}
-                >
-                  {toggling === alert._id ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : alert.isActive ? (
-                    <ToggleRight className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <ToggleLeft className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
-
-                <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}`}>
-                  <button className="p-2 rounded-lg hover:bg-accent transition-colors">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </Link>
-
-                <button
-                  onClick={() => handleDelete(alert._id)}
-                  disabled={deleting === alert._id}
-                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 ml-auto"
-                >
-                  {deleting === alert._id ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  )}
-                </button>
-              </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

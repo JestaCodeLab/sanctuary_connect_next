@@ -18,7 +18,7 @@ export default function Logo({ size = 'md', showText = true, className = '' }: L
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <div
-        className={`${sizes[size].icon} bg-[#3AAFDC] rounded-lg flex items-center justify-center`}
+        className={`${sizes[size].icon} bg-[#4F46E5] rounded-lg flex items-center justify-center`}
       >
         <Church className={`${sizes[size].iconInner} text-white`} />
       </div>

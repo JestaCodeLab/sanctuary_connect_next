@@ -29,7 +29,7 @@ const options: UploadWidgetConfig = {
   },
   styles: {
     colors: {
-      primary: '#3AAFDC',
+      primary: '#4F46E5',
     },
     fontSizes: {
       base: 14,
@@ -116,7 +116,7 @@ export function ImageUpload({
                 <button
                   type="button"
                   onClick={() => setShowUploader(true)}
-                  className="w-full px-4 py-3 bg-[#3AAFDC] hover:bg-[#2a8ebd] text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                  className="w-full px-4 py-3 bg-[#4F46E5] hover:bg-[#2a8ebd] text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   <Edit2 className="w-4 h-4" />
                   Change Logo
@@ -166,7 +166,7 @@ export function ImageUpload({
                     onComplete={() => {}}
                   />
                   <div className="absolute text-center pointer-events-none">
-                    <Upload className="w-12 h-12 text-[#3AAFDC] mx-auto mb-3" />
+                    <Upload className="w-12 h-12 text-[#4F46E5] mx-auto mb-3" />
                     <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
                       Drop your new logo here
                     </p>
@@ -191,20 +191,20 @@ export function ImageUpload({
           {label}
         </label>
       )}
-      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-[#3AAFDC] hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all cursor-pointer bg-gray-50 dark:bg-gray-800/50 min-h-[280px] flex flex-col items-center justify-center">
+      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-[#4F46E5] hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all cursor-pointer bg-gray-50 dark:bg-gray-800/50 min-h-[280px] flex flex-col items-center justify-center">
         <UploadDropzone
           options={options}
           onUpdate={handleUpdate}
           onComplete={() => {}}
         />
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3AAFDC]/10 rounded-xl mb-4">
-          <Upload className="w-8 h-8 text-[#3AAFDC]" />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#4F46E5]/10 rounded-xl mb-4">
+          <Upload className="w-8 h-8 text-[#4F46E5]" />
         </div>
         <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
           Upload your logo
         </p>
         <p className="text-base text-gray-600 dark:text-gray-400 mb-3">
-          Drag and drop your logo here or <span className="text-[#3AAFDC] font-semibold">click to browse</span>
+          Drag and drop your logo here or <span className="text-[#4F46E5] font-semibold">click to browse</span>
         </p>
         <p className="text-sm text-gray-500 dark:text-gray-500">
           {description}

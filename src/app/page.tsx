@@ -21,7 +21,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA]">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3AAFDC] mx-auto"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5] mx-auto"></div>
         <p className="mt-4 text-gray-500">Loading Sanctuary Connect...</p>
       </div>
     </div>

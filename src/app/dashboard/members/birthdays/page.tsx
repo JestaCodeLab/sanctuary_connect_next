@@ -302,30 +302,31 @@ function BirthdaysContent() {
   };
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader
         title="Birthdays"
         description="Track and celebrate member birthdays"
       />
 
-      {/* SMS Credits Balance */}
-      <Card className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-        <div className="p-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">SMS Credits Balance</p>
-            <p className="text-xs text-muted mt-0.5">Available credits for sending birthday messages</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* SMS Credits Balance */}
+        <Card className="h-full">
+          <div className="p-4 h-full flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">SMS Credits Balance</p>
+              <p className="text-xs text-muted mt-0.5">Available credits for sending birthday messages</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-primary">
+                {smsCredit?.balance ?? '—'}
+              </p>
+              <p className="text-xs text-muted">credits</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {smsCredit?.balance ?? '—'}
-            </p>
-            <p className="text-xs text-muted">credits</p>
-          </div>
-        </div>
-      </Card>
+        </Card>
 
-      {/* Birthday Settings */}
-      <Card className="mb-6 border-primary/20">
+        {/* Birthday Settings */}
+        <Card>
         <div className="p-4">
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -450,7 +451,8 @@ function BirthdaysContent() {
             </div>
           )}
         </div>
-      </Card>
+        </Card>
+      </div>
 
       {/* Today's Birthdays */}
       {todayBirthdays.length > 0 && (

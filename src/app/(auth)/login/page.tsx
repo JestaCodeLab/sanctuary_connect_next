@@ -197,7 +197,7 @@ export default function LoginPage() {
               <Checkbox label="Remember me" {...register('rememberMe')} />
               <Link
                 href="/forgot-password"
-                className="text-sm text-[#3AAFDC] hover:text-[#2D9AC7] dark:hover:text-[#5BC0E8] font-medium"
+                className="text-sm text-[#4F46E5] hover:text-[#4338CA] dark:hover:text-[#818CF8] font-medium"
               >
                 Forgot Password?
               </Link>
@@ -219,7 +219,7 @@ export default function LoginPage() {
         {/* Register Link */}
         <p className="text-center mt-6 text-sm text-gray-500 dark:text-gray-400">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-[#3AAFDC] hover:text-[#2D9AC7] dark:hover:text-[#5BC0E8] font-medium">
+          <Link href="/register" className="text-[#4F46E5] hover:text-[#4338CA] dark:hover:text-[#818CF8] font-medium">
             Register
           </Link>
         </p>

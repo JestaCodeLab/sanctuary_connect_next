@@ -74,7 +74,7 @@ export default function OnboardingCurrencyPage() {
               Step 3 of 5: Organization Currency
             </span>
           </div>
-          <span className="text-sm text-[#3AAFDC]">60%</span>
+          <span className="text-sm text-[#4F46E5]">60%</span>
         </div>
         <ProgressBar progress={60} size="md" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -101,11 +101,11 @@ export default function OnboardingCurrencyPage() {
                 onClick={() => setSelectedCurrency(currency.code)}
                 className={`p-4 rounded-xl border-2 transition-all text-center ${
                   selectedCurrency === currency.code
-                    ? 'border-[#3AAFDC] bg-[#E8F6FB] dark:bg-[#3AAFDC]/20'
+                    ? 'border-[#4F46E5] bg-[#EEF2FF] dark:bg-[#4F46E5]/20'
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}
               >
-                <div className="font-bold text-lg text-[#3AAFDC] mb-1">{currency.symbol}</div>
+                <div className="font-bold text-lg text-[#4F46E5] mb-1">{currency.symbol}</div>
                 <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
                   {currency.code}
                 </div>
@@ -121,7 +121,7 @@ export default function OnboardingCurrencyPage() {
         <Card padding="lg" className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
           <div className="flex gap-3">
             <div className="flex-shrink-0 flex items-start pt-0.5">
-              <Lock className="w-5 h-5 text-[#3AAFDC]" />
+              <Lock className="w-5 h-5 text-[#4F46E5]" />
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">

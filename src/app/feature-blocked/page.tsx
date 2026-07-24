@@ -163,7 +163,7 @@ function FeatureBlockedContent() {
       <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full space-y-6">
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3AAFDC]"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
           </div>
           <p className="text-center text-muted">Loading your plan details...</p>
         </div>
@@ -205,7 +205,7 @@ function FeatureBlockedContent() {
       <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full space-y-6">
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3AAFDC]"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
           </div>
           <p className="text-center text-muted">Loading your plan details...</p>
         </div>

@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Target, Plus, TrendingUp, Wallet, Calendar, Pencil, Settings, Check, X, Trash2 } from 'lucide-react';
 
-import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
+import { PageHeader, PageLoader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Input, Card, ProgressBar, Select } from '@/components/ui';
 import { donationsApi, financeApi, membersApi } from '@/lib/api';
 import { donationSchema, projectSchema, type DonationFormData, type ProjectFormData, projectGroupSchema, type ProjectGroupFormData } from '@/lib/validations';
@@ -485,9 +485,9 @@ function ProjectsPageContent() {
   const totalTarget = activeProjects.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
 
   const stats = [
-    { label: 'Active Projects', value: activeProjects.length.toLocaleString(), icon: Target },
-    { label: 'Total Raised', value: formatCurrency(totalRaised), icon: Wallet },
-    { label: 'Combined Goal', value: formatCurrency(totalTarget), icon: TrendingUp },
+    { label: 'Active Projects', value: activeProjects.length.toLocaleString(), icon: Target, tint: 'primary' as const },
+    { label: 'Total Raised', value: formatCurrency(totalRaised), icon: Wallet, tint: 'secondary' as const },
+    { label: 'Combined Goal', value: formatCurrency(totalTarget), icon: TrendingUp, tint: 'primary' as const },
   ];
 
   const groupFilterOptions = [
@@ -496,7 +496,7 @@ function ProjectsPageContent() {
   ];
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <PageHeader title="Projects" description="Track mission, building, and other special-fund campaigns" />
 
       <div className="flex items-center justify-end gap-3 -mt-4 mb-8">
@@ -514,9 +514,7 @@ function ProjectsPageContent() {
       <StatsGrid stats={stats} />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
+        <PageLoader label="Loading projects..." />
       ) : filteredProjects.length === 0 ? (
         <EmptyState
           title="No Projects Yet"

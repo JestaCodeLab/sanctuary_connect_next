@@ -136,7 +136,7 @@ export default function SubscriptionPage() {
               Step 4 of 5: Choose Your Plan
             </span>
           </div>
-          <span className="text-sm text-[#3AAFDC] font-medium">80%</span>
+          <span className="text-sm text-[#4F46E5] font-medium">80%</span>
         </div>
         <ProgressBar progress={80} size="md" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -160,7 +160,7 @@ export default function SubscriptionPage() {
           onClick={() => setBillingCycle('monthly')}
           className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
             billingCycle === 'monthly'
-              ? 'bg-[#3AAFDC] text-white'
+              ? 'bg-[#4F46E5] text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
@@ -170,7 +170,7 @@ export default function SubscriptionPage() {
           onClick={() => setBillingCycle('annual')}
           className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
             billingCycle === 'annual'
-              ? 'bg-[#3AAFDC] text-white'
+              ? 'bg-[#4F46E5] text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
@@ -189,16 +189,16 @@ export default function SubscriptionPage() {
             padding="lg"
             className={`relative transition-all ${
               selectedPlan === plan.id
-                ? 'ring-2 ring-[#3AAFDC] shadow-lg'
+                ? 'ring-2 ring-[#4F46E5] shadow-lg'
                 : plan.isPopular
-                ? 'ring-2 ring-[#3AAFDC]/50'
+                ? 'ring-2 ring-[#4F46E5]/50'
                 : ''
             }`}
           >
             {/* Most Popular Badge */}
             {plan.isPopular && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#3AAFDC] text-white text-xs font-medium rounded-full">
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#4F46E5] text-white text-xs font-medium rounded-full">
                   <Sparkles className="w-3 h-3" />
                   Most Popular
                 </span>
@@ -207,7 +207,7 @@ export default function SubscriptionPage() {
 
             {/* Plan Header */}
             <div className="text-center mb-6 pt-2">
-              <p className="text-xs font-medium text-[#3AAFDC] uppercase tracking-wide mb-2">
+              <p className="text-xs font-medium text-[#4F46E5] uppercase tracking-wide mb-2">
                 {plan.name}
               </p>
               <div className="flex items-baseline justify-center gap-1">
@@ -228,7 +228,7 @@ export default function SubscriptionPage() {
               {plan.features.map((feature, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   {feature.included ? (
-                    <Check className="w-5 h-5 text-[#3AAFDC] flex-shrink-0" />
+                    <Check className="w-5 h-5 text-[#4F46E5] flex-shrink-0" />
                   ) : (
                     <X className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
                   )}
@@ -260,7 +260,7 @@ export default function SubscriptionPage() {
       {/* Custom Plan Link */}
       <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-8">
         Need a custom plan for your organization?{' '}
-        <a href="#" className="text-[#3AAFDC] hover:underline">
+        <a href="#" className="text-[#4F46E5] hover:underline">
           Contact our sales team
         </a>
       </p>

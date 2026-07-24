@@ -11,6 +11,7 @@ import { departmentsApi, organizationApi } from '@/lib/api';
 import { departmentSchema, type DepartmentFormData } from '@/lib/validations';
 import { Card, Button, Input, Select } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
+import PageLoader from '@/components/dashboard/PageLoader';
 import Modal from '@/components/dashboard/Modal';
 import FeatureGate from '@/components/dashboard/FeatureGate';
 import type { Department, Branch } from '@/types';
@@ -166,9 +167,7 @@ function DepartmentsContent() {
       />
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+        <PageLoader label="Loading departments..." />
       ) : departments.length === 0 ? (
         <Card className="text-center py-12">
           <Building2 className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
@@ -275,7 +274,7 @@ function DepartmentsContent() {
               <textarea
                 placeholder="Brief description of the department..."
                 rows={3}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3AAFDC] focus:border-transparent resize-none"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent resize-none"
                 {...register('description')}
               />
             </div>

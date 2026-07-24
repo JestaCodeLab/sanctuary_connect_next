@@ -375,7 +375,7 @@ export default function MembersPage() {
     : null;
 
   return (
-    <div>
+    <div className="no-card-shadow">
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Member Directory</h1>
@@ -429,10 +429,10 @@ export default function MembersPage() {
               <button
                 key={stat.label}
                 onClick={() => setCardFilter(isActive ? null : filterKey)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-4 rounded-lg border transition-all ${
                   isActive
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : 'border-border bg-background hover:border-primary/50'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-card hover:border-primary/50'
                 } ${filterKey === null ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
                 disabled={filterKey === null}
               >
@@ -473,7 +473,7 @@ export default function MembersPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="space-y-4 mb-6">
+      <Card padding="md" className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
             <Input
@@ -518,7 +518,7 @@ export default function MembersPage() {
 
         {/* Date Range Filter - Collapsible */}
         {showDateFilter && (
-          <div className="flex flex-col sm:flex-row gap-4 items-end p-4 bg-background rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row gap-4 items-end mt-4 pt-4 border-t border-border">
             <div className="flex-1">
               <label className="block text-sm font-medium text-foreground mb-2">
                 From
@@ -559,7 +559,7 @@ export default function MembersPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Members Table */}
       {isLoading ? (

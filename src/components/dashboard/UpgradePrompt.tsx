@@ -53,7 +53,7 @@ export default function UpgradePrompt({
         </p>
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#3AAFDC] hover:bg-[#2D9AC7] text-white font-medium rounded-lg transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#4F46E5] hover:bg-[#4338CA] text-white font-medium rounded-lg transition-colors"
         >
           Upgrade Plan
           <ArrowUpRight className="w-4 h-4" />

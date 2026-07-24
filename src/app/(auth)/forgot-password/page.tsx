@@ -91,8 +91,8 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md animate-slideUp">
         <Card padding="lg" className="text-center">
           {/* Icon */}
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#E8F6FB] dark:bg-[#3AAFDC]/20 rounded-full mb-6">
-            <KeyRound className="w-8 h-8 text-[#3AAFDC]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#EEF2FF] dark:bg-[#4F46E5]/20 rounded-full mb-6">
+            <KeyRound className="w-8 h-8 text-[#4F46E5]" />
           </div>
 
           {/* Title */}
@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
           {/* Back to Login */}
           <Link
             href="/login"
-            className="inline-flex items-center gap-1 mt-6 text-sm text-[#3AAFDC] hover:text-[#2D9AC7] font-medium"
+            className="inline-flex items-center gap-1 mt-6 text-sm text-[#4F46E5] hover:text-[#4338CA] font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Return to Login
@@ -135,7 +135,7 @@ export default function ForgotPasswordPage() {
         {/* Contact Admin */}
         <p className="text-center mt-6 text-sm text-gray-500 dark:text-gray-400">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-[#3AAFDC] hover:text-[#2D9AC7] font-medium">
+          <Link href="/register" className="text-[#4F46E5] hover:text-[#4338CA] font-medium">
             Register
           </Link>
         </p>

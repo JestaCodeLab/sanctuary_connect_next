@@ -25,7 +25,7 @@ export default function ProgressBar({
     <div className={`w-full ${className}`}>
       <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full ${sizeStyles[size]}`}>
         <div
-          className={`bg-[#3AAFDC] rounded-full transition-all duration-500 ease-out ${sizeStyles[size]}`}
+          className={`bg-[#4F46E5] rounded-full transition-all duration-500 ease-out ${sizeStyles[size]}`}
           style={{ width: `${clampedProgress}%` }}
         />
       </div>
