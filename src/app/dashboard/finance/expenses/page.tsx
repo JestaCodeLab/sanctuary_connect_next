@@ -397,7 +397,7 @@ function ExpensesPageContent() {
   ];
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader title="Expenses" description="Track and manage church expenses" />
 
       <div className="flex items-center justify-end gap-3 -mt-4 mb-8">

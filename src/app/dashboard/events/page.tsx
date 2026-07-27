@@ -349,7 +349,7 @@ export default function EventsPage() {
   ];
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader
         title="Events"
         description="Manage church events and activities"

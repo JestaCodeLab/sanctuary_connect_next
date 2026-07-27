@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertCircle, Bell, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users } from 'lucide-react';
-import { Button, Card } from '@/components/ui';
+import { Plus, AlertCircle, Bell, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users, PlayCircle } from 'lucide-react';
+import { Card } from '@/components/ui';
 import { PageHeader, PageLoader, EmptyState, Badge } from '@/components/dashboard';
 import { api } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
@@ -29,6 +29,7 @@ export default function ShepherdAlertsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [running, setRunning] = useState<string | null>(null);
 
   const isFeatureAvailable = hasFeature('ai_shepherd_alerts');
 
@@ -94,6 +95,23 @@ export default function ShepherdAlertsPage() {
     }
   };
 
+  const handleRunCheck = async (id: string) => {
+    try {
+      setRunning(id);
+      const response = await api.post(`/api/shepherd-alerts/${id}/run`);
+      const { summary } = response.data;
+      toast.success(
+        `Check complete: ${summary.triggered} alert${summary.triggered !== 1 ? 's' : ''} triggered, ${summary.smsSent} SMS sent`
+      );
+      await fetchAlerts();
+    } catch (error: any) {
+      console.error('Error running alert check:', error);
+      toast.error(error?.response?.data?.error || 'Failed to run alert check');
+    } finally {
+      setRunning(null);
+    }
+  };
+
   if (!isFeatureAvailable) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -109,7 +127,7 @@ export default function ShepherdAlertsPage() {
   }
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader
         title="Shepherd Alerts"
         description="Monitor member attendance and automatically notify shepherds"
@@ -159,40 +177,61 @@ export default function ShepherdAlertsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleRunCheck(alert._id)}
+                    disabled={running === alert._id || !alert.isActive}
+                    title={alert.isActive ? 'Run check now' : 'Alert is inactive'}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary/10"
+                  >
+                    {running === alert._id ? (
+                      <Loader className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <PlayCircle className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleToggle(alert._id)}
                     disabled={toggling === alert._id}
                     title={alert.isActive ? 'Deactivate' : 'Activate'}
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      alert.isActive
+                        ? 'bg-secondary/10 text-secondary hover:bg-secondary/20'
+                        : 'bg-muted/10 text-muted hover:bg-muted/20'
+                    }`}
                   >
                     {toggling === alert._id ? (
-                      <Loader className="w-4 h-4 animate-spin" />
+                      <Loader className="w-5 h-5 animate-spin" />
                     ) : alert.isActive ? (
-                      <ToggleRight className="w-4 h-4 text-secondary" />
+                      <ToggleRight className="w-5 h-5" />
                     ) : (
-                      <ToggleLeft className="w-4 h-4 text-muted" />
+                      <ToggleLeft className="w-5 h-5" />
                     )}
-                  </Button>
+                  </button>
                   <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}`}>
-                    <Button variant="ghost" size="sm" title="Edit">
-                      <Edit className="w-4 h-4" />
-                    </Button>
+                    <button
+                      type="button"
+                      title="Edit"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
+                    type="button"
                     onClick={() => handleDelete(alert._id)}
                     disabled={deleting === alert._id}
                     title="Delete"
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {deleting === alert._id ? (
-                      <Loader className="w-4 h-4 animate-spin" />
+                      <Loader className="w-5 h-5 animate-spin" />
                     ) : (
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <Trash2 className="w-5 h-5" />
                     )}
-                  </Button>
+                  </button>
                 </div>
               </div>
 

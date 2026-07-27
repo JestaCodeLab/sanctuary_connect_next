@@ -94,6 +94,8 @@ function TithesPageContent() {
   const [viewTarget, setViewTarget] = useState<Donation | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<Donation | null>(null);
+  const [receiptPromptTarget, setReceiptPromptTarget] = useState<{ donationId: string; donorName: string; phone: string } | null>(null);
+  const [sendingReceiptPrompt, setSendingReceiptPrompt] = useState(false);
   const [donorType, setDonorType] = useState<'member' | 'guest'>('member');
   const [memberSearch, setMemberSearch] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -180,7 +182,7 @@ function TithesPageContent() {
 
   const createMutation = useMutation({
     mutationFn: (data: DonationFormData) => donationsApi.create(data),
-    onSuccess: () => {
+    onSuccess: (donation, variables) => {
       queryClient.invalidateQueries({ queryKey: ['donations'] });
       toast.success('Tithe recorded successfully');
       reset({
@@ -203,6 +205,24 @@ function TithesPageContent() {
       setMemberSearch('');
       setDonorType('member');
       setPage(1);
+
+      // Offer to text a receipt whenever we have a phone number on file for the donor
+      let phone: string | undefined;
+      let donorName = 'Donor';
+      if (variables.donorType === 'guest') {
+        phone = variables.donorPhone || undefined;
+        donorName = variables.donorName || donorName;
+      } else if (variables.donorId) {
+        const member = members.find((m: any) => m._id === variables.donorId);
+        if (member) {
+          phone = member.phone;
+          donorName = `${member.firstName} ${member.lastName}`;
+        }
+      }
+
+      if (phone) {
+        setReceiptPromptTarget({ donationId: donation._id, donorName, phone });
+      }
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.details || error?.response?.data?.error || 'Failed to record tithe';
@@ -260,6 +280,20 @@ function TithesPageContent() {
       toast.success(result.message);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to send SMS receipt');
+    }
+  };
+
+  const handleConfirmReceiptPrompt = async () => {
+    if (!receiptPromptTarget) return;
+    try {
+      setSendingReceiptPrompt(true);
+      const result = await donationsApi.sendReceipt(receiptPromptTarget.donationId, 'sms');
+      toast.success(result.message);
+      setReceiptPromptTarget(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to send SMS receipt');
+    } finally {
+      setSendingReceiptPrompt(false);
     }
   };
 
@@ -327,7 +361,7 @@ function TithesPageContent() {
   ];
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader
         title="Tithes"
         description="Track and manage tithes received"
@@ -878,6 +912,38 @@ function TithesPageContent() {
       {/* Print Receipt Modal */}
       <Modal isOpen={!!receiptTarget} onClose={() => setReceiptTarget(null)} title="Tithe Receipt">
         {receiptTarget && <DonationReceipt donation={receiptTarget} onClose={() => setReceiptTarget(null)} />}
+      </Modal>
+
+      {/* SMS Receipt Prompt (shown right after recording a tithe) */}
+      <Modal isOpen={!!receiptPromptTarget} onClose={() => setReceiptPromptTarget(null)} title="Send SMS Receipt?">
+        {receiptPromptTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Send an SMS receipt to <span className="font-medium text-foreground">{receiptPromptTarget.donorName}</span> at{' '}
+              <span className="font-medium text-foreground">{receiptPromptTarget.phone}</span>?
+            </p>
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                disabled={sendingReceiptPrompt}
+                onClick={() => setReceiptPromptTarget(null)}
+              >
+                Decline
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                disabled={sendingReceiptPrompt}
+                isLoading={sendingReceiptPrompt}
+                onClick={handleConfirmReceiptPrompt}
+              >
+                Send SMS
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

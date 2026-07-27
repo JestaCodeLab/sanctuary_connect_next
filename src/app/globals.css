@@ -1,9 +1,9 @@
 @import "tailwindcss";
-@import "@fontsource/manrope/latin-400.css";
-@import "@fontsource/manrope/latin-500.css";
-@import "@fontsource/manrope/latin-600.css";
-@import "@fontsource/manrope/latin-700.css";
-@import "@fontsource/manrope/latin-800.css";
+@import "@fontsource/dm-sans/latin-400.css";
+@import "@fontsource/dm-sans/latin-500.css";
+@import "@fontsource/dm-sans/latin-600.css";
+@import "@fontsource/dm-sans/latin-700.css";
+@import "@fontsource/dm-sans/latin-800.css";
 
 /* Enable class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -12,6 +12,7 @@
   --primary: #4F46E5;
   --primary-hover: #4338CA;
   --primary-light: #EEF2FF;
+  --primary-foreground: #FFFFFF;
   --secondary: #16A34A;
   --secondary-hover: #15803D;
   --secondary-light: #F0FDF4;
@@ -36,6 +37,7 @@
   --primary: #4F46E5;
   --primary-hover: #818CF8;
   --primary-light: #312E81;
+  --primary-foreground: #FFFFFF;
   --secondary: #16A34A;
   --secondary-hover: #4ADE80;
   --secondary-light: #14532D;
@@ -60,6 +62,7 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-light: var(--primary-light);
+  --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-hover: var(--secondary-hover);
   --color-secondary-light: var(--secondary-light);
@@ -88,15 +91,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-/* Design review: some pages read flatter without the shared Card component's
-   default shadow. Applied per-page via this class rather than in the Card
-   component itself, which still uses shadows elsewhere. */
-.no-card-shadow .shadow-sm {
-  box-shadow: none;
 }
 
 /* Custom scrollbar */

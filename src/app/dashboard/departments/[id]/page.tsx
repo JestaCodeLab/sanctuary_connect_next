@@ -78,7 +78,7 @@ function DepartmentDetailContent({ id }: { id: string }) {
   };
 
   return (
-    <div className="w-full no-card-shadow">
+    <div className="w-full">
       <Link
         href="/dashboard/departments"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-6"

@@ -302,7 +302,7 @@ function BirthdaysContent() {
   };
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader
         title="Birthdays"
         description="Track and celebrate member birthdays"
@@ -584,7 +584,7 @@ function BirthdaysContent() {
             </div>
             
             {/* Birthday Table */}
-            <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-800 border-b border-border">

@@ -126,7 +126,7 @@ function ReportsContent() {
   };
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader title="Financial Reports" description="Generate and download detailed financial reports" />
 
       {/* Date Range Picker */}

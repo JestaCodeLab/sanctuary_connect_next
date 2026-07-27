@@ -496,7 +496,7 @@ function ProjectsPageContent() {
   ];
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader title="Projects" description="Track mission, building, and other special-fund campaigns" />
 
       <div className="flex items-center justify-end gap-3 -mt-4 mb-8">

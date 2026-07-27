@@ -23,7 +23,7 @@ const themeScript = `
     try {
       const stored = localStorage.getItem('theme-storage');
       const parsed = stored ? JSON.parse(stored) : null;
-      const theme = parsed?.state?.theme || 'system';
+      const theme = parsed?.state?.theme || 'light';
 
       const root = document.documentElement;
       root.classList.remove('light', 'dark');

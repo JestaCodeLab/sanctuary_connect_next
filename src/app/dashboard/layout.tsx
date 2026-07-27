@@ -40,6 +40,7 @@ import {
   UserCheck,
   Clock,
   CreditCard,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -135,7 +136,7 @@ const sidebarLinks: SidebarLink[] = [
     href: '/dashboard/settings',
     icon: Settings,
     children: [
-      { label: 'General', href: '/dashboard/settings' },
+      { label: 'General', href: '/dashboard/settings', icon: SlidersHorizontal },
       { label: 'Users & Branches', href: '/dashboard/settings/users', icon: Users },
       { label: 'Subscription', href: '/dashboard/settings/subscription', icon: Zap },
     ],
@@ -156,25 +157,20 @@ function SidebarItem({
   hasFeature,
   featureLoading,
   onNavigate,
+  isExpanded,
+  onToggleExpand,
 }: {
   link: SidebarLink;
   pathname: string;
   hasFeature: (key: string) => boolean;
   featureLoading: boolean;
   onNavigate: () => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const isParentActive = link.href === '/dashboard'
     ? pathname === '/dashboard'
     : pathname.startsWith(link.href);
-
-  const [isExpanded, setIsExpanded] = useState(isParentActive);
-
-  // Auto-expand when navigating to a child route
-  useEffect(() => {
-    if (isParentActive && link.children) {
-      setIsExpanded(true);
-    }
-  }, [isParentActive, link.children]);
 
   // If the item itself is feature-gated and the feature is not available, hide it
   if (link.featureKey && !featureLoading && !hasFeature(link.featureKey)) {
@@ -209,7 +205,7 @@ function SidebarItem({
   return (
     <div>
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={onToggleExpand}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full ${
           isParentActive
             ? 'bg-white text-primary'
@@ -271,9 +267,24 @@ export default function DashboardLayout({
   const { showWarning, timeRemaining, formattedTime, refreshSession, handleLogout: handleSessionLogout, isRefreshing } = useSessionWarning();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedLabel, setExpandedLabel] = useState<string | null>(() =>
+    sidebarLinks.find((l) =>
+      l.children && (l.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(l.href))
+    )?.label ?? null
+  );
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Keep the sidebar section containing the active route expanded, collapsing any other
+  useEffect(() => {
+    const activeParent = sidebarLinks.find((l) =>
+      l.children && (l.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(l.href))
+    );
+    if (activeParent) {
+      setExpandedLabel(activeParent.label);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     // If store is still loading (rehydrating), don't do anything
@@ -532,6 +543,8 @@ export default function DashboardLayout({
               hasFeature={hasFeature}
               featureLoading={featureLoading}
               onNavigate={() => setSidebarOpen(false)}
+              isExpanded={expandedLabel === link.label}
+              onToggleExpand={() => setExpandedLabel((prev) => (prev === link.label ? null : link.label))}
             />
           ))}
         </nav>

@@ -512,7 +512,7 @@ function OfferingsPageContent() {
   };
 
   return (
-    <div className="no-card-shadow">
+    <div>
       <PageHeader title="Offerings" description="Track and manage offerings received" />
 
       <div className="flex items-center justify-end gap-3 -mt-4 mb-8">

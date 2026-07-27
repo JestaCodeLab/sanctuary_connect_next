@@ -119,7 +119,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (isLoading) {
     return (
-      <div className="w-full no-card-shadow">
+      <div className="w-full">
         <Card padding="lg">
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -131,7 +131,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (!event) {
     return (
-      <div className="w-full no-card-shadow">
+      <div className="w-full">
         <Card padding="lg">
           <div className="text-center py-12">
             <p className="text-muted">Event not found.</p>
@@ -145,7 +145,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="w-full no-card-shadow">
+    <div className="w-full">
       {/* Back link */}
       <Link
         href="/dashboard/events"

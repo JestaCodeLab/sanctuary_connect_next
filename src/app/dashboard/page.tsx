@@ -301,7 +301,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="no-card-shadow">
+    <div>
       {/* Welcome Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">

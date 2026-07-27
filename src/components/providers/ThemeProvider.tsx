@@ -6,6 +6,13 @@ import { useThemeStore } from '@/store/themeStore';
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useThemeStore();
 
+  // themeStore uses skipHydration, so its persisted value must be loaded
+  // manually - otherwise the in-memory default always wins on reload,
+  // overwriting whatever theme the user actually chose last time.
+  useEffect(() => {
+    useThemeStore.persist.rehydrate();
+  }, []);
+
   useEffect(() => {
     const root = window.document.documentElement;
 

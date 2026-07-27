@@ -490,7 +490,7 @@ export default function FinanceApprovalsPage() {
       )}
 
       {/* Filters Card */}
-      <Card className="border-0 shadow-sm">
+      <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Filter Applications</CardTitle>
@@ -551,7 +551,7 @@ export default function FinanceApprovalsPage() {
       </Card>
 
       {/* Table */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
