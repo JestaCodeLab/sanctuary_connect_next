@@ -53,6 +53,7 @@ import type {
   CreatePrayerRequestRequest,
   Department,
   CreateDepartmentRequest,
+  DepartmentInsights,
   Expense,
   CreateExpenseRequest,
   FinanceOverview,
@@ -554,12 +555,13 @@ export const membersApi = {
 
 // Events API
 export const eventsApi = {
-  getAll: async (params?: { startDate?: string; endDate?: string; status?: string }): Promise<ChurchEvent[]> => {
+  getAll: async (params?: { startDate?: string; endDate?: string; status?: string; departmentId?: string }): Promise<ChurchEvent[]> => {
     const queryParams = new URLSearchParams();
     if (params?.startDate) queryParams.append('startDate', params.startDate);
     if (params?.endDate) queryParams.append('endDate', params.endDate);
     if (params?.status) queryParams.append('status', params.status);
-    
+    if (params?.departmentId) queryParams.append('departmentId', params.departmentId);
+
     const queryString = queryParams.toString();
     const url = queryString ? `/api/events?${queryString}` : '/api/events';
     
@@ -796,6 +798,10 @@ export const departmentsApi = {
   },
   removeMember: async (id: string, memberId: string): Promise<Department> => {
     const response = await api.delete<Department>(`/api/departments/${id}/members/${memberId}`);
+    return response.data;
+  },
+  getInsights: async (id: string): Promise<DepartmentInsights> => {
+    const response = await api.get<DepartmentInsights>(`/api/departments/${id}/insights`);
     return response.data;
   },
 };

@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   Cake,
   CalendarPlus,
+  CalendarDays,
   PieChart,
   TrendingUp,
   TrendingDown,
@@ -90,6 +91,7 @@ const sidebarLinks: SidebarLink[] = [
     featureKey: 'event_management',
     children: [
       { label: 'All Events', href: '/dashboard/events' },
+      { label: 'Planner', href: '/dashboard/events/planner', icon: CalendarDays },
       { label: 'New Event', href: '/dashboard/events/new', icon: CalendarPlus },
     ],
   },
@@ -508,7 +510,7 @@ export default function DashboardLayout({
         }`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/20">
           {logoUrl ? (
             <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
               <img
@@ -550,7 +552,7 @@ export default function DashboardLayout({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-white/10 space-y-3">
+        <div className="p-4 border-t border-white/20 space-y-3">
           <SubscriptionUsage />
           <div className="pt-3"></div>
           <div className="flex items-center gap-3 px-2">

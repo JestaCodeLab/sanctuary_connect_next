@@ -169,6 +169,7 @@ export type MemberFormData = z.infer<typeof memberSchema>;
 // Event schema
 export const eventSchema = z.object({
   branchId: z.string().optional(),
+  departmentId: z.string().optional(),
   title: z.string().min(1, 'Event title is required').max(100, 'Title is too long'),
   description: z.string().optional(),
   eventType: z.string().optional(),
@@ -186,6 +187,11 @@ export const eventSchema = z.object({
     z.number().min(0).max(6).optional()
   ),
   recurrenceEndDate: z.string().optional(),
+  reminders: z.array(z.object({
+    offsetMinutes: z.number().min(0),
+    message: z.string().optional(),
+    templateId: z.string().optional(),
+  })).optional(),
 });
 
 export type EventFormData = z.infer<typeof eventSchema>;
@@ -291,6 +297,7 @@ export const departmentSchema = z.object({
   description: z.string().max(500, 'Description is too long').optional(),
   branchId: z.string().min(1, 'Branch is required'),
   leaderId: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export type DepartmentFormData = z.infer<typeof departmentSchema>;

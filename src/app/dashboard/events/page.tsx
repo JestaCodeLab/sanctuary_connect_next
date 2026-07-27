@@ -24,96 +24,10 @@ import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
 import { useBranchStore } from '@/store/branchStore';
+import { getCurrentOccurrenceForEvent } from '@/lib/eventOccurrences';
 import type { ChurchEvent } from '@/types';
 
 type StatusFilter = 'all' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
-
-// Helper functions for recurring event occurrences
-function getCurrentOccurrenceForEvent(event: ChurchEvent, now: Date = new Date()) {
-  if (!event.isRecurring || !event.recurrencePattern) return null;
-
-  const anchorStart = new Date(event.startDate);
-  const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
-  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
-
-  let current = new Date(anchorStart);
-  if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
-    while (current.getDay() !== event.recurrenceDay) {
-      current.setDate(current.getDate() + 1);
-    }
-    current.setHours(anchorStart.getHours(), anchorStart.getMinutes(), anchorStart.getSeconds(), anchorStart.getMilliseconds());
-  }
-
-  const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
-
-  // Fast-forward to the time period around now
-  while (current < now) {
-    const occEnd = new Date(current.getTime() + duration);
-    if (occEnd >= now) {
-      break;
-    }
-    // Advance date
-    if (event.recurrencePattern === 'monthly') {
-      current.setMonth(current.getMonth() + 1);
-    } else {
-      current.setDate(current.getDate() + increment);
-    }
-  }
-
-  if (seriesEnd && current > seriesEnd) return null;
-
-  const occStart = new Date(current);
-  const occEnd = new Date(occStart.getTime() + duration);
-
-  // Check if we're within this occurrence's time window
-  if (now >= occStart && now <= occEnd) {
-    return { startDate: occStart, endDate: occEnd };
-  }
-
-  return null;
-}
-
-// Compute occurrences for a date range
-function getOccurrencesInRange(event: ChurchEvent, rangeStart: Date, rangeEnd: Date) {
-  if (!event.isRecurring || !event.recurrencePattern) return [];
-
-  const anchorStart = new Date(event.startDate);
-  const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
-  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
-  const from = new Date(rangeStart);
-  const to = new Date(rangeEnd);
-
-  const occurrences = [];
-
-  let current = new Date(anchorStart);
-  if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
-    while (current.getDay() !== event.recurrenceDay) {
-      current.setDate(current.getDate() + 1);
-    }
-    current.setHours(anchorStart.getHours(), anchorStart.getMinutes(), anchorStart.getSeconds(), anchorStart.getMilliseconds());
-  }
-
-  const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
-
-  while (current <= to) {
-    if (seriesEnd && current > seriesEnd) break;
-
-    if (current >= from) {
-      const occStart = new Date(current);
-      const occEnd = new Date(occStart.getTime() + duration);
-      occurrences.push({ startDate: occStart, endDate: occEnd });
-    }
-
-    // Advance date
-    if (event.recurrencePattern === 'monthly') {
-      current.setMonth(current.getMonth() + 1);
-    } else {
-      current.setDate(current.getDate() + increment);
-    }
-  }
-
-  return occurrences;
-}
 
 const statusBadgeVariant: Record<ChurchEvent['status'], 'info' | 'success' | 'muted' | 'error'> = {
   scheduled: 'info',

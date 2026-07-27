@@ -1,4 +1,4 @@
-import { Logo, ThemeToggle } from '@/components/ui';
+import { ThemeToggle } from '@/components/ui';
 
 export default function AuthLayout({
   children,
@@ -10,7 +10,10 @@ export default function AuthLayout({
       {/* Header */}
       <header className="w-full py-4 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Logo />
+          <div className="flex items-center gap-2">
+            <img src="/sanctuary_app_logo.png" alt="Sanctuary Connect" className="h-9 w-auto" />
+            <span className="font-semibold text-gray-600 dark:text-gray-300 text-xl">Sanctuary Connect</span>
+          </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
           </div>

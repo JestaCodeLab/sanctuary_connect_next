@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { Plus, Users, Building2, Trash2, Edit2, ChevronDown } from 'lucide-react';
-import { departmentsApi, organizationApi } from '@/lib/api';
+import { departmentsApi, organizationApi, userBranchApi } from '@/lib/api';
 import { departmentSchema, type DepartmentFormData } from '@/lib/validations';
 import { Card, Button, Input, Select } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
@@ -16,11 +16,16 @@ import Modal from '@/components/dashboard/Modal';
 import FeatureGate from '@/components/dashboard/FeatureGate';
 import type { Department, Branch } from '@/types';
 
+function parseTagsInput(value: string): string[] {
+  return [...new Set(value.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 5);
+}
+
 function DepartmentsContent() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+  const [tagsInput, setTagsInput] = useState('');
 
   const { data: departments = [], isLoading } = useQuery({
     queryKey: ['departments'],
@@ -42,6 +47,17 @@ function DepartmentsContent() {
     value: b._id,
     label: b.name,
   }));
+
+  const { data: orgUsers = [] } = useQuery({
+    queryKey: ['org-users', orgData?.organization?._id],
+    queryFn: () => userBranchApi.getOrgUsers(orgData!.organization!._id),
+    enabled: !!orgData?.organization?._id,
+  });
+
+  const leaderOptions = [
+    { value: '', label: 'No leader assigned' },
+    ...orgUsers.map((u) => ({ value: u._id, label: `${u.firstName} ${u.lastName}` })),
+  ];
 
   const {
     register,
@@ -101,30 +117,36 @@ function DepartmentsContent() {
   const closeModal = () => {
     setShowModal(false);
     setEditingDept(null);
-    reset({ name: '', description: '', branchId: '', leaderId: '' });
+    setTagsInput('');
+    reset({ name: '', description: '', branchId: '', leaderId: '', tags: [] });
   };
 
   const openCreate = () => {
-    reset({ name: '', description: '', branchId: '', leaderId: '' });
+    setTagsInput('');
+    reset({ name: '', description: '', branchId: '', leaderId: '', tags: [] });
     setEditingDept(null);
     setShowModal(true);
   };
 
   const openEdit = (dept: Department) => {
     setEditingDept(dept);
+    setTagsInput((dept.tags || []).join(', '));
     reset({
       name: dept.name,
       description: dept.description || '',
       branchId: typeof dept.branchId === 'object' ? dept.branchId._id : dept.branchId,
+      leaderId: dept.leaderId?._id || '',
+      tags: dept.tags || [],
     });
     setShowModal(true);
   };
 
   const onSubmit = (data: DepartmentFormData) => {
+    const payload = { ...data, tags: parseTagsInput(tagsInput) };
     if (editingDept) {
-      updateMutation.mutate({ id: editingDept._id, data });
+      updateMutation.mutate({ id: editingDept._id, data: payload });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(payload);
     }
   };
 
@@ -284,6 +306,19 @@ function DepartmentsContent() {
               placeholder="Select branch"
               error={errors.branchId?.message}
               {...register('branchId')}
+            />
+            <Select
+              label="Leader"
+              options={leaderOptions}
+              error={errors.leaderId?.message}
+              {...register('leaderId')}
+            />
+            <Input
+              label="Tags"
+              placeholder="e.g. Worship, Choir, Band"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              hint="Comma-separated, up to 5"
             />
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={closeModal}>

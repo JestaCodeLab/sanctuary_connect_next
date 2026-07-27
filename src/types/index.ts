@@ -393,6 +393,7 @@ export interface ChurchEvent {
   _id: string;
   organizationId?: string;
   branchId?: string;
+  departmentId?: string;
   title: string;
   description?: string;
   eventType?: string;
@@ -413,6 +414,7 @@ export interface ChurchEvent {
   recurrencePattern?: 'weekly' | 'biweekly' | 'monthly';
   recurrenceDay?: number;
   recurrenceEndDate?: string;
+  reminders?: EventReminder[];
   qrCode?: {
     token: string;
     dataUrl: string;
@@ -429,8 +431,16 @@ export interface EventOccurrence {
   attendeeCount: number;
 }
 
+export interface EventReminder {
+  offsetMinutes: number;
+  message?: string;
+  templateId?: string;
+  lastSentOccurrence?: string;
+}
+
 export interface CreateEventRequest {
   branchId?: string;
+  departmentId?: string;
   title: string;
   description?: string;
   eventType?: string;
@@ -443,6 +453,7 @@ export interface CreateEventRequest {
   recurrencePattern?: 'weekly' | 'biweekly' | 'monthly';
   recurrenceDay?: number;
   recurrenceEndDate?: string;
+  reminders?: EventReminder[];
 }
 
 export interface UpdateEventRequest {
@@ -654,6 +665,7 @@ export interface Department {
     lastName: string;
     email: string;
   };
+  tags?: string[];
   members: Member[];
   createdAt: string;
   updatedAt: string;
@@ -665,6 +677,44 @@ export interface CreateDepartmentRequest {
   name: string;
   description?: string;
   leaderId?: string;
+  tags?: string[];
+}
+
+export interface DepartmentInsightsAbsence {
+  memberId: string;
+  name: string;
+  weeksAbsent: number;
+}
+
+export interface DepartmentInsightsBirthday {
+  memberId: string;
+  name: string;
+  daysUntil: number;
+}
+
+export interface DepartmentDigestSuggestion {
+  label: string;
+  action: 'sms' | 'link';
+  href?: string; // when action === 'link'
+  initialMessage?: string; // when action === 'sms'
+}
+
+export interface DepartmentDigest {
+  greeting: string;
+  sentences: string[];
+  followUp: string | null;
+  suggestions: DepartmentDigestSuggestion[];
+}
+
+export interface DepartmentInsights {
+  healthScore: number | null;
+  healthScoreBreakdown: { attendanceComponent: number | null; engagementComponent: number | null };
+  attendance: { currentRatePercent: number | null; trendDeltaPercent: number | null; occurrencesConsidered: number };
+  engagement: { totalMembers: number; active: number; visiting: number; inactive: number; transferred: number };
+  absences: DepartmentInsightsAbsence[];
+  upcomingBirthdays: DepartmentInsightsBirthday[];
+  upcomingEvents: { count: number; next: { title: string; startDate: string } | null };
+  digest?: DepartmentDigest;
 }
 
 // Expense types
