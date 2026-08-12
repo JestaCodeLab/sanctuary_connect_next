@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QrCode, Download, RefreshCw, X, Share2, Lock, Calendar, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -31,6 +31,12 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
     retry: false,
   });
 
+  // A missing QR code (404 — e.g. an event created before QR generation moved
+  // to event creation) is a normal, recoverable state, not a failure. Only
+  // treat other statuses (network/server errors) as a real error.
+  const isMissingQr = isError && (error as any)?.response?.status === 404;
+  const isRealError = isError && !isMissingQr;
+
   const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
     queryKey: ['events', eventId, 'occurrences'],
     queryFn: () => eventsApi.getOccurrences(eventId, 7),
@@ -60,16 +66,37 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   }
 
   const generateMutation = useMutation({
-    mutationFn: () => eventsApi.generateQRCode(eventId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qr-code', eventId] });
-      toast.success('QR code generated successfully');
+    mutationFn: ({ silent }: { silent?: boolean } = {}) =>
+      eventsApi.generateQRCode(eventId).then((data) => ({ data, silent })),
+    onSuccess: ({ data, silent }) => {
+      queryClient.setQueryData(['qr-code', eventId], data);
+      if (!silent) {
+        toast.success('QR code generated successfully');
+      }
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
+      if (variables?.silent) return; // surfaced inline instead, see autoGenerateFailed
       const msg = err?.response?.data?.error || 'Failed to generate QR code';
       toast.error(msg);
     },
   });
+
+  // Self-heal a missing QR code (e.g. an event created before QR generation
+  // moved to event creation) instead of making the admin click a button —
+  // generate it quietly as soon as we detect it's absent.
+  const autoGenerateAttempted = useRef(false);
+  useEffect(() => {
+    if (isMissingQr && !autoGenerateAttempted.current) {
+      autoGenerateAttempted.current = true;
+      generateMutation.mutate({ silent: true });
+    }
+  }, [isMissingQr, generateMutation]);
+
+  // If the silent auto-generate attempt itself failed, stop treating this as
+  // "still loading" and fall through to the real error state below so the
+  // admin isn't stuck looking at a spinner forever.
+  const autoGenerateFailed = isMissingQr && generateMutation.isError;
+  const isWaitingOnAutoGenerate = isMissingQr && !autoGenerateFailed;
 
   const regenerateServiceCodeMutation = useMutation({
     mutationFn: ({ occurrenceDate }: { occurrenceDate: string }) =>
@@ -102,7 +129,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   };
 
   const handleGenerate = () => {
-    generateMutation.mutate();
+    generateMutation.mutate({});
   };
 
   const handleShare = () => {
@@ -426,22 +453,26 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
         )}
         {!qrData?.occurrenceDate && <div className="mb-4" />}
 
-        {isLoading ? (
+        {isLoading || generateMutation.isPending || isWaitingOnAutoGenerate ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
           </div>
-        ) : isError ? (
+        ) : isRealError || autoGenerateFailed ? (
           <div className="text-center py-8">
-            <p className="text-error font-medium mb-2">Unable to load QR code</p>
+            <p className="text-error font-medium mb-2">
+              {autoGenerateFailed ? 'Unable to generate QR code' : 'Unable to load QR code'}
+            </p>
             <p className="text-sm text-muted mb-4">
-              {(error as any)?.response?.data?.error || 'Failed to load QR code'}
+              {autoGenerateFailed
+                ? (generateMutation.error as any)?.response?.data?.error || 'Failed to generate QR code'
+                : (error as any)?.response?.data?.error || 'Failed to load QR code'}
             </p>
             <Button
               leftIcon={<RefreshCw className="w-4 h-4" />}
               onClick={handleGenerate}
               isLoading={generateMutation.isPending}
             >
-              Regenerate QR Code
+              {autoGenerateFailed ? 'Generate QR Code' : 'Regenerate QR Code'}
             </Button>
           </div>
         ) : qrData ? (
@@ -452,11 +483,11 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
               </p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg mb-4 inline-block">
+            <div className="bg-white p-4 sm:p-6 rounded-lg mb-4 max-w-64 mx-auto">
               <img
                 src={qrData.dataUrl}
                 alt="QR Code"
-                className="w-64 h-64"
+                className="w-full h-auto aspect-square"
               />
             </div>
 

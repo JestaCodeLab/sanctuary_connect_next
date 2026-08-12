@@ -191,7 +191,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Event Details */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="order-2 lg:order-1 lg:col-span-2 space-y-6">
         {/* Schedule */}
         <Card padding="lg">
           <div className="flex items-center gap-2 mb-6">
@@ -299,8 +299,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         )}
         </div>
 
-        {/* Right Column - QR Code */}
-        <div className="sticky top-24 h-fit space-y-6">
+        {/* Right Column - QR Code (shown first on mobile — it's what an admin needs fastest at the door) */}
+        <div className="order-1 lg:order-2 lg:sticky lg:top-24 h-fit space-y-6">
           <QRCodeDisplay eventId={event._id} eventTitle={event.title} isRecurring={event.isRecurring} />
           {event.organizationId && (
             <GiveOnlineSection
@@ -433,7 +433,7 @@ function ShareEventSection({
       {/* Share Modal */}
       {isModalOpen && shareUrl && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card padding="lg" className="max-w-lg w-full relative">
+          <Card padding="lg" className="max-w-lg w-full relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-muted hover:text-foreground"
