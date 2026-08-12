@@ -493,7 +493,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Session Warning Modal */}
       <SessionWarningModal
         isOpen={showWarning}
@@ -578,7 +578,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top Navbar */}
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
           {/* Left: Branch switcher (mobile only) + Search */}
@@ -663,7 +663,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 px-4 pt-4 pb-24 lg:p-6 overflow-auto">
+        <main className="flex-1 min-h-0 px-4 pt-4 pb-24 lg:p-6 overflow-auto">
           {children}
         </main>
       </div>

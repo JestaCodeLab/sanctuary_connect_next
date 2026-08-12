@@ -143,7 +143,7 @@ export default function BranchFormModal({
           {...register('address')}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="City"
             placeholder="City"
@@ -165,7 +165,7 @@ export default function BranchFormModal({
           {...register('region')}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Zip Code"
             placeholder="Zip code"

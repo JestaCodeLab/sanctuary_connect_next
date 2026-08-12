@@ -197,12 +197,21 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
                   <span className="text-muted">{resolvedPhone}</span>
                 </p>
               )}
-              <p>
-                <span className="font-medium text-foreground">Time:</span>{' '}
-                <span className="text-muted">
-                  {checkInResult && new Date(checkInResult.checkInTime).toLocaleString()}
-                </span>
-              </p>
+              {checkInResult?.checkInTime && (
+                <p>
+                  <span className="font-medium text-foreground">Checked in:</span>{' '}
+                  <span className="text-muted">
+                    {new Date(checkInResult.checkInTime).toLocaleString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
         </Card>

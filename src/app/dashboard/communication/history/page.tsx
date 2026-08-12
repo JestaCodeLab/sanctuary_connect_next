@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, CheckCircle2, AlertCircle, Eye, Copy, RefreshCw } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MessageSquare, CheckCircle2, AlertCircle, Eye, Copy, RefreshCw, Info } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard';
 import { Button, Card } from '@/components/ui';
 import { smsApi } from '@/lib/api';
@@ -30,6 +30,7 @@ export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const queryClient = useQueryClient();
 
   // Map tab to status filter
   const getStatusFilterForTab = (tab: Tab): string => {
@@ -46,8 +47,10 @@ export default function HistoryPage() {
 
   const statusFilter = getStatusFilterForTab(activeTab);
 
+  const smsLogsQueryKey = ['sms-logs', { page, limit: 50, status: statusFilter }];
+
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['sms-logs', { page, limit: 50, status: statusFilter }],
+    queryKey: smsLogsQueryKey,
     queryFn: () => smsApi.getSmsLogs({
       page,
       limit: 50,
@@ -57,6 +60,32 @@ export default function HistoryPage() {
 
   const logs = logsData?.logs || [];
   const pagination = logsData?.pagination;
+
+  // Messages that haven't reached a final delivered/failed state yet — the
+  // background job polls these every 5 minutes, but this lets an admin force
+  // an immediate check instead of waiting.
+  const pendingLogIds = logs
+    .filter((log: SmsMessage) => ['pending', 'submitted', 'partial'].includes(log.overallStatus))
+    .map((log: SmsMessage) => log._id);
+
+  const refreshStatusesMutation = useMutation({
+    mutationFn: async () => {
+      if (pendingLogIds.length > 0) {
+        await smsApi.batchUpdateDeliveryStatuses(pendingLogIds);
+      }
+      return queryClient.invalidateQueries({ queryKey: ['sms-logs'] });
+    },
+    onSuccess: () => {
+      toast.success(
+        pendingLogIds.length > 0
+          ? 'Delivery statuses refreshed'
+          : 'Already up to date'
+      );
+    },
+    onError: () => {
+      toast.error('Failed to refresh delivery statuses');
+    },
+  });
 
   const handleViewMessage = async (log: any) => {
     try {
@@ -134,24 +163,45 @@ export default function HistoryPage() {
       />
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setPage(1);
-            }}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === tab.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted hover:text-foreground'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-4 border-b border-border">
+        <div className="flex gap-2 overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setPage(1);
+              }}
+              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted hover:text-foreground'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-shrink-0 mb-2"
+          onClick={() => refreshStatusesMutation.mutate()}
+          isLoading={refreshStatusesMutation.isPending}
+          leftIcon={<RefreshCw className="w-4 h-4" />}
+        >
+          Refresh
+        </Button>
+      </div>
+
+      {/* Delivery confirmation note */}
+      <div className="flex items-start gap-2 text-xs text-muted -mt-2">
+        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+        <p>
+          &quot;Submitted&quot; means the message was accepted by our SMS provider — it moves to &quot;Delivered&quot; or &quot;Failed&quot;
+          automatically within a few minutes as delivery is confirmed. Use Refresh to check sooner.
+        </p>
       </div>
 
       {/* Messages Table */}
