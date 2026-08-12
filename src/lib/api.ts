@@ -663,10 +663,24 @@ export const donationsApi = {
   },
 };
 
+export interface AttendanceEventSummary {
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  eventEndDate: string;
+  eventType?: string;
+  eventStatus: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  isRecurring: boolean;
+  totalCheckIns: number;
+  members: number;
+  guests: number;
+  qrCheckIns: number;
+}
+
 // Attendance API
 export const attendanceApi = {
-  getAll: async (): Promise<AttendanceRecord[]> => {
-    const response = await api.get<AttendanceRecord[]>('/api/attendance');
+  getAll: async (params?: { startDate?: string; endDate?: string; status?: string; search?: string }): Promise<AttendanceEventSummary[]> => {
+    const response = await api.get<AttendanceEventSummary[]>('/api/attendance', { params });
     return response.data;
   },
   getById: async (id: string): Promise<AttendanceRecord> => {

@@ -229,6 +229,7 @@ export default function EventsPage() {
   const upcomingCount = eventsWithActualStatus.filter((e) => e.status === 'scheduled').length;
   const ongoingCount = eventsWithActualStatus.filter((e) => e.status === 'ongoing').length;
   const completedCount = eventsWithActualStatus.filter((e) => e.status === 'completed').length;
+  const liveEvents = eventsWithActualStatus.filter((e) => e.status === 'ongoing');
 
   const stats = [
     { label: 'Total Events', value: totalEvents, icon: Calendar, tint: 'primary' as const },
@@ -270,28 +271,86 @@ export default function EventsPage() {
         actionLabel="Create Event"
         actionIcon={Plus}
         onAction={handleOpenCreate}
+        actionClassName="hidden lg:block"
       />
 
       <StatsGrid stats={stats} />
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex flex-wrap gap-2">
-          {filterButtons.map((filter) => (
-            <button
-              key={filter.value}
-              onClick={() => setStatusFilter(filter.value)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                statusFilter === filter.value
-                  ? 'bg-primary text-white'
-                  : 'bg-card text-muted hover:text-foreground hover:bg-background border border-border'
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
+      {/* Live / Ongoing Events */}
+      {liveEvents.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+            </span>
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+              Live Now
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {liveEvents.map((event) => (
+              <Card
+                key={event._id}
+                className="border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <Link
+                        href={`/dashboard/events/${event._id}`}
+                        className="text-sm font-semibold text-foreground hover:text-primary transition-colors truncate block"
+                      >
+                        {event.title}
+                      </Link>
+                      {event.location && (
+                        <div className="flex items-center gap-1 text-xs text-muted mt-0.5">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant="success">Live</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                  >
+                    View
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => router.push(`/dashboard/events/${event._id}/attendance`)}
+                  >
+                    Attendance
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
-        <div className="sm:ml-auto w-full sm:w-72">
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="w-full sm:w-48">
+          <Select
+            aria-label="Filter by status"
+            options={filterButtons.map((filter) => ({ value: filter.value, label: filter.label }))}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          />
+        </div>
+        <div className="flex-1">
           <Input
             placeholder="Search events..."
             value={searchText}
@@ -299,6 +358,15 @@ export default function EventsPage() {
           />
         </div>
       </div>
+
+      {/* Floating action button - create event (mobile only; desktop uses the header button) */}
+      <button
+        onClick={handleOpenCreate}
+        className="lg:hidden fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+        aria-label="Create Event"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       {/* Events Table */}
       {isLoading ? (
@@ -319,7 +387,89 @@ export default function EventsPage() {
         </Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile: card list */}
+          <div className="md:hidden divide-y divide-border">
+            {filteredEvents.map((event) => {
+              const actualStatus = getActualStatus(event);
+              return (
+                <div key={event._id} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={`/dashboard/events/${event._id}`}
+                          className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate"
+                        >
+                          {event.title}
+                        </Link>
+                        <Badge variant={statusBadgeVariant[actualStatus]} className="flex-shrink-0">
+                          {actualStatus.charAt(0).toUpperCase() + actualStatus.slice(1)}
+                        </Badge>
+                      </div>
+                      {event.isRecurring ? (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Repeat className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                          <span className="text-xs text-muted">
+                            Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay ?? 0]}
+                            {' · '}
+                            {new Date(event.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted mt-0.5">
+                          {formatDate(event.startDate)} to {formatDate(event.endDate)}
+                        </p>
+                      )}
+                      {event.location && (
+                        <div className="flex items-center gap-1 text-xs text-muted mt-0.5">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
+                      {event.eventType && (
+                        <div className="mt-1.5">
+                          <Badge variant="muted">{event.eventType}</Badge>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 -ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                          title="View event"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(event)}
+                          title="Edit event"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteTarget(event)}
+                          className="text-red-500 hover:text-red-700"
+                          title="Delete event"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted/30 border-b border-border">
                 <tr>

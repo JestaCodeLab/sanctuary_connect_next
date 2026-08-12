@@ -10,9 +10,11 @@ interface ModalProps {
   description?: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  /** Extra classes for the outermost overlay wrapper - e.g. "lg:hidden" to make a modal mobile-only when a page shows different filter UI on larger screens. */
+  overlayClassName?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, description, children, size = 'md' }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, description, children, size = 'md', overlayClassName = '' }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -27,7 +29,7 @@ export default function Modal({ isOpen, onClose, title, description, children, s
   const maxWidths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClassName}`}>
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className={`relative bg-card rounded-xl shadow-xl border border-border w-full ${maxWidths[size]} max-h-[90vh] overflow-y-auto animate-fadeIn`}>
         <div className="flex items-center justify-between p-6 border-b border-border">

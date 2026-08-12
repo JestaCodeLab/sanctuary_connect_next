@@ -42,6 +42,7 @@ import {
   Clock,
   CreditCard,
   SlidersHorizontal,
+  List,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -90,7 +91,7 @@ const sidebarLinks: SidebarLink[] = [
     icon: Calendar,
     featureKey: 'event_management',
     children: [
-      { label: 'All Events', href: '/dashboard/events' },
+      { label: 'All Events', href: '/dashboard/events', icon: List },
       { label: 'Planner', href: '/dashboard/events/planner', icon: CalendarDays },
       { label: 'New Event', href: '/dashboard/events/new', icon: CalendarPlus },
     ],
@@ -145,6 +146,13 @@ const sidebarLinks: SidebarLink[] = [
   },
 ];
 
+const bottomNavItems: SidebarChild[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Members', href: '/dashboard/members', icon: Users, featureKey: 'member_directory' },
+  { label: 'Events', href: '/dashboard/events', icon: Calendar, featureKey: 'event_management' },
+  { label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, featureKey: 'attendance_tracking' },
+];
+
 const onboardingStepRoutes: Record<number, string> = {
   1: '/onboarding/identity',
   2: '/onboarding/branches',
@@ -191,7 +199,7 @@ function SidebarItem({
             : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
         }`}
       >
-        <link.icon className={`w-5 h-5 ${isParentActive ? 'text-primary' : ''}`} />
+        <link.icon className={`w-4 h-4 ${isParentActive ? 'text-primary' : ''}`} />
         {link.label}
       </Link>
     );
@@ -214,7 +222,7 @@ function SidebarItem({
             : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
         }`}
       >
-        <link.icon className={`w-5 h-5 ${isParentActive ? 'text-primary' : ''}`} />
+        <link.icon className={`w-4 h-4 ${isParentActive ? 'text-primary' : ''}`} />
         <span className="flex-1 text-left">{link.label}</span>
         <ChevronDown
           className={`w-4 h-4 transition-transform duration-200 ${
@@ -573,14 +581,11 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
-          {/* Left: Mobile menu + Search */}
+          {/* Left: Branch switcher (mobile only) + Search */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-muted hover:bg-background hover:text-foreground"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            <div className="lg:hidden">
+              <BranchSelector />
+            </div>
             <div className="hidden sm:flex items-center gap-2 bg-background rounded-lg px-3 py-2 w-64">
               <Search className="w-4 h-4 text-muted" />
               <input
@@ -593,8 +598,10 @@ export default function DashboardLayout({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
-            <BranchSelector />
-            <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
+            <div className="hidden lg:block">
+              <BranchSelector />
+            </div>
+            <div className="h-6 w-px bg-border mx-1 hidden lg:block" />
             <ThemeToggle />
             <NotificationBell />
             <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
@@ -656,10 +663,69 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 px-4 pt-4 pb-24 lg:p-6 overflow-auto">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex lg:hidden bg-sidebar border-t border-white/20 pb-[env(safe-area-inset-bottom)]">
+        {bottomNavItems
+          // event_management isn't included on every subscription plan - items
+          // without an available feature are filtered out before rendering, so
+          // the raised Events treatment below only ever appears when the org's
+          // plan actually includes it.
+          .filter((item) => !item.featureKey || featureLoading || hasFeature(item.featureKey))
+          .map((item) => {
+            const active = item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
+            const ItemIcon = item.icon!;
+
+            // Events gets a raised, circular treatment so it stands out from the
+            // other flat nav items.
+            if (item.href === '/dashboard/events') {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex-1 flex flex-col items-center justify-end gap-1 pb-2 text-xs font-medium transition-colors"
+                >
+                  <span
+                    className={`flex items-center justify-center w-12 h-12 rounded-full -mt-6 shadow-md ring-4 ring-sidebar transition-colors ${
+                      active
+                        ? 'bg-primary text-white'
+                        : 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                    }`}
+                  >
+                    <ItemIcon className="w-5 h-5" />
+                  </span>
+                  <span className={active ? 'text-primary' : 'text-sidebar-foreground/60'}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition-colors ${
+                  active ? 'text-primary' : 'text-sidebar-foreground/60'
+                }`}
+              >
+                <ItemIcon className="w-5 h-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium text-sidebar-foreground/60"
+        >
+          <Menu className="w-5 h-5" />
+          More
+        </button>
+      </nav>
     </div>
   );
 }

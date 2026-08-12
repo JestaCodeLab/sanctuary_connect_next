@@ -84,8 +84,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-* {
-  border-color: var(--border);
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 body {

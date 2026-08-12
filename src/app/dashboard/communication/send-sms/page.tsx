@@ -484,9 +484,9 @@ export default function SendSmsPage() {
           ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
           : 'bg-card border-border'
       }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2 rounded-lg flex-shrink-0 ${
               smsCredits && smsCredits.balance < 10
                 ? 'bg-yellow-100 dark:bg-yellow-900/40'
                 : 'bg-primary-light'
@@ -497,7 +497,7 @@ export default function SendSmsPage() {
                   : 'text-primary'
               }`} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-sm text-foreground">
                 SMS Credits Balance
               </h3>
@@ -506,7 +506,7 @@ export default function SendSmsPage() {
                   ? 'text-yellow-700 dark:text-yellow-300'
                   : 'text-foreground'
               }`}>
-                {smsCredits?.balance || 0}
+                {(smsCredits?.balance ?? 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -514,6 +514,7 @@ export default function SendSmsPage() {
             variant="outline"
             size="sm"
             onClick={() => router.push('/dashboard/communication/credits')}
+            className="flex-shrink-0"
           >
             Add Credits
           </Button>
@@ -526,7 +527,7 @@ export default function SendSmsPage() {
       </div>
 
       {/* Send Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {sendOptions.map((option) => (
           <button
             key={option.id}
@@ -536,19 +537,19 @@ export default function SendSmsPage() {
             }}
             className={`p-4 rounded-lg border-2 transition-all text-left relative ${
               sendOption === option.id
-                ? 'border-primary bg-primary-light/10'
+                ? 'border-blue-500 dark:border-blue-400 bg-primary-light/10'
                 : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
             }`}
           >
             {sendOption === option.id && (
-              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                 <Check className="w-3 h-3 text-white" />
               </div>
             )}
             <div className={`mb-2 ${sendOption === option.id ? 'text-primary' : 'text-muted'}`}>
               {option.icon}
             </div>
-            <h3 className="font-semibold text-sm text-foreground">{option.label}</h3>
+            <h3 className="font-semibold text-sm text-foreground truncate pr-5">{option.label}</h3>
             <p className="text-xs text-muted mt-1">{option.description}</p>
           </button>
         ))}
@@ -611,7 +612,7 @@ export default function SendSmsPage() {
               const segments = message.length > 0 ? (Math.ceil(message.length / charsPerSegment) || 1) : 1;
               const charsLeft = segments * charsPerSegment - message.length;
               return (
-                <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mt-2">
                   <p className="text-xs text-muted">
                     {message.length} chars
                     {isUnicode && <span className="text-amber-500"> · Unicode (emoji/special chars)</span>}
@@ -644,7 +645,7 @@ export default function SendSmsPage() {
             </div>
 
             {isScheduled && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 sm:pl-8">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Date
@@ -672,18 +673,19 @@ export default function SendSmsPage() {
             )}
 
             {isScheduled && (scheduleDate || scheduleTime) && (
-              <p className="text-xs text-muted mt-3 pl-8">
+              <p className="text-xs text-muted mt-3 pl-4 sm:pl-8">
                 <Clock className="w-3 h-3 inline mr-1" />
                 This SMS will be sent on {scheduleDate && new Date(scheduleDate).toLocaleDateString()} {scheduleTime && `at ${scheduleTime}`}
               </p>
             )}
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <Button
               type="submit"
               disabled={isLoading || !message.trim() || (isScheduled && (!scheduleDate || !scheduleTime))}
               leftIcon={isScheduled ? <Calendar className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+              className="w-full sm:w-auto"
             >
               {isLoading ? (isScheduled ? 'Scheduling...' : 'Sending...') : (isScheduled ? 'Schedule SMS' : 'Send SMS')}
             </Button>
@@ -697,6 +699,7 @@ export default function SendSmsPage() {
                 setScheduleTime('');
               }}
               variant="outline"
+              className="w-full sm:w-auto"
             >
               Clear
             </Button>
@@ -726,7 +729,7 @@ export default function SendSmsPage() {
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                Current balance: <span className="font-semibold">{smsCredits?.balance || 0}</span> credits
+                Current balance: <span className="font-semibold">{(smsCredits?.balance ?? 0).toLocaleString()}</span> credits
               </p>
             </div>
 
@@ -766,7 +769,7 @@ export default function SendSmsPage() {
             <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Credits</span>
-                <span className="font-semibold text-foreground">{paymentQuote.credits}</span>
+                <span className="font-semibold text-foreground">{paymentQuote.credits.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Price per credit</span>
@@ -791,13 +794,13 @@ export default function SendSmsPage() {
                   onClick={() => setPaymentMethod('card')}
                   className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                     paymentMethod === 'card'
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-blue-500 dark:border-blue-400 bg-primary/5'
                       : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`w-4 h-4 rounded-full border-2 ${
-                      paymentMethod === 'card' ? 'border-primary bg-primary' : 'border-gray-400'
+                      paymentMethod === 'card' ? 'border-blue-500 dark:border-blue-400 bg-blue-500 dark:bg-blue-400' : 'border-gray-400'
                     }`} />
                     <div>
                       <p className="font-semibold text-sm">Credit/Debit Card</p>
@@ -810,13 +813,13 @@ export default function SendSmsPage() {
                   onClick={() => setPaymentMethod('mobile_money')}
                   className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                     paymentMethod === 'mobile_money'
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-blue-500 dark:border-blue-400 bg-primary/5'
                       : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`w-4 h-4 rounded-full border-2 ${
-                      paymentMethod === 'mobile_money' ? 'border-primary bg-primary' : 'border-gray-400'
+                      paymentMethod === 'mobile_money' ? 'border-blue-500 dark:border-blue-400 bg-blue-500 dark:bg-blue-400' : 'border-gray-400'
                     }`} />
                     <div>
                       <p className="font-semibold text-sm">Mobile Money</p>

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { smsApi, departmentsApi } from '@/lib/api';
 import { Member, Department, SmsCostCalculation } from '@/types';
 import { Button, Input } from '@/components/ui';
 import Modal from '@/components/dashboard/Modal';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { useOrganizationStore } from '@/store/organizationStore';
+import { Loader2, AlertCircle, AlertTriangle, Send } from 'lucide-react';
 
 interface SendSmsDialogProps {
   open: boolean;
@@ -20,6 +23,8 @@ interface SendSmsDialogProps {
   lockSendType?: boolean;
   /** Pre-fill the message body, e.g. a canned rehearsal reminder or welcome text */
   initialMessage?: string;
+  /** Override the locked "Sending to" text, e.g. "Jane Doe — 0241234567", when the caller already has the recipient's details on hand */
+  recipientsLabel?: string;
 }
 
 // `departments` is a populated array (each entry either an id string or a { _id, name } object)
@@ -35,7 +40,26 @@ export default function SendSmsDialog({
   preselectedMemberIds,
   lockSendType = false,
   initialMessage,
+  recipientsLabel,
 }: SendSmsDialogProps) {
+  const { organization } = useOrganizationStore();
+  const { data: systemConfig } = useQuery({
+    queryKey: ['sms-system-config'],
+    queryFn: () => smsApi.getSystemConfig(),
+    staleTime: Infinity,
+    enabled: open,
+  });
+  const { data: creditBalance } = useQuery({
+    queryKey: ['sms-credits-balance'],
+    queryFn: () => smsApi.getCreditsBalance(),
+    enabled: open,
+  });
+  const currentSenderId = organization?.smsConfig?.senderId;
+  const currentSenderStatus = organization?.smsConfig?.senderIdStatus;
+  const activeSenderId = currentSenderStatus?.toLowerCase() === 'approved' && currentSenderId
+    ? currentSenderId
+    : systemConfig?.defaultSenderId || 'Sanctuary';
+
   const [sendType, setSendType] = useState<'single' | 'members' | 'department' | 'all'>('single');
   const [recipientType, setRecipientType] = useState<'manual' | 'member'>('manual'); // For single SMS
   const [phone, setPhone] = useState('');
@@ -200,6 +224,7 @@ export default function SendSmsDialog({
   };
 
   const selectedDepartmentName = departments.find((d) => d._id === selectedDepartment)?.name;
+  const insufficientCredits = !!costEstimate && !!creditBalance && creditBalance.balance < costEstimate.creditsNeeded;
 
   return (
     <Modal
@@ -210,10 +235,16 @@ export default function SendSmsDialog({
       size="lg"
     >
       <div className="space-y-4">
+        {/* Sender ID */}
+        <div className="flex items-center gap-2 text-xs text-muted bg-muted/10 rounded-lg px-3 py-2">
+          <Send className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Sending from: <span className="font-medium text-foreground">{activeSenderId}</span></span>
+        </div>
+
         {/* Send Type Selection */}
         {lockSendType ? (
           <div className="text-sm font-medium text-foreground">
-            Sending to: {sendType === 'department' ? `Department — ${selectedDepartmentName || '...'}` : `${selectedMembers.length} selected member(s)`}
+            Sending to: {recipientsLabel || (sendType === 'department' ? `Department — ${selectedDepartmentName || '...'}` : `${selectedMembers.length} selected member(s)`)}
           </div>
         ) : (
           <div className="space-y-2">
@@ -389,14 +420,31 @@ export default function SendSmsDialog({
 
         {/* Cost Estimate */}
         {costEstimate && getRecipientCount() > 0 && (
-          <div className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-md p-4">
+          <div className={`border rounded-md p-4 ${
+            insufficientCredits
+              ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+              : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
+          }`}>
             <div className="flex gap-2">
-              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              {insufficientCredits ? (
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              )}
               <div className="space-y-1 text-sm">
                 <p><strong>Cost Estimate:</strong></p>
-                <p>Recipients: {getRecipientCount()}</p>
-                <p>Credits per recipient: {costEstimate.creditsPerRecipient}</p>
-                <p className="font-bold">Total credits needed: {costEstimate.creditsNeeded}</p>
+                <p>Recipients: {getRecipientCount().toLocaleString()}</p>
+                <p>Credits per recipient: {costEstimate.creditsPerRecipient.toLocaleString()}</p>
+                <p className="font-bold">Total credits needed: {costEstimate.creditsNeeded.toLocaleString()}</p>
+                {creditBalance && <p>Current balance: {creditBalance.balance.toLocaleString()} credit(s)</p>}
+                {insufficientCredits && (
+                  <p className="font-medium text-red-700 dark:text-red-300 pt-1">
+                    Insufficient SMS credits — you need {(costEstimate.creditsNeeded - creditBalance!.balance).toLocaleString()} more credit(s) to send this.{' '}
+                    <Link href="/dashboard/communication/credits" className="underline" onClick={() => onOpenChange(false)}>
+                      Buy credits
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -405,7 +453,7 @@ export default function SendSmsDialog({
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSend} disabled={sending} isLoading={sending}>
+          <Button onClick={handleSend} disabled={sending || insufficientCredits} isLoading={sending}>
             {sending ? 'Sending...' : 'Send SMS'}
           </Button>
         </div>

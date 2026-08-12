@@ -16,7 +16,7 @@ import {
 import { Button, Input, Card, ProgressBar } from '@/components/ui';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useAuthStore } from '@/store/authStore';
-import { organizationApi } from '@/lib/api';
+import { organizationApi, subscriptionApi } from '@/lib/api';
 
 const planDetails = {
   seed: { name: 'Seed Plan', price: 'Free' },
@@ -33,14 +33,36 @@ export default function OnboardingReviewPage() {
   useEffect(() => {
     if (!organizationId) {
       router.push('/onboarding/identity');
+      return;
     }
-  }, [organizationId, router]);
+    // subscription.plan is ephemeral client state - if it's missing (e.g. the user
+    // resumed onboarding after losing their session mid-payment), we can't trust any
+    // plan shown here. Force them back through subscription selection rather than
+    // silently rendering fallback placeholder text and letting them launch on it.
+    if (!subscription.plan) {
+      router.push('/onboarding/subscription');
+    }
+  }, [organizationId, subscription.plan, router]);
 
   const handleLaunch = async () => {
-    if (!organizationId) return;
+    if (!organizationId || !subscription.plan) return;
 
     setIsLoading(true);
     try {
+      // A paid plan was selected - verify payment actually went through (the real
+      // Subscription record matches) before allowing onboarding to complete. Without
+      // this, a user could select a paid plan, abandon the payment page, and still
+      // "launch" straight onto the free seed plan while believing they configured a
+      // paid one.
+      if (subscription.plan !== 'seed') {
+        const current = await subscriptionApi.get(organizationId);
+        if (current.subscription.planId !== subscription.plan) {
+          toast.error('Payment for your selected plan has not been completed yet.');
+          router.push('/onboarding/payment');
+          return;
+        }
+      }
+
       // Mark onboarding as complete in backend
       await organizationApi.update(organizationId, {
         onboardingComplete: true,
@@ -51,11 +73,11 @@ export default function OnboardingReviewPage() {
       reset();
 
       toast.success('Your dashboard is ready! Welcome to Sanctuary Connect!');
-      
+
       // Add a small delay to ensure backend persistence before redirecting
       // This prevents the dashboard from checking onboarding before the update is complete
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       router.push('/dashboard');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
@@ -74,7 +96,7 @@ export default function OnboardingReviewPage() {
     }
   };
 
-  if (!organizationId) {
+  if (!organizationId || !subscription.plan) {
     return null;
   }
 

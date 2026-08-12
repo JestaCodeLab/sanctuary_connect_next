@@ -113,7 +113,7 @@ export default function VerifyEmailPage() {
         )}
 
         {/* Main Card */}
-        <Card padding="lg" className="text-center">
+        <Card padding="none" className="text-center p-6 sm:p-8">
           {/* Icon */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-[#EEF2FF] dark:bg-[#4F46E5]/20 rounded-full mb-6">
             <Mail className="w-8 h-8 text-[#4F46E5]" />

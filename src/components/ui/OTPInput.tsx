@@ -68,7 +68,7 @@ export default function OTPInput({
 
   return (
     <div className="w-full">
-      <div className="flex gap-3 justify-center">
+      <div className="flex gap-2 sm:gap-3 justify-center">
         {Array.from({ length }).map((_, index) => (
           <input
             key={index}
@@ -86,7 +86,7 @@ export default function OTPInput({
             onBlur={() => setFocusedIndex(null)}
             disabled={disabled}
             className={`
-              w-14 h-14 text-center text-2xl font-semibold
+              w-8 h-10 text-lg sm:w-14 sm:h-14 sm:text-2xl text-center font-semibold
               rounded-lg border-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
               transition-all duration-200
               focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]

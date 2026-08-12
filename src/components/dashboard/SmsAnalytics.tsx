@@ -111,7 +111,7 @@ export default function SmsAnalytics() {
                   <span>Campaigns: {data.count}</span>
                   <span>Sent: {data.sent}</span>
                   <span>Delivered: {data.delivered}</span>
-                  <span>Credits: {data.credits}</span>
+                  <span>Credits: {data.credits.toLocaleString()}</span>
                 </div>
               </div>
             ))}

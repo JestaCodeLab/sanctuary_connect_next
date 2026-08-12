@@ -1,19 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import { ClipboardCheck, Users, TrendingUp, Calendar, BarChart3, QrCode, UserCheck, Search } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  ClipboardCheck,
+  TrendingUp,
+  Calendar,
+  QrCode,
+  UserCheck,
+  Search,
+  Users,
+  UserPlus,
+} from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
 import { Card, Button, Input, Select } from '@/components/ui';
-import { attendanceApi, eventsApi } from '@/lib/api';
-import type { AttendanceRecord, ChurchEvent } from '@/types';
+import { attendanceApi } from '@/lib/api';
+import type { AttendanceEventSummary } from '@/lib/api';
+
+const statusOptions = [
+  { value: '', label: 'All Statuses' },
+  { value: 'ongoing', label: 'Ongoing' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+const statusBadgeVariant: Record<AttendanceEventSummary['eventStatus'], 'info' | 'success' | 'muted' | 'error'> = {
+  scheduled: 'info',
+  ongoing: 'success',
+  completed: 'muted',
+  cancelled: 'error',
+};
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -23,268 +45,288 @@ function formatDate(dateStr: string): string {
 
 export default function AttendancePage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
-
-  const { data: records = [], isLoading } = useQuery({
-    queryKey: ['attendance'],
-    queryFn: attendanceApi.getAll,
-  });
 
   const { data: attendanceStats } = useQuery({
     queryKey: ['attendance', 'stats'],
     queryFn: attendanceApi.getStats,
   });
 
-  const { data: events = [], isLoading: eventsLoading, refetch: refetchEvents } = useQuery({
-    queryKey: ['events', startDateFilter, endDateFilter],
-    queryFn: () => eventsApi.getAll({
-      startDate: startDateFilter || undefined,
-      endDate: endDateFilter || undefined,
-      status: 'ongoing,scheduled',
-    }),
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['attendance', 'events', statusFilter, startDateFilter, endDateFilter],
+    queryFn: () =>
+      attendanceApi.getAll({
+        status: statusFilter || undefined,
+        startDate: startDateFilter || undefined,
+        endDate: endDateFilter || undefined,
+      }),
   });
 
+  // Independent of the table's own filters, so live events always show here
+  // regardless of what the user has the table filtered to.
+  const { data: liveEvents = [] } = useQuery({
+    queryKey: ['attendance', 'events', 'live'],
+    queryFn: () => attendanceApi.getAll({ status: 'ongoing' }),
+    refetchInterval: 60 * 1000,
+  });
+
+  const filteredEvents = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const list = term
+      ? events.filter((e) => e.eventTitle.toLowerCase().includes(term))
+      : events;
+    return [...list].sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }, [events, search]);
+
+  const hasActiveFilters = !!(search || statusFilter || startDateFilter || endDateFilter);
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setStartDateFilter('');
+    setEndDateFilter('');
+  };
+
   const stats = [
-    {
-      label: 'Total Check-Ins',
-      value: attendanceStats?.totalCheckIns ?? 0,
-      icon: ClipboardCheck,
-    },
-    {
-      label: 'QR Check-Ins',
-      value: attendanceStats?.qrCheckIns ?? 0,
-      icon: QrCode,
-    },
-    {
-      label: 'Events Tracked',
-      value: attendanceStats?.eventsWithCheckIns ?? 0,
-      icon: Calendar,
-    },
-    {
-      label: 'Last 7 Days',
-      value: attendanceStats?.recentCheckIns ?? 0,
-      icon: TrendingUp,
-    },
+    { label: 'Total Check-Ins', value: attendanceStats?.totalCheckIns ?? 0, icon: ClipboardCheck },
+    { label: 'QR Check-Ins', value: attendanceStats?.qrCheckIns ?? 0, icon: QrCode },
+    { label: 'Events Tracked', value: attendanceStats?.eventsWithCheckIns ?? 0, icon: Calendar },
+    { label: 'Last 7 Days', value: attendanceStats?.recentCheckIns ?? 0, icon: TrendingUp },
   ];
-
-
 
   return (
     <div>
       <PageHeader
         title="Attendance"
         description="Track service and event attendance"
+        actionLabel="Manual Check-In"
+        actionIcon={UserCheck}
+        onAction={() => router.push('/dashboard/attendance/manual-check-in')}
       />
-
-      <div className="mb-6 flex gap-3">
-        <Button
-          variant="outline"
-          leftIcon={<UserCheck className="w-4 h-4" />}
-          onClick={() => router.push('/dashboard/attendance/manual-check-in')}
-        >
-          Manual Check-In
-        </Button>
-      </div>
 
       <StatsGrid stats={stats} />
 
-      {/* Live/Ongoing Events Section */}
-      {events.filter((e: ChurchEvent) => e.status === 'ongoing').length > 0 && (
-        <Card padding="md" className="mb-6 bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">Live Now</h2>
+      {/* Live Now */}
+      {liveEvents.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+            </span>
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+              Live Now
+            </h2>
           </div>
-          <div className="space-y-2">
-            {events
-              .filter((e: ChurchEvent) => e.status === 'ongoing')
-              .sort((a: ChurchEvent, b: ChurchEvent) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-              .map((event: ChurchEvent) => (
-                <div
-                  key={event._id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-background border border-primary/30 hover:bg-primary/10 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-6 h-6 text-primary" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {liveEvents.map((event) => (
+              <Card
+                key={event.eventId}
+                className="border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-4 h-4 text-green-600" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-foreground truncate">{event.title}</h3>
-                      <p className="text-xs text-muted">Started {formatDate(event.startDate)}</p>
-                    </div>
-                    <div className="animate-pulse">
-                      <Badge variant="success">
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          LIVE
-                        </span>
-                      </Badge>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{event.eventTitle}</p>
+                      <p className="text-xs text-muted mt-0.5">Started {formatDate(event.eventDate)}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/events/${event._id}/attendance`)}
-                  >
-                    View Attendance
-                  </Button>
+                  <Badge variant="success" className="flex-shrink-0">Live</Badge>
                 </div>
-              ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Ongoing/Scheduled Events */}
-      <Card padding="md" className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Events - View Attendance</h2>
-        <p className="text-sm text-muted mb-4">Click on an event to view individual check-in records</p>
-        
-        {/* Date Filter */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-          <Input
-            label="Start Date"
-            type="date"
-            value={startDateFilter}
-            onChange={(e) => setStartDateFilter(e.target.value)}
-            placeholder="Filter from..."
-          />
-          <Input
-            label="End Date"
-            type="date"
-            value={endDateFilter}
-            onChange={(e) => setEndDateFilter(e.target.value)}
-            placeholder="Filter to..."
-          />
-          <div className="flex items-end">
-            <Button
-              leftIcon={<Search className="w-4 h-4" />}
-              onClick={() => refetchEvents()}
-              className="w-full"
-              isLoading={eventsLoading}
-            >
-              Search
-            </Button>
-          </div>
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setStartDateFilter('');
-                setEndDateFilter('');
-              }}
-              className="w-full"
-            >
-              Clear
-            </Button>
+                <div className="flex items-center gap-3 text-xs text-muted mb-3">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" /> {event.totalCheckIns} total
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <UserPlus className="w-3 h-3" /> {event.guests} guests
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <QrCode className="w-3 h-3" /> {event.qrCheckIns} QR
+                  </span>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => router.push(`/dashboard/events/${event.eventId}/attendance`)}
+                >
+                  View Attendance
+                </Button>
+              </Card>
+            ))}
           </div>
         </div>
+      )}
 
-        {eventsLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      {/* Filters */}
+      <Card padding="md" className="mb-6">
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
+          <div className="flex-1">
+            <Input
+              label="Search"
+              placeholder="Search events..."
+              leftIcon={<Search className="w-4 h-4" />}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-        ) : events.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="w-10 h-10 text-muted mx-auto mb-3" />
-            <p className="text-sm text-muted">No events found</p>
+          <div className="w-full lg:w-44">
+            <Select
+              label="Status"
+              options={statusOptions.filter((o) => o.value !== '')}
+              placeholder="All Statuses"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            />
           </div>
-        ) : (
-          <div className="space-y-2">
-            {events
-              .sort((a: ChurchEvent, b: ChurchEvent) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-              .map((event: ChurchEvent) => (
-                <div
-                  key={event._id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/20 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground truncate">{event.title}</h3>
-                      <p className="text-xs text-muted">{formatDate(event.startDate)}</p>
-                    </div>
-                    <Badge variant={event.status === 'ongoing' ? 'success' : 'info'}>
-                      {event.status}
-                    </Badge>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/events/${event._id}/attendance`)}
-                  >
-                    View Attendance
-                  </Button>
-                </div>
-              ))}
+          <div className="w-full lg:w-40">
+            <Input
+              label="From"
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+            />
           </div>
-        )}
+          <div className="w-full lg:w-40">
+            <Input
+              label="To"
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+            />
+          </div>
+          {hasActiveFilters && (
+            <Button variant="outline" onClick={clearFilters}>
+              Clear
+            </Button>
+          )}
+        </div>
       </Card>
 
-      {/* Attendance Records Table */}
+      {/* Events + Attendance */}
       {isLoading ? (
         <Card padding="lg">
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         </Card>
-      ) : records.length === 0 ? (
+      ) : filteredEvents.length === 0 ? (
         <Card padding="none">
           <EmptyState
             icon={ClipboardCheck}
-            title="No attendance records"
-            description="Start tracking attendance by using QR Check-In or Manual Check-In."
-            actionLabel="QR Check-In"
-            onAction={() => router.push('/dashboard/attendance/check-in')}
+            title={hasActiveFilters ? 'No events match your filters' : 'No attendance records yet'}
+            description={
+              hasActiveFilters
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Start tracking attendance by using QR Check-In or Manual Check-In.'
+            }
+            actionLabel={hasActiveFilters ? undefined : 'QR Check-In'}
+            onAction={hasActiveFilters ? undefined : () => router.push('/dashboard/attendance/check-in')}
           />
         </Card>
       ) : (
-        <Card padding="md" className="mb-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Recent Check-Ins by Event</h2>
-          <div className="overflow-x-auto">
+        <Card padding="none" className="overflow-hidden">
+          {/* Mobile: card list */}
+          <div className="md:hidden divide-y divide-border">
+            {filteredEvents.map((event) => (
+              <button
+                key={event.eventId}
+                onClick={() => router.push(`/dashboard/events/${event.eventId}/attendance`)}
+                className="w-full text-left p-4 hover:bg-muted/20 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {event.eventStatus === 'ongoing' && (
+                      <span className="relative flex h-2 w-2 flex-shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                      </span>
+                    )}
+                    <h3 className="text-sm font-medium text-foreground truncate">{event.eventTitle}</h3>
+                  </div>
+                  <Badge variant={statusBadgeVariant[event.eventStatus]} className="flex-shrink-0">
+                    {event.eventStatus.charAt(0).toUpperCase() + event.eventStatus.slice(1)}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted mt-0.5">{formatDate(event.eventDate)}</p>
+                <div className="flex items-center gap-3 mt-2 text-xs text-muted">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" /> {event.totalCheckIns} total
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <UserPlus className="w-3 h-3" /> {event.guests} guests
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <QrCode className="w-3 h-3" /> {event.qrCheckIns} QR
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-sm font-medium text-muted pb-3 pr-4">Event</th>
-                  <th className="text-left text-sm font-medium text-muted pb-3 pr-4">Date</th>
-                  <th className="text-right text-sm font-medium text-muted pb-3 pr-4">Total</th>
-                  <th className="text-right text-sm font-medium text-muted pb-3 pr-4">Members</th>
-                  <th className="text-right text-sm font-medium text-muted pb-3 pr-4">Guests</th>
-                  <th className="text-right text-sm font-medium text-muted pb-3">QR</th>
+              <thead className="bg-muted/30 border-b border-border">
+                <tr>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Event</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Date</th>
+                  <th className="text-left text-sm font-medium text-muted px-4 py-3">Status</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Total</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Members</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Guests</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">QR</th>
+                  <th className="text-right text-sm font-medium text-muted px-4 py-3">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {records.map((record: any) => (
-                  <tr 
-                    key={record.eventId}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/20 cursor-pointer"
-                    onClick={() => router.push(`/dashboard/events/${record.eventId}/attendance`)}
+              <tbody className="divide-y divide-border">
+                {filteredEvents.map((event) => (
+                  <tr
+                    key={event.eventId}
+                    className={`hover:bg-muted/20 transition-colors cursor-pointer ${
+                      event.eventStatus === 'ongoing' ? 'bg-green-50/50 dark:bg-green-950/10' : ''
+                    }`}
+                    onClick={() => router.push(`/dashboard/events/${event.eventId}/attendance`)}
                   >
-                    <td className="py-3 pr-4 text-sm text-foreground">
-                      {record.eventTitle || '—'}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {event.eventStatus === 'ongoing' && (
+                          <span className="relative flex h-2 w-2 flex-shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                          </span>
+                        )}
+                        <span className="text-sm font-medium text-foreground">{event.eventTitle}</span>
+                      </div>
                     </td>
-                    <td className="py-3 pr-4 text-sm text-muted whitespace-nowrap">
-                      {formatDate(record.eventDate)}
-                    </td>
-                    <td className="py-3 pr-4 text-sm font-medium text-foreground text-right">
-                      {record.totalCheckIns}
-                    </td>
-                    <td className="py-3 pr-4 text-sm text-muted text-right">
-                      {record.members}
-                    </td>
-                    <td className="py-3 pr-4 text-sm text-muted text-right">
-                      {record.guests}
-                    </td>
-                    <td className="py-3 text-right">
-                      <Badge variant={record.qrCheckIns > 0 ? 'info' : 'muted'}>
-                        {record.qrCheckIns}
+                    <td className="px-4 py-3 text-sm text-muted whitespace-nowrap">{formatDate(event.eventDate)}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusBadgeVariant[event.eventStatus]}>
+                        {event.eventStatus.charAt(0).toUpperCase() + event.eventStatus.slice(1)}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground text-right">{event.totalCheckIns}</td>
+                    <td className="px-4 py-3 text-sm text-muted text-right">{event.members}</td>
+                    <td className="px-4 py-3 text-sm text-muted text-right">{event.guests}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Badge variant={event.qrCheckIns > 0 ? 'info' : 'muted'}>{event.qrCheckIns}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/events/${event.eventId}/attendance`);
+                        }}
+                      >
+                        View
+                      </Button>
                     </td>
                   </tr>
                 ))}

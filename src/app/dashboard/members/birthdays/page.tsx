@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone, Settings, RotateCcw, Save, Zap } from 'lucide-react';
+import { Cake, MessageSquare, Gift, Calendar, Send, Mail, Phone, Settings, RotateCcw, Save, Zap, CreditCard } from 'lucide-react';
 import { membersApi, smsApi, settingsApi } from '@/lib/api';
-import { Card, Button, Input } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
+import StatsGrid from '@/components/dashboard/StatsGrid';
+import Modal from '@/components/dashboard/Modal';
 import { useAuthStore } from '@/store/authStore';
 import type { MemberWithBirthday } from '@/types';
 import toast from 'react-hot-toast';
@@ -112,6 +114,68 @@ function BirthdayTableRow({
   );
 }
 
+function BirthdayCard({
+  member,
+  onSendSms,
+  isSending,
+}: {
+  member: MemberWithBirthday;
+  onSendSms: (member: MemberWithBirthday) => void;
+  isSending: boolean;
+}) {
+  const dob = new Date(member.dateOfBirth!);
+  const monthDay = dob.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const isToday = member.daysUntilBirthday === 0;
+
+  return (
+    <Card padding="md" className={isToday ? 'border-primary/30 bg-primary/5' : ''}>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
+          isToday ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
+        }`}>
+          {member.firstName[0]}{member.lastName[0]}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground truncate">
+            {member.firstName} {member.lastName}
+          </p>
+          <p className="text-xs text-muted truncate">
+            {member.phone || 'No phone number'}
+          </p>
+        </div>
+        {isToday ? (
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary text-white text-xs font-medium rounded-full flex-shrink-0">
+            <Cake className="w-3 h-3" />
+            Today!
+          </span>
+        ) : member.daysUntilBirthday <= 7 ? (
+          <span className="inline-flex items-center px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded-full flex-shrink-0">
+            in {member.daysUntilBirthday}d
+          </span>
+        ) : (
+          <span className="text-xs text-muted flex-shrink-0">
+            in {member.daysUntilBirthday}d
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+        <span className="text-xs text-muted">{monthDay} · Turns {member.age}</span>
+        <Button
+          onClick={() => onSendSms(member)}
+          disabled={!member.phone || isSending}
+          size="sm"
+          variant="outline"
+          className="flex items-center gap-1.5"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          SMS
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function BirthdaysContent() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
   const [sendingTo, setSendingTo] = useState<string | null>(null);
@@ -209,6 +273,10 @@ function BirthdaysContent() {
   });
 
   const selectedMonthBirthdays = birthdaysByMonth[selectedMonth] || [];
+  const next7DaysCount = allUpcoming.filter(m => m.daysUntilBirthday <= 7).length;
+  // birthdaysByMonth is built from `upcoming` only (today's birthdays are excluded from it),
+  // so the current month's total needs today's count added back in.
+  const thisMonthCount = (birthdaysByMonth[currentMonth]?.length || 0) + todayBirthdays.length;
 
   const handleSendBirthdaySms = async (member: MemberWithBirthday) => {
     setSendingTo(member._id);
@@ -301,169 +369,35 @@ function BirthdaysContent() {
     }
   };
 
+  const stats = [
+    { label: 'Today', value: todayBirthdays.length, icon: Cake },
+    { label: 'Next 7 Days', value: next7DaysCount, icon: Gift },
+    { label: 'This Month', value: thisMonthCount, icon: Calendar },
+    { label: 'SMS Credits', value: smsCredit?.balance?.toLocaleString() ?? '—', icon: CreditCard, tint: 'secondary' as const },
+  ];
+
   return (
     <div>
       <PageHeader
         title="Birthdays"
         description="Track and celebrate member birthdays"
+        actionLabel="Automation"
+        actionIcon={Settings}
+        onAction={() => setShowSettings(true)}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* SMS Credits Balance */}
-        <Card className="h-full">
-          <div className="p-4 h-full flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-foreground">SMS Credits Balance</p>
-              <p className="text-xs text-muted mt-0.5">Available credits for sending birthday messages</p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-primary">
-                {smsCredit?.balance ?? '—'}
-              </p>
-              <p className="text-xs text-muted">credits</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Birthday Settings */}
-        <Card>
-        <div className="p-4">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center justify-between w-full"
-          >
-            <div className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Birthday Automation Settings</h3>
-            </div>
-            <span className="text-sm text-muted">
-              {showSettings ? 'Hide' : 'Show'}
-            </span>
-          </button>
-
-          {showSettings && (
-            <div className="mt-4 space-y-4">
-              {/* Auto-Send Toggle */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Auto-Send Birthday SMS</p>
-                  <p className="text-xs text-muted mt-0.5">
-                    Automatically send birthday greetings at 9:00 AM daily
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={autoSendEnabled}
-                    onChange={(e) => handleToggleAutoSend(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-                </label>
-              </div>
-
-              {/* Custom Message Template */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Birthday Message Template
-                </label>
-                <textarea
-                  value={customTemplate}
-                  onChange={(e) => setCustomTemplate(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter your custom birthday message..."
-                />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="text-xs text-muted">Available variables:</span>
-                  <button
-                    onClick={() => setCustomTemplate(prev => prev + '{{firstName}}')}
-                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
-                  >
-                    {'{{firstName}}'}
-                  </button>
-                  <button
-                    onClick={() => setCustomTemplate(prev => prev + '{{lastName}}')}
-                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
-                  >
-                    {'{{lastName}}'}
-                  </button>
-                  <button
-                    onClick={() => setCustomTemplate(prev => prev + '{{age}}')}
-                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
-                  >
-                    {'{{age}}'}
-                  </button>
-                  <button
-                    onClick={() => setCustomTemplate(prev => prev + '{{churchName}}')}
-                    className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
-                  >
-                    {'{{churchName}}'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Preview */}
-              {customTemplate && settings?.churchName && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Preview:</p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    {customTemplate
-                      .replace(/\{\{firstName\}\}/g, 'John')
-                      .replace(/\{\{lastName\}\}/g, 'Doe')
-                      .replace(/\{\{age\}\}/g, '25')
-                      .replace(/\{\{churchName\}\}/g, settings.churchName)}
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={handleSaveSettings}
-                  disabled={updateSettingsMutation.isPending}
-                  className="flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Save Settings
-                </Button>
-                <Button
-                  onClick={handleResetTemplate}
-                  disabled={resetTemplateMutation.isPending}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset to Default
-                </Button>
-                <Button
-                  onClick={handleTestSms}
-                  disabled={testingSms || !user?.phone}
-                  isLoading={testingSms}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  title={!user?.phone ? 'Phone number not set' : 'Send test SMS to your phone'}
-                >
-                  <Zap className="w-4 h-4" />
-                  Test SMS
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-        </Card>
-      </div>
+      <StatsGrid stats={stats} />
 
       {/* Today's Birthdays */}
       {todayBirthdays.length > 0 && (
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Gift className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center justify-between mb-4 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Gift className="w-5 h-5 text-primary flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-foreground truncate">
                 Today&apos;s Birthdays
               </h2>
-              <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
+              <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0">
                 {todayBirthdays.length}
               </span>
             </div>
@@ -472,28 +406,29 @@ function BirthdaysContent() {
                 onClick={handleSendToAllToday}
                 disabled={sendingAll}
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
-                Send SMS to All
+                <span className="hidden sm:inline">Send SMS to All</span>
+                <span className="sm:hidden">Send All</span>
               </Button>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {todayBirthdays.map((member) => (
               <Card key={member._id} className="flex items-center gap-4 p-4 border-primary/20 bg-primary/5">
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                   {member.firstName[0]}{member.lastName[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                  <p className="text-sm font-medium text-foreground truncate">
                     {member.firstName} {member.lastName}
                   </p>
                   <p className="text-xs text-primary font-medium">
                     Turning {member.age} today!
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Cake className="w-5 h-5 text-primary" />
                   {member.phone && (
                     <button
@@ -514,28 +449,26 @@ function BirthdaysContent() {
 
       {/* Upcoming Birthdays by Month */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Birthdays by Month
-            </h2>
-          </div>
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-muted" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Birthdays by Month
+          </h2>
         </div>
 
-        {/* Month Selector - Scrollable Grid */}
-        <div className="mb-6 overflow-x-auto pb-2">
-          <div className="grid grid-cols-12 gap-2 min-w-max">
+        {/* Month Selector - Scrollable Pills */}
+        <div className="mb-6 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex sm:grid sm:grid-cols-12 gap-2 min-w-max sm:min-w-0">
             {months.map((month, index) => {
               const count = birthdaysByMonth[index]?.length || 0;
               const isCurrentMonth = index === currentMonth;
               const isSelected = index === selectedMonth;
-              
+
               return (
                 <button
                   key={month}
                   onClick={() => setSelectedMonth(index)}
-                  className={`relative px-3 py-2.5 rounded-lg border-2 transition-all text-center min-w-[90px] ${
+                  className={`relative px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg border-2 transition-all text-center min-w-[64px] sm:min-w-[90px] flex-shrink-0 ${
                     isSelected
                       ? 'border-primary bg-primary text-white shadow-md'
                       : isCurrentMonth
@@ -567,24 +500,34 @@ function BirthdaysContent() {
           </div>
         ) : selectedMonthBirthdays.length === 0 ? (
           <Card className="text-center py-12">
-            <Cake className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
+            <Cake className="w-12 h-12 text-muted/40 mx-auto mb-4" />
+            <p className="text-muted text-sm">
               No birthdays in {months[selectedMonth]}
             </p>
-            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+            <p className="text-muted/70 text-xs mt-1">
               Make sure members have their date of birth set
             </p>
           </Card>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-muted">
-                {selectedMonthBirthdays.length} birthday{selectedMonthBirthdays.length !== 1 ? 's' : ''} in {months[selectedMonth]}
-              </p>
+            <p className="text-sm text-muted mb-3">
+              {selectedMonthBirthdays.length} birthday{selectedMonthBirthdays.length !== 1 ? 's' : ''} in {months[selectedMonth]}
+            </p>
+
+            {/* Mobile: card list */}
+            <div className="md:hidden space-y-3">
+              {selectedMonthBirthdays.map((member) => (
+                <BirthdayCard
+                  key={member._id}
+                  member={member}
+                  onSendSms={handleSendBirthdaySms}
+                  isSending={sendingTo === member._id || sendingAll}
+                />
+              ))}
             </div>
-            
-            {/* Birthday Table */}
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
+
+            {/* Desktop: table */}
+            <div className="hidden md:block bg-card rounded-lg border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-800 border-b border-border">
@@ -611,8 +554,8 @@ function BirthdaysContent() {
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
                     {selectedMonthBirthdays.map((member) => (
-                      <BirthdayTableRow 
-                        key={member._id} 
+                      <BirthdayTableRow
+                        key={member._id}
                         member={member}
                         onSendSms={handleSendBirthdaySms}
                         isSending={sendingTo === member._id || sendingAll}
@@ -626,20 +569,122 @@ function BirthdaysContent() {
         )}
       </div>
 
-      {/* SMS Feature Info */}
-      <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <div className="flex items-start gap-3">
-          <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+      {/* Birthday Automation Settings */}
+      <Modal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        title="Birthday Automation Settings"
+        description="Automatically send birthday greetings and customize the message template"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Auto-Send Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
+            <div>
+              <p className="text-sm font-medium text-foreground">Auto-Send Birthday SMS</p>
+              <p className="text-xs text-muted mt-0.5">
+                Automatically send birthday greetings at 9:00 AM daily
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={autoSendEnabled}
+                onChange={(e) => handleToggleAutoSend(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {/* Custom Message Template */}
           <div>
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-              Birthday SMS Greetings
-            </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-              Send personalized birthday SMS to members individually or in bulk. Messages use member names and ages automatically.
-            </p>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Birthday Message Template
+            </label>
+            <textarea
+              value={customTemplate}
+              onChange={(e) => setCustomTemplate(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Enter your custom birthday message..."
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="text-xs text-muted">Available variables:</span>
+              <button
+                onClick={() => setCustomTemplate(prev => prev + '{{firstName}}')}
+                className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                {'{{firstName}}'}
+              </button>
+              <button
+                onClick={() => setCustomTemplate(prev => prev + '{{lastName}}')}
+                className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                {'{{lastName}}'}
+              </button>
+              <button
+                onClick={() => setCustomTemplate(prev => prev + '{{age}}')}
+                className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                {'{{age}}'}
+              </button>
+              <button
+                onClick={() => setCustomTemplate(prev => prev + '{{churchName}}')}
+                className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                {'{{churchName}}'}
+              </button>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {customTemplate && settings?.churchName && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Preview:</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                {customTemplate
+                  .replace(/\{\{firstName\}\}/g, 'John')
+                  .replace(/\{\{lastName\}\}/g, 'Doe')
+                  .replace(/\{\{age\}\}/g, '25')
+                  .replace(/\{\{churchName\}\}/g, settings.churchName)}
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+            <Button
+              onClick={handleSaveSettings}
+              disabled={updateSettingsMutation.isPending}
+              className="flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Save Settings
+            </Button>
+            <Button
+              onClick={handleResetTemplate}
+              disabled={resetTemplateMutation.isPending}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset to Default
+            </Button>
+            <Button
+              onClick={handleTestSms}
+              disabled={testingSms || !user?.phone}
+              isLoading={testingSms}
+              variant="outline"
+              className="flex items-center gap-2"
+              title={!user?.phone ? 'Phone number not set' : 'Send test SMS to your phone'}
+            >
+              <Zap className="w-4 h-4" />
+              Test SMS
+            </Button>
           </div>
         </div>
-      </div>
+      </Modal>
     </div>
   );
 }

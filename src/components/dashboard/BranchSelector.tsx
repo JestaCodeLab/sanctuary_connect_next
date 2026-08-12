@@ -1,17 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Building2, ChevronDown, Check, ArrowRightLeft } from 'lucide-react';
+import { Building2, ChevronDown, Check, ArrowRightLeft, Plus } from 'lucide-react';
 import { useBranchStore } from '@/store/branchStore';
+import { useOrganizationStore } from '@/store/organizationStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui';
 import Modal from './Modal';
+import BranchFormModal from './BranchFormModal';
 
 export default function BranchSelector() {
   const { branches, selectedBranchId, selectBranch } = useBranchStore();
+  const { organization } = useOrganizationStore();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [pendingBranchId, setPendingBranchId] = useState<string | null | undefined>(undefined);
+  const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,6 +53,18 @@ export default function BranchSelector() {
 
   const handleCancelSwitch = () => {
     setPendingBranchId(undefined);
+  };
+
+  const handleAddBranch = () => {
+    setOpen(false);
+    setIsAddBranchOpen(true);
+  };
+
+  const handleBranchCreated = () => {
+    setIsAddBranchOpen(false);
+    // Same pattern as switching branches - reload so the branch list/store refreshes everywhere
+    queryClient.clear();
+    window.location.reload();
   };
 
   if (branches.length === 0) return null;
@@ -91,6 +107,14 @@ export default function BranchSelector() {
                 {selectedBranchId === branch._id && <Check className="w-4 h-4 text-primary" />}
               </button>
             ))}
+            <div className="border-t border-border my-1" />
+            <button
+              onClick={handleAddBranch}
+              className="flex items-center gap-3 px-4 py-2 text-sm w-full text-left text-primary hover:bg-background transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="flex-1">Add Branch</span>
+            </button>
           </div>
         )}
       </div>
@@ -124,6 +148,16 @@ export default function BranchSelector() {
           </Button>
         </div>
       </Modal>
+
+      {/* Add Branch Modal */}
+      {organization?._id && (
+        <BranchFormModal
+          isOpen={isAddBranchOpen}
+          onClose={() => setIsAddBranchOpen(false)}
+          organizationId={organization._id}
+          onSuccess={handleBranchCreated}
+        />
+      )}
     </>
   );
 }

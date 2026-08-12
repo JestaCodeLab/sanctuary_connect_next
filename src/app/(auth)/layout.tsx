@@ -8,13 +8,13 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen bg-[#F5F7FA] dark:bg-gray-900">
       {/* Header */}
-      <header className="w-full py-4 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/sanctuary_app_logo.png" alt="Sanctuary Connect" className="h-9 w-auto" />
-            <span className="font-semibold text-gray-600 dark:text-gray-300 text-xl">Sanctuary Connect</span>
+      <header className="w-full py-4 px-4 sm:px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/sanctuary_app_logo.png" alt="Sanctuary Connect" className="h-7 sm:h-9 w-auto flex-shrink-0" />
+            <span className="font-semibold text-gray-600 dark:text-gray-300 text-base sm:text-xl truncate">Sanctuary Connect</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             <ThemeToggle />
           </div>
         </div>

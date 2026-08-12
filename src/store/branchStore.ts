@@ -5,6 +5,7 @@ import type { Branch } from '@/types';
 interface BranchState {
   branches: Branch[];
   selectedBranchId: string | null; // null = "All Branches"
+  hasUserSelected: boolean; // distinguishes "never chosen yet" from "explicitly chose All Branches"
 
   // Actions
   setBranches: (branches: Branch[]) => void;
@@ -17,11 +18,14 @@ export const useBranchStore = create<BranchState>()(
     (set, get) => ({
       branches: [],
       selectedBranchId: null,
+      hasUserSelected: false,
 
       setBranches: (branches) => {
         const current = get();
-        // Auto-select if only one branch and nothing selected
-        if (branches.length === 1 && !current.selectedBranchId) {
+        // Auto-select if only one branch and the user has never made an explicit
+        // choice yet (selectedBranchId === null is ambiguous on its own - it also
+        // means "explicitly chose All Branches" - hasUserSelected disambiguates).
+        if (branches.length === 1 && !current.hasUserSelected) {
           set({ branches, selectedBranchId: branches[0]._id });
         } else {
           // Validate current selection still exists
@@ -35,11 +39,11 @@ export const useBranchStore = create<BranchState>()(
       },
 
       selectBranch: (branchId) => {
-        set({ selectedBranchId: branchId });
+        set({ selectedBranchId: branchId, hasUserSelected: true });
       },
 
       reset: () => {
-        set({ branches: [], selectedBranchId: null });
+        set({ branches: [], selectedBranchId: null, hasUserSelected: false });
       },
     }),
     {
@@ -47,6 +51,7 @@ export const useBranchStore = create<BranchState>()(
       skipHydration: true,
       partialize: (state) => ({
         selectedBranchId: state.selectedBranchId,
+        hasUserSelected: state.hasUserSelected,
       }),
     }
   )

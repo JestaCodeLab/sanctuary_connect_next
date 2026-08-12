@@ -25,7 +25,11 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString();
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function MembersPage() {
@@ -376,12 +380,12 @@ export default function MembersPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Member Directory</h1>
           <p className="text-muted mt-1">Manage your church members</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -398,16 +402,27 @@ export default function MembersPage() {
           >
             Export
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => router.push('/dashboard/members/new')}
-            leftIcon={<UserPlus className="w-4 h-4" />}
-          >
-            Add Member
-          </Button>
+          <div className="hidden lg:block">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => router.push('/dashboard/members/new')}
+              leftIcon={<UserPlus className="w-4 h-4" />}
+            >
+              Add Member
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Floating action button - add member (mobile only; desktop uses the header button) */}
+      <button
+        onClick={() => router.push('/dashboard/members/new')}
+        className="lg:hidden fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+        aria-label="Add Member"
+      >
+        <UserPlus className="w-6 h-6" />
+      </button>
 
       {/* Stats Cards with Filter */}
       <div className="mb-6 space-y-4">
@@ -484,12 +499,12 @@ export default function MembersPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
+            <div className="flex-1 min-w-0 flex items-center gap-1 rounded-lg border border-border bg-background p-1 overflow-x-auto">
               {statusFilters.map((status) => (
                 <button
                   key={status}
                   onClick={() => handleStatusFilterChange(status)}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+                  className={`flex-shrink-0 px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
                     statusFilter === status
                       ? 'bg-primary text-white'
                       : 'text-muted hover:text-foreground hover:bg-card'
@@ -501,14 +516,14 @@ export default function MembersPage() {
             </div>
             <button
               onClick={() => setShowDateFilter(!showDateFilter)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
                 showDateFilter || startDate || endDate
                   ? 'bg-primary text-white border-primary'
                   : 'border-border text-muted hover:text-foreground hover:bg-card'
               }`}
             >
               <Calendar className="w-4 h-4" />
-              Date
+              <span className="hidden sm:inline">Date</span>
               {(startDate || endDate) && (
                 <span className="w-2 h-2 bg-white rounded-full" />
               )}
@@ -516,9 +531,9 @@ export default function MembersPage() {
           </div>
         </div>
 
-        {/* Date Range Filter - Collapsible */}
+        {/* Date Range Filter - Collapsible (desktop) */}
         {showDateFilter && (
-          <div className="flex flex-col sm:flex-row gap-4 items-end mt-4 pt-4 border-t border-border">
+          <div className="hidden lg:flex flex-col sm:flex-row gap-4 items-end mt-4 pt-4 border-t border-border">
             <div className="flex-1">
               <label className="block text-sm font-medium text-foreground mb-2">
                 From
@@ -561,6 +576,58 @@ export default function MembersPage() {
         )}
       </Card>
 
+      {/* Date Range Filter - Modal (mobile) */}
+      <Modal
+        isOpen={showDateFilter}
+        onClose={() => setShowDateFilter(false)}
+        title="Filter by Date"
+        description="Show members who joined within a date range"
+        size="sm"
+        overlayClassName="lg:hidden"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              From
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              To
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            {(startDate || endDate || dateFilterApplied.startDate || dateFilterApplied.endDate) && (
+              <Button variant="ghost" onClick={handleClearDates}>
+                Clear
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                handleDateSearch();
+                setShowDateFilter(false);
+              }}
+              disabled={!startDate && !endDate}
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Members Table */}
       {isLoading ? (
         <Card padding="lg">
@@ -588,7 +655,73 @@ export default function MembersPage() {
         </Card>
       ) : (
         <Card padding="none">
-          <div className="overflow-x-auto">
+          {/* Mobile: card list */}
+          <div className="md:hidden divide-y divide-border">
+            {paginatedMembers.map((member: Member) => (
+              <div key={member._id} className="p-4 flex items-start gap-3">
+                <Link
+                  href={`/dashboard/members/${member._id}`}
+                  className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0"
+                >
+                  <span className="text-sm font-medium text-white">
+                    {getInitials(member.firstName, member.lastName)}
+                  </span>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/dashboard/members/${member._id}`}
+                      className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate"
+                    >
+                      {member.firstName} {member.lastName}
+                    </Link>
+                    <Badge
+                      variant={statusBadgeVariant[member.memberStatus] || 'muted'}
+                      className="flex-shrink-0"
+                    >
+                      {member.memberStatus.charAt(0).toUpperCase() + member.memberStatus.slice(1)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted mt-0.5 truncate">
+                    {member.phone}
+                    {member.email ? ` · ${member.email}` : ''}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    Joined {member.membershipDate ? formatDate(member.membershipDate) : formatDate(member.createdAt)}
+                  </p>
+                  <div className="flex items-center gap-1 mt-2 -ml-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/members/${member._id}`)}
+                      aria-label={`View ${member.firstName} ${member.lastName}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/members/${member._id}/edit`)}
+                      aria-label={`Edit ${member.firstName} ${member.lastName}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteId(member._id)}
+                      aria-label={`Delete ${member.firstName} ${member.lastName}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
@@ -696,11 +829,11 @@ export default function MembersPage() {
           
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border">
-              <div className="text-sm text-muted">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-4 border-t border-border">
+              <div className="text-sm text-muted text-center sm:text-left">
                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredMembers.length)} of {filteredMembers.length} members
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

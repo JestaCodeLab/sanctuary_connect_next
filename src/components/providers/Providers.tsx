@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import ThemeProvider from './ThemeProvider';
 import { useAuthStore } from '@/store/authStore';
+import { useBranchStore } from '@/store/branchStore';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -15,8 +16,13 @@ function AuthInitializer() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Rehydrate the auth store
+    // Rehydrate the auth store, and the branch store too - it also uses
+    // skipHydration, and dashboard/layout.tsx's setBranches() runs before this
+    // effect otherwise, sees an un-rehydrated (default-null) selectedBranchId,
+    // decides the real persisted selection is "stale", and overwrites it back
+    // to null - silently undoing any branch switch on every page reload.
     useAuthStore.persist.rehydrate();
+    useBranchStore.persist.rehydrate();
     setHydrated(true);
   }, []);
 

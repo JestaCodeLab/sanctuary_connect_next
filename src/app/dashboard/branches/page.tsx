@@ -2,27 +2,24 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import toast from 'react-hot-toast';
-import { 
-  Building2, 
-  MapPin, 
-  Plus, 
-  Edit2, 
-  Search, 
-  Users, 
-  Globe, 
+import { useQuery } from '@tanstack/react-query';
+import {
+  Building2,
+  MapPin,
+  Plus,
+  Edit2,
+  Search,
+  Users,
+  Globe,
   Loader2,
   Star,
   Eye
 } from 'lucide-react';
 
-import { PageHeader, Modal, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
-import { Button, Input, Card, Checkbox } from '@/components/ui';
+import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
+import BranchFormModal from '@/components/dashboard/BranchFormModal';
+import { Button, Input, Card } from '@/components/ui';
 import { organizationApi, membersApi } from '@/lib/api';
-import { branchSchema, type BranchFormData } from '@/lib/validations';
 import type { Branch, Member } from '@/types';
 
 export default function BranchesPage() {
@@ -30,7 +27,6 @@ export default function BranchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [search, setSearch] = useState('');
-  const queryClient = useQueryClient();
 
   const { data: orgData, isLoading } = useQuery({
     queryKey: ['organization'],
@@ -64,112 +60,23 @@ export default function BranchesPage() {
     }).length;
   };
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<BranchFormData>({
-    resolver: zodResolver(branchSchema),
-    defaultValues: {
-      name: '',
-      address: '',
-      city: '',
-      suburb: '',
-      region: '',
-      zipCode: '',
-      radius: 200,
-      isHeadOffice: false,
-    },
-  });
-
-  const createBranchMutation = useMutation({
-    mutationFn: (data: BranchFormData) => {
-      if (!organization?._id) throw new Error('Organization not found');
-      return organizationApi.createBranch(organization._id, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization'] });
-      toast.success('Branch created successfully');
-      handleCloseModal();
-    },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        'Failed to create branch';
-      toast.error(message);
-    },
-  });
-
-  const updateBranchMutation = useMutation({
-    mutationFn: (data: BranchFormData) => {
-      if (!organization?._id || !editingBranch?._id) throw new Error('Organization or branch not found');
-      return organizationApi.updateBranch(organization._id, editingBranch._id, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization'] });
-      toast.success('Branch updated successfully');
-      handleCloseModal();
-    },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        'Failed to update branch';
-      toast.error(message);
-    },
-  });
-
-  const onSubmit = (data: BranchFormData) => {
-    if (editingBranch) {
-      updateBranchMutation.mutate(data);
-    } else {
-      createBranchMutation.mutate(data);
-    }
-  };
-
   const handleOpenModal = () => {
     setEditingBranch(null);
-    reset({
-      name: '',
-      address: '',
-      city: '',
-      suburb: '',
-      region: '',
-      zipCode: '',
-      radius: 200,
-      isHeadOffice: false,
-    });
     setIsModalOpen(true);
   };
 
   const handleEditBranch = (branch: Branch) => {
     setEditingBranch(branch);
-    reset({
-      name: branch.name,
-      address: branch.address || '',
-      city: branch.city || '',
-      suburb: branch.suburb || '',
-      region: branch.region || '',
-      zipCode: branch.zipCode || '',
-      radius: branch.geofenceRadius || 200,
-      isHeadOffice: branch.isHeadOffice || false,
-    });
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingBranch(null);
-    reset();
   };
 
   const headOffice = branches.find((b: Branch) => b.isHeadOffice);
   const totalMembers = members.length;
-
-  const isEditing = !!editingBranch;
-  const isMutating = createBranchMutation.isPending || updateBranchMutation.isPending || isSubmitting;
 
   const stats = [
     {
@@ -335,87 +242,14 @@ export default function BranchesPage() {
       )}
 
       {/* Add / Edit Branch Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={isEditing ? 'Edit Branch' : 'Add Branch'}
-        description={isEditing ? 'Update branch details' : 'Create a new church branch location'}
-      >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input
-            label="Branch Name"
-            placeholder="e.g. Main Campus"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <Input
-            label="Address"
-            placeholder="Street address"
-            error={errors.address?.message}
-            {...register('address')}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="City"
-              placeholder="City"
-              error={errors.city?.message}
-              {...register('city')}
-            />
-            <Input
-              label="Suburb"
-              placeholder="Suburb"
-              error={errors.suburb?.message}
-              {...register('suburb')}
-            />
-          </div>
-
-          <Input
-            label="Region"
-            placeholder="Region"
-            error={errors.region?.message}
-            {...register('region')}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Zip Code"
-              placeholder="Zip code"
-              error={errors.zipCode?.message}
-              {...register('zipCode')}
-            />
-            <Input
-              label="Geofence Radius (m)"
-              type="number"
-              placeholder="50 - 500"
-              error={errors.radius?.message}
-              {...register('radius', { valueAsNumber: true })}
-            />
-          </div>
-
-          <Checkbox
-            label="Set as Head Office"
-            {...register('isHeadOffice')}
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleCloseModal}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              isLoading={isMutating}
-            >
-              {isEditing ? 'Save Changes' : 'Create Branch'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {organization?._id && (
+        <BranchFormModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          organizationId={organization._id}
+          editingBranch={editingBranch}
+        />
+      )}
     </div>
   );
 }

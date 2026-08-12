@@ -51,7 +51,7 @@ export default function SmsLogDetailsDialog({ log, open, onOpenChange }: SmsLogD
             </div>
             <div>
               <p className="text-sm text-gray-500">Credits Used</p>
-              <p className="font-medium">{log.creditsUsed}</p>
+              <p className="font-medium">{log.creditsUsed.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Recipients</p>

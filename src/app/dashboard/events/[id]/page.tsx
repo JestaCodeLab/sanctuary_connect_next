@@ -156,8 +156,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+        <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{event.title}</h1>
             <Badge variant={statusBadgeVariant[getActualStatus(event)]}>
@@ -173,7 +173,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <p className="text-muted mt-2 max-w-2xl">{event.description}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/dashboard/events/${event._id}/attendance`}>
             <Button variant="outline" size="sm" leftIcon={<Users className="w-4 h-4" />}>
               View Attendance
@@ -282,7 +282,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               {occurrences.map((occ, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg border border-border"
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-lg border border-border"
                 >
                   <div>
                     <span className="text-sm font-medium text-foreground">

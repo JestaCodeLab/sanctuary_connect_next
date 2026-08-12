@@ -39,7 +39,7 @@ export default function AnalyticsPage() {
     { label: 'Total Campaigns', value: totalSent, icon: MessageSquare },
     { label: 'Messages Delivered', value: totalDelivered, icon: CheckCircle2 },
     { label: 'Messages Failed', value: totalFailed, icon: AlertCircle },
-    { label: 'Credits Used', value: totalCreditsUsed, icon: Send },
+    { label: 'Credits Used', value: totalCreditsUsed.toLocaleString(), icon: Send },
   ];
 
   return (

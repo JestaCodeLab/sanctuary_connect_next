@@ -155,7 +155,7 @@ export default function SmsLogsTable() {
                       <span className="text-red-600 dark:text-red-400">{failedCount}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                      {log.creditsUsed}
+                      {log.creditsUsed.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex gap-2">

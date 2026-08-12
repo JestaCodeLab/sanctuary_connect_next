@@ -100,9 +100,18 @@ export default function ShepherdAlertsPage() {
       setRunning(id);
       const response = await api.post(`/api/shepherd-alerts/${id}/run`);
       const { summary } = response.data;
-      toast.success(
-        `Check complete: ${summary.triggered} alert${summary.triggered !== 1 ? 's' : ''} triggered, ${summary.smsSent} SMS sent`
-      );
+      let message = `Check complete: ${summary.triggered} alert${summary.triggered !== 1 ? 's' : ''} triggered, ${summary.smsSent} SMS sent`;
+      if (summary.smsFailed > 0) {
+        message += `, ${summary.smsFailed} failed to send`;
+      }
+      if (summary.suppressed > 0) {
+        message += `, ${summary.suppressed} already alerted this period`;
+      }
+      if (summary.smsFailed > 0) {
+        toast.error(message);
+      } else {
+        toast.success(message);
+      }
       await fetchAlerts();
     } catch (error: any) {
       console.error('Error running alert check:', error);
