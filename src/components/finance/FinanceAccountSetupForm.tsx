@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type DragEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -87,6 +87,8 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
     ownerIdDoc: false,
   });
 
+  const [dragActiveField, setDragActiveField] = useState<string | null>(null);
+
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
   const [bankSearchTerm, setBankSearchTerm] = useState('');
@@ -162,6 +164,25 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         [field]: false,
       }));
     }
+  };
+
+  const handleDragOver = (field: string, e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveField(field);
+  };
+
+  const handleDragLeave = (field: string, e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveField((current) => (current === field ? null : current));
+  };
+
+  const handleDrop = (field: string, e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveField(null);
+    handleFileChange(field, e.dataTransfer.files?.[0] || null);
   };
 
   const validateStep = (step: FormStep): boolean => {
@@ -318,8 +339,12 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
         submitData.append('ownerIdDoc', formData.ownerIdDoc);
       }
 
-      // Don't set Content-Type header - let axios/browser handle it automatically with FormData
-      const { data: result } = await api.post('/api/finance/account/submit', submitData);
+      // Unset the shared instance's default JSON Content-Type so axios doesn't
+      // JSON-stringify the FormData — the browser sets the correct
+      // multipart/form-data boundary itself once the header is absent.
+      const { data: result } = await api.post('/api/finance/account/submit', submitData, {
+        headers: { 'Content-Type': undefined },
+      });
 
       setSuccess(true);
       if (onSubmitSuccess) {
@@ -456,7 +481,13 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="businessRegistrationDoc">Business Registration Document *</Label>
-                <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.businessRegistrationDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.businessRegistrationDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : dragActiveField === 'businessRegistrationDoc' ? 'border-primary bg-muted/30 dark:bg-muted/50' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}
+                  onDragOver={(e) => handleDragOver('businessRegistrationDoc', e)}
+                  onDragEnter={(e) => handleDragOver('businessRegistrationDoc', e)}
+                  onDragLeave={(e) => handleDragLeave('businessRegistrationDoc', e)}
+                  onDrop={(e) => handleDrop('businessRegistrationDoc', e)}
+                >
                   <Input
                     id="businessRegistrationDoc"
                     type="file"
@@ -554,7 +585,13 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
               <div>
                 <Label htmlFor="ownerIdDoc">ID Document *</Label>
-                <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.ownerIdDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 transition-colors ${uploadedDocs.ownerIdDoc ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30' : dragActiveField === 'ownerIdDoc' ? 'border-primary bg-muted/30 dark:bg-muted/50' : 'border-border bg-background dark:bg-background hover:bg-muted/30 dark:hover:bg-muted/50'}`}
+                  onDragOver={(e) => handleDragOver('ownerIdDoc', e)}
+                  onDragEnter={(e) => handleDragOver('ownerIdDoc', e)}
+                  onDragLeave={(e) => handleDragLeave('ownerIdDoc', e)}
+                  onDrop={(e) => handleDrop('ownerIdDoc', e)}
+                >
                   <Input
                     id="ownerIdDoc"
                     type="file"
