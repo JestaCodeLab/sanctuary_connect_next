@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/dashboard';
 import { Card, Button } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
-import { getOccurrencesInRange } from '@/lib/eventOccurrences';
+import { getOccurrencesInRange, formatEventTime } from '@/lib/eventOccurrences';
 import type { ChurchEvent } from '@/types';
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,20 +25,24 @@ interface DayOccurrence {
   start: Date;
 }
 
+// UTC getters throughout this file (not local ones) so the calendar grid,
+// "today", and event occurrence dots all line up on the same GMT calendar
+// day for every viewer — a local getter would shift a day near midnight GMT
+// depending on the viewer's own timezone offset.
 function toDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
 function toDatetimeLocalInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T09:00`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T09:00`;
 }
 
 export default function EventPlannerPage() {
   const router = useRouter();
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   });
 
   const { data: events = [], isLoading } = useQuery({
@@ -47,17 +51,17 @@ export default function EventPlannerPage() {
   });
 
   const { gridStart, gridEnd, weeks } = useMemo(() => {
-    const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+    const monthStart = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth(), 1));
     const start = new Date(monthStart);
-    start.setDate(start.getDate() - start.getDay());
+    start.setUTCDate(start.getUTCDate() - start.getUTCDay());
     const end = new Date(start);
-    end.setDate(end.getDate() + 41);
-    end.setHours(23, 59, 59, 999);
+    end.setUTCDate(end.getUTCDate() + 41);
+    end.setUTCHours(23, 59, 59, 999);
 
     const days: Date[] = [];
     for (let i = 0; i < 42; i++) {
       const d = new Date(start);
-      d.setDate(d.getDate() + i);
+      d.setUTCDate(d.getUTCDate() + i);
       days.push(d);
     }
     const weekRows: Date[][] = [];
@@ -111,24 +115,27 @@ export default function EventPlannerPage() {
       <Card padding="none">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            {monthCursor.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', year: 'numeric' })}
           </h2>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1))}
+              onClick={() => {
+                const now = new Date();
+                setMonthCursor(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
+              }}
             >
               Today
             </Button>
             <button
-              onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}
+              onClick={() => setMonthCursor(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() - 1, 1)))}
               className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}
+              onClick={() => setMonthCursor(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 1)))}
               className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronRight className="w-4 h-4" />
@@ -148,7 +155,7 @@ export default function EventPlannerPage() {
 
             {weeks.flat().map((day) => {
               const key = toDateKey(day);
-              const inCurrentMonth = day.getMonth() === monthCursor.getMonth();
+              const inCurrentMonth = day.getUTCMonth() === monthCursor.getUTCMonth();
               const isToday = key === todayKey;
               const dayOccurrences = occurrencesByDay.get(key) || [];
 
@@ -169,7 +176,7 @@ export default function EventPlannerPage() {
                           : 'text-gray-400 dark:text-gray-600'
                       }`}
                     >
-                      {day.getDate()}
+                      {day.getUTCDate()}
                     </span>
                     <Link
                       href={`/dashboard/events/new?date=${encodeURIComponent(toDatetimeLocalInput(day))}`}
@@ -190,7 +197,7 @@ export default function EventPlannerPage() {
                       >
                         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDotColor[event.status]}`} />
                         <span className="truncate text-gray-700 dark:text-gray-300">
-                          {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {event.title}
+                          {formatEventTime(start)} {event.title}
                         </span>
                       </Link>
                     ))}

@@ -20,8 +20,12 @@ const statusBadgeVariant: Record<ChurchEvent['status'], 'info' | 'success' | 'mu
   cancelled: 'error',
 };
 
+// Pinned to UTC (the fixed event timezone — see lib/eventOccurrences.ts) so
+// this reads identically for every viewer regardless of their own browser's
+// local timezone.
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('en-US', {
+    timeZone: 'UTC',
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -31,6 +35,7 @@ function formatDate(date: string): string {
 
 function formatDateTime(date: string): string {
   return new Date(date).toLocaleDateString('en-US', {
+    timeZone: 'UTC',
     weekday: 'long',
     month: 'long',
     day: 'numeric',

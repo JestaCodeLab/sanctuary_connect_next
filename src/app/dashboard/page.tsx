@@ -25,6 +25,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { useBranchStore } from '@/store/branchStore';
 import { membersApi, eventsApi, attendanceApi } from '@/lib/api';
+import { getNextOccurrenceDate, formatRelativeEventDate, formatEventTime } from '@/lib/eventOccurrences';
 import type { Member, ChurchEvent } from '@/types';
 
 function getTimeAgo(dateString: string): string {
@@ -188,9 +189,11 @@ export default function DashboardPage() {
       return true;
     })
     .sort((a: ChurchEvent, b: ChurchEvent) => {
-      const dateA = getNextOccurrenceDate(a);
-      const dateB = getNextOccurrenceDate(b);
-      return dateA.getTime() - dateB.getTime();
+      // A null next-occurrence means the recurring series has already
+      // ended — push it to the back rather than crash the comparator.
+      const dateA = getNextOccurrenceDate(a)?.getTime() ?? Infinity;
+      const dateB = getNextOccurrenceDate(b)?.getTime() ?? Infinity;
+      return dateA - dateB;
     })
     .slice(0, 3);
 
@@ -236,69 +239,6 @@ export default function DashboardPage() {
     { name: 'Adults', value: adultsCount, color: '#a855f7' },
     { name: 'Seniors', value: seniorsCount, color: '#f59e0b' },
   ];
-
-  function formatEventDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-    
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  }
-
-  function formatEventTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-
-  // Compute next occurrence for recurring events
-  function getNextOccurrenceDate(event: ChurchEvent): Date {
-    if (!event.isRecurring || !event.recurrencePattern) {
-      return new Date(event.startDate);
-    }
-
-    const baseDate = new Date(event.startDate);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Compare dates only, not times
-
-    const increment = event.recurrencePattern === 'weekly' ? 7 : event.recurrencePattern === 'biweekly' ? 14 : 30;
-
-    let current = new Date(baseDate);
-    current.setHours(baseDate.getHours(), baseDate.getMinutes(), baseDate.getSeconds(), 0);
-
-    // Align to the correct day of week
-    if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
-      // Move to the correct day of week while preserving time
-      const targetDay = event.recurrenceDay;
-      while (current.getDay() !== targetDay) {
-        current.setDate(current.getDate() + 1);
-      }
-    }
-
-    // Fast-forward to find the next occurrence
-    // Add a safety limit to prevent infinite loops
-    let iterations = 0;
-    while (current < now && iterations < 100) {
-      if (event.recurrencePattern === 'monthly') {
-        current.setMonth(current.getMonth() + 1);
-      } else {
-        current.setDate(current.getDate() + increment);
-      }
-      iterations++;
-    }
-
-    return current;
-  }
 
   return (
     <div>
@@ -456,7 +396,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               nextEvents.map((event: ChurchEvent) => {
-                const displayDate = getNextOccurrenceDate(event);
+                const displayDate = getNextOccurrenceDate(event) ?? new Date(event.startDate);
                 return (
                   <div
                     key={event._id}
@@ -474,7 +414,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted flex-wrap">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {formatEventDate(displayDate.toISOString())} • {formatEventTime(displayDate.toISOString())}
+                          {formatRelativeEventDate(displayDate)} • {formatEventTime(displayDate)}
                         </span>
                         {event.location && (
                           <span className="flex items-center gap-1 truncate">

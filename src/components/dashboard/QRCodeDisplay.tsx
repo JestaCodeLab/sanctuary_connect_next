@@ -153,6 +153,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
     }
 
     const formattedDate = occurrenceDate.toLocaleDateString('en-US', {
+      timeZone: 'UTC',
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -160,6 +161,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
     });
 
     const formattedTime = occurrenceDate.toLocaleTimeString('en-US', {
+      timeZone: 'UTC',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
@@ -349,6 +351,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                     </p>
                     <p className="text-base font-semibold text-foreground mt-1">
                       {new Date(nextOccurrence.startDate).toLocaleDateString('en-US', {
+                        timeZone: 'UTC',
                         weekday: 'long',
                         month: 'long',
                         day: 'numeric',
@@ -357,6 +360,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
                     </p>
                     <p className="text-sm text-muted mt-0.5">
                       {new Date(nextOccurrence.startDate).toLocaleTimeString('en-US', {
+                        timeZone: 'UTC',
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: true,
@@ -448,7 +452,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
 
         {qrData?.occurrenceDate && (
           <p className="text-xs font-medium text-primary mb-4">
-            QR for {new Date(qrData.occurrenceDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            QR for {new Date(qrData.occurrenceDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
         )}
         {!qrData?.occurrenceDate && <div className="mb-4" />}
@@ -512,7 +516,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
 
             {!isRecurring && qrData.expiresAt && qrData.expiresAt !== null && (
               <p className="text-xs text-muted mb-6">
-                Valid until: {new Date(qrData.expiresAt).toLocaleString()}
+                Valid until: {new Date(qrData.expiresAt).toLocaleString('en-US', { timeZone: 'UTC' })}
               </p>
             )}
 

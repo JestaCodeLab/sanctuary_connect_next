@@ -80,16 +80,16 @@ export default function PublicEventPage() {
               <p>
                 <span className="font-medium text-gray-900">Start:</span>{' '}
                 {startDate.toLocaleDateString('en-US', {
-                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                  timeZone: 'UTC', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                 })}{' '}
-                at {startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                at {startDate.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })}
               </p>
               <p>
                 <span className="font-medium text-gray-900">End:</span>{' '}
                 {endDate.toLocaleDateString('en-US', {
-                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                  timeZone: 'UTC', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                 })}{' '}
-                at {endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                at {endDate.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>

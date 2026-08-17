@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertCircle, Bell, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users, PlayCircle } from 'lucide-react';
+import { Plus, AlertCircle, Bell, Edit, Trash2, ToggleLeft, ToggleRight, Loader, Users, PlayCircle, Eye } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { PageHeader, PageLoader, EmptyState, Badge } from '@/components/dashboard';
 import { api } from '@/lib/api';
@@ -14,6 +14,7 @@ interface ShepherdAlert {
   _id: string;
   name: string;
   isActive: boolean;
+  branchId?: { _id: string; name: string } | string | null;
   absenceThreshold?: number;
   lookbackPeriodDays?: number;
   shepherds?: Array<{ memberId: string; phoneNumber: string }>;
@@ -177,6 +178,9 @@ export default function ShepherdAlertsPage() {
                       <Badge variant={alert.isActive ? 'success' : 'muted'}>
                         {alert.isActive ? 'Active' : 'Inactive'}
                       </Badge>
+                      {alert.branchId && typeof alert.branchId === 'object' && (
+                        <Badge variant="info">{alert.branchId.name}</Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted mt-1 flex items-center gap-1">
                       <Users className="w-3 h-3" />
@@ -220,6 +224,15 @@ export default function ShepherdAlertsPage() {
                     )}
                   </button>
                   <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}`}>
+                    <button
+                      type="button"
+                      title="View Details"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </button>
+                  </Link>
+                  <Link href={`/dashboard/attendance/shepherd-alerts/${alert._id}/edit`}>
                     <button
                       type="button"
                       title="Edit"

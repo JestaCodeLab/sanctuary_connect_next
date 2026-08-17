@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,7 +24,7 @@ import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
 import { useBranchStore } from '@/store/branchStore';
-import { getCurrentOccurrenceForEvent } from '@/lib/eventOccurrences';
+import { getCurrentOccurrenceForEvent, formatRecurrenceSummary, splitDateTimeLocal, combineDateAndTime, toEventISOString, formatEventDate, formatEventTime } from '@/lib/eventOccurrences';
 import type { ChurchEvent } from '@/types';
 
 type StatusFilter = 'all' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
@@ -61,14 +61,6 @@ const dayOfWeekOptions = [
   { value: '5', label: 'Friday' },
   { value: '6', label: 'Saturday' },
 ];
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // Helper function to compute the correct event status based on current time
 function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
@@ -118,6 +110,12 @@ export default function EventsPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editTarget, setEditTarget] = useState<ChurchEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChurchEvent | null>(null);
+  // Recurring events edit date/time as separate fields (series date + daily
+  // occurrence time) instead of one combined datetime — these stay in sync
+  // with the underlying startDate/endDate form fields via setValue below.
+  const [recurringDate, setRecurringDate] = useState('');
+  const [recurringStartTime, setRecurringStartTime] = useState('');
+  const [recurringEndTime, setRecurringEndTime] = useState('');
 
   // Data fetching
   const { data: events = [], isLoading } = useQuery({
@@ -180,7 +178,47 @@ export default function EventsPage() {
     resolver: zodResolver(eventSchema) as any,
   });
 
-  const onSubmit = (data: EventFormData) => {
+  const isRecurringChecked = watch('isRecurring');
+
+  // Switching a one-time event to recurring mid-edit: carry over whatever
+  // Start/End Date was already entered instead of blanking the new fields.
+  useEffect(() => {
+    if (isRecurringChecked && !recurringDate) {
+      const { date, time } = splitDateTimeLocal(watch('startDate'));
+      if (date) {
+        setRecurringDate(date);
+        setRecurringStartTime(time);
+        setRecurringEndTime(splitDateTimeLocal(watch('endDate')).time);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecurringChecked]);
+
+  const handleRecurringDateChange = (date: string) => {
+    setRecurringDate(date);
+    setValue('startDate', combineDateAndTime(date, recurringStartTime));
+    setValue('endDate', combineDateAndTime(date, recurringEndTime));
+  };
+
+  const handleRecurringStartTimeChange = (time: string) => {
+    setRecurringStartTime(time);
+    setValue('startDate', combineDateAndTime(recurringDate, time));
+  };
+
+  const handleRecurringEndTimeChange = (time: string) => {
+    setRecurringEndTime(time);
+    setValue('endDate', combineDateAndTime(recurringDate, time));
+  };
+
+  const onSubmit = (formData: EventFormData) => {
+    // startDate/endDate are still naive `datetime-local` strings at this
+    // point — convert to explicit UTC instants before sending so storage
+    // doesn't depend on the server's ambient timezone to interpret them.
+    const data: EventFormData = {
+      ...formData,
+      startDate: toEventISOString(formData.startDate),
+      endDate: toEventISOString(formData.endDate),
+    };
     if (modalMode === 'edit' && editTarget) {
       updateMutation.mutate({ id: editTarget._id, data });
     } else {
@@ -191,13 +229,15 @@ export default function EventsPage() {
   const handleEdit = (event: ChurchEvent) => {
     setEditTarget(event);
     setModalMode('edit');
+    const startDate = event.startDate ? new Date(event.startDate).toISOString().slice(0, 16) : '';
+    const endDate = event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '';
     reset({
       branchId: event.branchId || '',
       title: event.title,
       description: event.description || '',
       eventType: event.eventType || '',
-      startDate: event.startDate ? new Date(event.startDate).toISOString().slice(0, 16) : '',
-      endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
+      startDate,
+      endDate,
       location: event.location || '',
       maxCapacity: event.maxCapacity,
       isRecurring: event.isRecurring || false,
@@ -205,12 +245,19 @@ export default function EventsPage() {
       recurrenceDay: event.recurrenceDay,
       recurrenceEndDate: event.recurrenceEndDate ? new Date(event.recurrenceEndDate).toISOString().split('T')[0] : '',
     });
+    const { date, time } = splitDateTimeLocal(startDate);
+    setRecurringDate(date);
+    setRecurringStartTime(time);
+    setRecurringEndTime(splitDateTimeLocal(endDate).time);
     setIsModalOpen(true);
   };
 
   const handleOpenCreate = () => {
     setModalMode('create');
     setEditTarget(null);
+    setRecurringDate('');
+    setRecurringStartTime('');
+    setRecurringEndTime('');
     reset({
       title: '',
       description: '',
@@ -415,12 +462,12 @@ export default function EventsPage() {
                           <span className="text-xs text-muted">
                             Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.recurrenceDay ?? 0]}
                             {' · '}
-                            {new Date(event.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            {formatEventTime(event.startDate)}
                           </span>
                         </div>
                       ) : (
                         <p className="text-xs text-muted mt-0.5">
-                          {formatDate(event.startDate)} to {formatDate(event.endDate)}
+                          {formatEventDate(event.startDate)} to {formatEventDate(event.endDate)}
                         </p>
                       )}
                       {event.location && (
@@ -512,13 +559,13 @@ export default function EventsPage() {
                     <td className="px-4 py-3">
                       {event.isRecurring ? (
                         <div className="text-sm text-foreground">
-                          {new Date(event.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          {formatEventTime(event.startDate)}
                           <div className="text-xs text-muted">{event.recurrencePattern}</div>
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm text-foreground">{formatDate(event.startDate)}</div>
-                          <div className="text-xs text-muted">to {formatDate(event.endDate)}</div>
+                          <div className="text-sm text-foreground">{formatEventDate(event.startDate)}</div>
+                          <div className="text-xs text-muted">to {formatEventDate(event.endDate)}</div>
                         </>
                       )}
                     </td>
@@ -590,6 +637,9 @@ export default function EventsPage() {
         onClose={() => {
           setIsModalOpen(false);
           setEditTarget(null);
+          setRecurringDate('');
+          setRecurringStartTime('');
+          setRecurringEndTime('');
           reset();
         }}
         title={modalMode === 'edit' ? 'Edit Event' : 'Create Event'}
@@ -638,20 +688,22 @@ export default function EventsPage() {
             {...register('eventType')}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Start Date"
-              type="datetime-local"
-              error={errors.startDate?.message}
-              {...register('startDate')}
-            />
-            <Input
-              label="End Date"
-              type="datetime-local"
-              error={errors.endDate?.message}
-              {...register('endDate')}
-            />
-          </div>
+          {!isRecurringChecked && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Start Date"
+                type="datetime-local"
+                error={errors.startDate?.message}
+                {...register('startDate')}
+              />
+              <Input
+                label="End Date"
+                type="datetime-local"
+                error={errors.endDate?.message}
+                {...register('endDate')}
+              />
+            </div>
+          )}
 
           <Input
             label="Location"
@@ -675,7 +727,7 @@ export default function EventsPage() {
               {...register('isRecurring')}
             />
 
-            {watch('isRecurring') && (
+            {isRecurringChecked && (
               <div className="mt-4 space-y-4 pl-6 border-l-2 border-primary/20">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
@@ -693,13 +745,46 @@ export default function EventsPage() {
                     {...register('recurrenceDay')}
                   />
                 </div>
-                <Input
-                  label="Recurrence End Date"
-                  type="date"
-                  placeholder="When should this recurrence end?"
-                  error={errors.recurrenceEndDate?.message}
-                  {...register('recurrenceEndDate')}
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Recurring Start Date"
+                    type="date"
+                    value={recurringDate}
+                    onChange={(e) => handleRecurringDateChange(e.target.value)}
+                  />
+                  <Input
+                    label="Recurring End Date"
+                    type="date"
+                    placeholder="When should this recurrence end?"
+                    error={errors.recurrenceEndDate?.message}
+                    {...register('recurrenceEndDate')}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Recurring Start Time"
+                    type="time"
+                    value={recurringStartTime}
+                    error={errors.startDate?.message}
+                    onChange={(e) => handleRecurringStartTimeChange(e.target.value)}
+                  />
+                  <Input
+                    label="Recurring End Time"
+                    type="time"
+                    value={recurringEndTime}
+                    error={errors.endDate?.message}
+                    onChange={(e) => handleRecurringEndTimeChange(e.target.value)}
+                  />
+                </div>
+                <p className="text-sm text-muted bg-muted/30 rounded-lg px-3 py-2">
+                  {formatRecurrenceSummary({
+                    startDate: watch('startDate'),
+                    endDate: watch('endDate'),
+                    recurrencePattern: watch('recurrencePattern'),
+                    recurrenceDay: watch('recurrenceDay'),
+                    recurrenceEndDate: watch('recurrenceEndDate'),
+                  })}
+                </p>
               </div>
             )}
           </div>
@@ -711,6 +796,9 @@ export default function EventsPage() {
               onClick={() => {
                 setIsModalOpen(false);
                 setEditTarget(null);
+                setRecurringDate('');
+                setRecurringStartTime('');
+                setRecurringEndTime('');
                 reset();
               }}
             >

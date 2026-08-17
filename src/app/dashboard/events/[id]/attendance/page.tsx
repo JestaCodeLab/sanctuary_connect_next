@@ -11,8 +11,12 @@ import MemberSearch from '@/components/dashboard/MemberSearch';
 import { attendanceApi, eventsApi, membersApi } from '@/lib/api';
 import type { Member, EventOccurrence } from '@/types';
 
+// Pinned to UTC (the fixed event timezone — see lib/eventOccurrences.ts) so
+// this reads identically for every viewer regardless of their own browser's
+// local timezone.
 function formatDateTime(date: string): string {
   return new Date(date).toLocaleString('en-US', {
+    timeZone: 'UTC',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -208,6 +212,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
             {occurrences.map((occ, i) => (
               <option key={i} value={occ.startDate}>
                 {new Date(occ.startDate).toLocaleDateString('en-US', {
+                  timeZone: 'UTC',
                   weekday: 'long',
                   month: 'short',
                   day: 'numeric',
@@ -561,6 +566,7 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
                 {occurrences.map((occ) => (
                   <option key={occ.startDate} value={occ.startDate}>
                     {new Date(occ.startDate).toLocaleDateString('en-US', {
+                      timeZone: 'UTC',
                       weekday: 'short',
                       month: 'short',
                       day: 'numeric',

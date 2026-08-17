@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, AlertCircle, Loader, Plus, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import BranchField from '@/components/dashboard/BranchField';
 import { api } from '@/lib/api';
+import { useBranchStore } from '@/store/branchStore';
 import toast from 'react-hot-toast';
 
 interface Member {
@@ -17,6 +19,7 @@ interface Member {
 
 interface FormData {
   name: string;
+  branchId: string;
   shepherds: Array<{ memberId: string; phoneNumber: string }>;
   absenceThreshold: number;
   lookbackPeriodDays: number;
@@ -24,6 +27,7 @@ interface FormData {
 
 export default function NewShepherdAlertPage() {
   const router = useRouter();
+  const { selectedBranchId } = useBranchStore();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
@@ -31,6 +35,7 @@ export default function NewShepherdAlertPage() {
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
+    branchId: '',
     shepherds: [],
     absenceThreshold: 3,
     lookbackPeriodDays: 30,
@@ -108,6 +113,11 @@ export default function NewShepherdAlertPage() {
       return;
     }
 
+    if (!selectedBranchId && !formData.branchId) {
+      setError('Branch is required');
+      return;
+    }
+
     if (formData.shepherds.length === 0) {
       setError('Please add at least one shepherd to notify');
       return;
@@ -171,7 +181,7 @@ export default function NewShepherdAlertPage() {
         {/* Info Box */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>How it works:</strong> This alert monitors attendance for <strong>all members</strong> in your organization. When any member reaches the absence threshold, selected shepherds will be notified via SMS.
+            <strong>How it works:</strong> This alert monitors attendance for <strong>all members in the selected branch</strong>. When any member reaches the absence threshold, selected shepherds will be notified via SMS.
           </p>
         </div>
 
@@ -187,6 +197,16 @@ export default function NewShepherdAlertPage() {
           />
           <p className="text-xs text-muted-foreground mt-1">{formData.name.length}/100</p>
         </div>
+
+        {/* Branch - only shown when no branch is selected app-wide; otherwise
+            the server infers it from the current branch context */}
+        {!selectedBranchId && (
+          <BranchField
+            value={formData.branchId}
+            onChange={(branchId) => setFormData(prev => ({ ...prev, branchId }))}
+            required
+          />
+        )}
 
         {/* Absence Threshold & Period */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

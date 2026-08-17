@@ -10,6 +10,7 @@ import { ArrowLeft, Bell, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { eventsApi, departmentsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
+import { formatRecurrenceSummary, splitDateTimeLocal, combineDateAndTime, toEventISOString } from '@/lib/eventOccurrences';
 import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import PageHeader from '@/components/dashboard/PageHeader';
 import BranchField from '@/components/dashboard/BranchField';
@@ -94,6 +95,48 @@ export default function NewEventPage() {
     },
   });
 
+  // Recurring events edit date/time as separate fields (series date + daily
+  // occurrence time) instead of one combined datetime — these stay in sync
+  // with the underlying startDate/endDate form fields via setValue below.
+  const initialSplit = splitDateTimeLocal(dateParam || '');
+  const [recurringDate, setRecurringDate] = useState(initialSplit.date);
+  const [recurringStartTime, setRecurringStartTime] = useState(initialSplit.time);
+  const [recurringEndTime, setRecurringEndTime] = useState(
+    dateParam ? splitDateTimeLocal(addHoursToDatetimeLocal(dateParam, 1)).time : ''
+  );
+
+  const isRecurringChecked = watch('isRecurring');
+
+  // Switching a one-time event to recurring mid-edit: carry over whatever
+  // Start/End Date was already entered instead of blanking the new fields.
+  useEffect(() => {
+    if (isRecurringChecked && !recurringDate) {
+      const { date, time } = splitDateTimeLocal(watch('startDate'));
+      if (date) {
+        setRecurringDate(date);
+        setRecurringStartTime(time);
+        setRecurringEndTime(splitDateTimeLocal(watch('endDate')).time);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecurringChecked]);
+
+  const handleRecurringDateChange = (date: string) => {
+    setRecurringDate(date);
+    setValue('startDate', combineDateAndTime(date, recurringStartTime));
+    setValue('endDate', combineDateAndTime(date, recurringEndTime));
+  };
+
+  const handleRecurringStartTimeChange = (time: string) => {
+    setRecurringStartTime(time);
+    setValue('startDate', combineDateAndTime(recurringDate, time));
+  };
+
+  const handleRecurringEndTimeChange = (time: string) => {
+    setRecurringEndTime(time);
+    setValue('endDate', combineDateAndTime(recurringDate, time));
+  };
+
   // Pre-fill title + event type once the department (from ?departmentId=) loads
   useEffect(() => {
     if (department) {
@@ -129,7 +172,15 @@ export default function NewEventPage() {
   };
 
   const onSubmit = (data: EventFormData) => {
-    createMutation.mutate({ ...data, reminders });
+    // startDate/endDate are still naive `datetime-local` strings at this
+    // point — convert to explicit UTC instants before sending so storage
+    // doesn't depend on the server's ambient timezone to interpret them.
+    createMutation.mutate({
+      ...data,
+      startDate: toEventISOString(data.startDate),
+      endDate: toEventISOString(data.endDate),
+      reminders,
+    });
   };
 
   return (
@@ -186,20 +237,22 @@ export default function NewEventPage() {
         <Card padding="lg">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Schedule & Location</h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Start Date & Time"
-                type="datetime-local"
-                error={errors.startDate?.message}
-                {...register('startDate')}
-              />
-              <Input
-                label="End Date & Time"
-                type="datetime-local"
-                error={errors.endDate?.message}
-                {...register('endDate')}
-              />
-            </div>
+            {!isRecurringChecked && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Start Date & Time"
+                  type="datetime-local"
+                  error={errors.startDate?.message}
+                  {...register('startDate')}
+                />
+                <Input
+                  label="End Date & Time"
+                  type="datetime-local"
+                  error={errors.endDate?.message}
+                  {...register('endDate')}
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Location"
@@ -226,7 +279,7 @@ export default function NewEventPage() {
               {...register('isRecurring')}
             />
 
-            {watch('isRecurring') && (
+            {isRecurringChecked && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Select
@@ -244,13 +297,46 @@ export default function NewEventPage() {
                     {...register('recurrenceDay')}
                   />
                 </div>
-                <Input
-                  label="Recurrence End Date"
-                  type="date"
-                  placeholder="When should this recurrence end?"
-                  error={errors.recurrenceEndDate?.message}
-                  {...register('recurrenceEndDate')}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Recurring Start Date"
+                    type="date"
+                    value={recurringDate}
+                    onChange={(e) => handleRecurringDateChange(e.target.value)}
+                  />
+                  <Input
+                    label="Recurring End Date"
+                    type="date"
+                    placeholder="When should this recurrence end?"
+                    error={errors.recurrenceEndDate?.message}
+                    {...register('recurrenceEndDate')}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Recurring Start Time"
+                    type="time"
+                    value={recurringStartTime}
+                    error={errors.startDate?.message}
+                    onChange={(e) => handleRecurringStartTimeChange(e.target.value)}
+                  />
+                  <Input
+                    label="Recurring End Time"
+                    type="time"
+                    value={recurringEndTime}
+                    error={errors.endDate?.message}
+                    onChange={(e) => handleRecurringEndTimeChange(e.target.value)}
+                  />
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+                  {formatRecurrenceSummary({
+                    startDate: watch('startDate'),
+                    endDate: watch('endDate'),
+                    recurrencePattern: watch('recurrencePattern'),
+                    recurrenceDay: watch('recurrenceDay'),
+                    recurrenceEndDate: watch('recurrenceEndDate'),
+                  })}
+                </p>
               </>
             )}
           </div>

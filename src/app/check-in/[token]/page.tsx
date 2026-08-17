@@ -101,7 +101,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
   const getEventDate = () => eventData.occurrenceDate || eventData.startDate;
   const getEventDateString = (date: string) =>
     new Date(date).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
     });
 
   const handleCheckIn = () => {
@@ -202,6 +202,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
                   <span className="font-medium text-foreground">Checked in:</span>{' '}
                   <span className="text-muted">
                     {new Date(checkInResult.checkInTime).toLocaleString('en-US', {
+                      timeZone: 'UTC',
                       weekday: 'long',
                       month: 'long',
                       day: 'numeric',
@@ -244,7 +245,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
               <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center">
                 ⚠️ Check-in is not yet available. This event starts on {new Date(eventDate).toLocaleDateString('en-US', {
-                  month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+                  timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
                 })}
               </p>
             </div>
@@ -258,7 +259,7 @@ export default function PublicCheckInPage({ params }: { params: Promise<{ token:
                   <p className="font-medium text-foreground">{eventData.isRecurring ? 'Next Occurrence' : 'Date & Time'}</p>
                   <p className="text-muted">
                     {new Date(eventDate).toLocaleString('en-US', {
-                      weekday: 'long', year: 'numeric', month: 'long',
+                      timeZone: 'UTC', weekday: 'long', year: 'numeric', month: 'long',
                       day: 'numeric', hour: 'numeric', minute: '2-digit',
                     })}
                   </p>
