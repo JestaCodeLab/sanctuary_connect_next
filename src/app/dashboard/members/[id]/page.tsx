@@ -166,6 +166,8 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               {getInitials(member.firstName, member.lastName)}
             </span>
           </div>
+
+          {/* console */}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
