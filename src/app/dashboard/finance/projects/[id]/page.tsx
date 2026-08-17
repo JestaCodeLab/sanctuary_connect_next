@@ -35,6 +35,12 @@ function formatDate(dateString?: string | null): string {
   });
 }
 
+function donorLabel(donation: Donation): string {
+  if (donation.donorId) return `${donation.donorId.firstName} ${donation.donorId.lastName}`;
+  if (donation.donorType === 'collective') return donation.donorName ? `Collective — ${donation.donorName}` : 'Collective Contribution';
+  return donation.donorName || 'Anonymous';
+}
+
 function ProjectReportContent({ id }: { id: string }) {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<Tab>('donations');
@@ -118,7 +124,7 @@ function ProjectReportContent({ id }: { id: string }) {
     const rows: string[][] = [
       ['Donor', 'Amount', 'Payment Method', 'Event', 'Date'],
       ...allDonations.map((d: Donation) => [
-        d.donorId ? `${d.donorId.firstName} ${d.donorId.lastName}` : (d.donorName || 'Anonymous'),
+        donorLabel(d),
         d.amount.toString(),
         d.paymentMethod || 'N/A',
         d.eventId?.title || '',
@@ -306,7 +312,7 @@ function ProjectReportContent({ id }: { id: string }) {
                     {donations.map((donation) => (
                       <tr key={donation._id} className="hover:bg-background transition-colors">
                         <td className="px-6 py-4 text-sm text-foreground whitespace-nowrap">
-                          {donation.donorId ? `${donation.donorId.firstName} ${donation.donorId.lastName}` : (donation.donorName || 'Anonymous')}
+                          {donorLabel(donation)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{donation.eventId?.title || '—'}</td>
                         <td className="px-6 py-4 text-sm text-muted whitespace-nowrap capitalize">{donation.paymentMethod?.replace('_', ' ') || '—'}</td>

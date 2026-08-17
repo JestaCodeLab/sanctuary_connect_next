@@ -820,14 +820,18 @@ export function FinanceAccountSetupForm({ onSubmitSuccess, organizationId }: Fin
 
           {/* Navigation Buttons */}
           <div className="flex justify-between pt-6 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 'basic' || isLoading}
-            >
-              Back
-            </Button>
+            {currentStep !== 'basic' ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                disabled={isLoading}
+              >
+                Back
+              </Button>
+            ) : (
+              <div />
+            )}
 
             {currentStep === 'review' ? (
               <Button type="submit" disabled={isLoading}>

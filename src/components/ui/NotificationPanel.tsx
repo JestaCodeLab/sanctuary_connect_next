@@ -41,6 +41,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
     if (type.includes('payment') || type.includes('sms')) return '💳';
     if (type.includes('donation')) return '💰';
     if (type.includes('shepherd')) return '🚨';
+    if (type.includes('finance_account')) return '🏦';
     if (type.includes('event')) return '📅';
     if (type.includes('auth')) return '🔐';
     return '📬';

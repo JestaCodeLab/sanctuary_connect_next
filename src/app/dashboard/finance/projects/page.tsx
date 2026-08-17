@@ -306,16 +306,17 @@ function ManageGroupsModal({ isOpen, onClose, groups }: {
 function RecordDonationModal({ project, onClose }: { project: Project | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { data: members = [] } = useQuery({ queryKey: ['members'], queryFn: () => membersApi.getAll() });
+  const [memberSearch, setMemberSearch] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const donorOptions = [
-    { value: '', label: 'Anonymous' },
-    ...members.map((m: any) => ({ value: m._id, label: `${m.firstName} ${m.lastName}` })),
-  ];
-
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<DonationFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<DonationFormData>({
     resolver: zodResolver(donationSchema) as any,
     defaultValues: {
+      donorType: 'member',
       donorId: '',
+      donorName: '',
+      donorEmail: '',
+      donorPhone: '',
       amount: undefined,
       donationType: 'project',
       donationDate: new Date().toISOString().split('T')[0],
@@ -324,6 +325,8 @@ function RecordDonationModal({ project, onClose }: { project: Project | null; on
     },
   });
 
+  const formDonorType = watch('donorType');
+
   const createMutation = useMutation({
     mutationFn: (data: DonationFormData) => donationsApi.create({ ...data, fundBucketId: project!._id }),
     onSuccess: () => {
@@ -331,6 +334,8 @@ function RecordDonationModal({ project, onClose }: { project: Project | null; on
       queryClient.invalidateQueries({ queryKey: ['finance', 'projects'] });
       toast.success('Donation recorded successfully');
       reset();
+      setMemberSearch('');
+      setIsSearchOpen(false);
       onClose();
     },
     onError: () => {
@@ -341,17 +346,158 @@ function RecordDonationModal({ project, onClose }: { project: Project | null; on
   return (
     <Modal isOpen={!!project} onClose={onClose} title={`Record Donation — ${project?.name ?? ''}`}>
       <form onSubmit={handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+        {/* Donor Type Selection */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Donor</label>
-          <select
-            {...register('donorId')}
-            className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {donorOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium text-foreground mb-3">Donor Type</label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setValue('donorType', 'member');
+                setValue('donorId', '');
+                setValue('donorName', '');
+                setValue('donorEmail', '');
+                setValue('donorPhone', '');
+                setMemberSearch('');
+                setIsSearchOpen(false);
+              }}
+              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                formDonorType === 'member'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-background hover:bg-muted'
+              }`}
+            >
+              Member
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setValue('donorType', 'guest');
+                setValue('donorId', '');
+                setMemberSearch('');
+                setIsSearchOpen(false);
+              }}
+              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                formDonorType === 'guest'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-background hover:bg-muted'
+              }`}
+            >
+              Guest
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setValue('donorType', 'collective');
+                setValue('donorId', '');
+                setValue('donorName', '');
+                setValue('donorEmail', '');
+                setValue('donorPhone', '');
+                setMemberSearch('');
+                setIsSearchOpen(false);
+              }}
+              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                formDonorType === 'collective'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-background hover:bg-muted'
+              }`}
+            >
+              Collective
+            </button>
+          </div>
         </div>
+
+        {/* Member Selection */}
+        {formDonorType === 'member' && (
+          <div className="relative">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Select Member *
+              {watch('donorId') && <span className="text-green-600 text-xs ml-2">✓ Selected</span>}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search and click a member..."
+                value={memberSearch}
+                onChange={(e) => {
+                  setMemberSearch(e.target.value);
+                  setIsSearchOpen(true);
+                }}
+                onFocus={() => setIsSearchOpen(true)}
+                className={`w-full px-3 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary ${
+                  errors.donorId ? 'border-red-500' : 'border-border'
+                }`}
+              />
+              {isSearchOpen && memberSearch && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {members
+                    .filter((m: any) =>
+                      `${m.firstName} ${m.lastName}`.toLowerCase().includes(memberSearch.toLowerCase())
+                    )
+                    .map((member: any) => (
+                      <button
+                        key={member._id}
+                        type="button"
+                        onClick={() => {
+                          setValue('donorId', member._id);
+                          setMemberSearch(`${member.firstName} ${member.lastName}`);
+                          setIsSearchOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0 active:bg-primary active:text-primary-foreground"
+                      >
+                        <div className="font-medium">{member.firstName} {member.lastName}</div>
+                        {member.email && <div className="text-xs opacity-75">{member.email}</div>}
+                      </button>
+                    ))}
+                  {members.filter((m: any) =>
+                    `${m.firstName} ${m.lastName}`.toLowerCase().includes(memberSearch.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted">No members found - try another name</div>
+                  )}
+                </div>
+              )}
+            </div>
+            {errors.donorId && (
+              <span className="text-sm text-red-600 mt-1 block font-medium">
+                ⚠ {errors.donorId.message}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Guest Donor Info */}
+        {formDonorType === 'guest' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Donor Name *</label>
+              <Input placeholder="Full name" {...register('donorName')} />
+              {errors.donorName && <span className="text-sm text-red-600">{errors.donorName.message}</span>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Email (Optional)</label>
+              <Input type="email" placeholder="donor@example.com" {...register('donorEmail')} />
+              {errors.donorEmail && <span className="text-sm text-red-600">{errors.donorEmail.message}</span>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Phone (Optional)</label>
+              <Input placeholder="Phone number" {...register('donorPhone')} />
+              {errors.donorPhone && <span className="text-sm text-red-600">{errors.donorPhone.message}</span>}
+            </div>
+          </>
+        )}
+
+        {/* Collective Donation Info */}
+        {formDonorType === 'collective' && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Description (Optional)</label>
+            <Input placeholder="e.g., Building Fund Harvest, Youth Fundraiser" {...register('donorName')} />
+            <p className="text-xs text-muted mt-1">
+              For a lump-sum amount collected toward this project with no individual donor attribution.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
