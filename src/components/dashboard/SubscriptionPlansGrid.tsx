@@ -19,6 +19,7 @@ function PaystackUpgradeButton({
   userEmail,
   currentPlanPrice,
   isCurrentPlan,
+  isExpired,
 }: {
   plan: SubscriptionPlanResponse;
   billingCycle: 'monthly' | 'annual';
@@ -26,6 +27,7 @@ function PaystackUpgradeButton({
   userEmail: string;
   currentPlanPrice: number;
   isCurrentPlan: boolean;
+  isExpired: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -69,6 +71,53 @@ function PaystackUpgradeButton({
     },
   });
 
+  const renewMutation = useMutation({
+    mutationFn: () => subscriptionApi.renew(organization._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
+      toast.success(`${plan.name} renewed!`);
+      setIsProcessing(false);
+    },
+    onError: () => {
+      toast.error('Failed to renew plan');
+      setIsProcessing(false);
+    },
+  });
+
+  const handleRenewClick = () => {
+    if (plan.price === 0) {
+      setIsProcessing(true);
+      renewMutation.mutate();
+      return;
+    }
+
+    // Paid plan: same Paystack popup + verify flow used for upgrades - price
+    // is unchanged so verifyUpgrade labels this a 'renewal' server-side.
+    setIsProcessing(true);
+    initializePayment({
+      onSuccess: async (response: { reference: string }) => {
+        try {
+          await subscriptionApi.verifyUpgrade(organization._id, {
+            reference: response.reference,
+            planId: plan.id,
+            billingCycle,
+          });
+          queryClient.invalidateQueries({ queryKey: ['subscription'] });
+          queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
+          toast.success(`${plan.name} renewed!`);
+        } catch {
+          toast.error('Payment received but verification failed. Please contact support.');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      onClose: () => {
+        setIsProcessing(false);
+      },
+    });
+  };
+
   const handleUpgradeClick = () => {
     if (plan.price === 0) {
       // Downgrade to free — show confirmation
@@ -107,6 +156,19 @@ function PaystackUpgradeButton({
   };
 
   if (isCurrentPlan) {
+    if (isExpired) {
+      return (
+        <Button
+          variant="primary"
+          size="sm"
+          className="w-full"
+          onClick={handleRenewClick}
+          isLoading={isProcessing || renewMutation.isPending}
+        >
+          Renew
+        </Button>
+      );
+    }
     return (
       <Button variant="outline" size="sm" className="w-full" disabled>
         Current Plan
@@ -172,13 +234,16 @@ function PaystackUpgradeButton({
 export default function SubscriptionPlansGrid({
   organization,
   currentPlanId,
+  currentPeriodEnd,
   userEmail,
 }: {
   organization: any;
   currentPlanId?: string;
+  currentPeriodEnd?: string | Date;
   userEmail: string;
 }) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const isExpired = currentPeriodEnd ? new Date(currentPeriodEnd) < new Date() : false;
 
   const { data: allPlans = [], isLoading: plansLoading } = useQuery({
     queryKey: ['subscription-plans'],
@@ -323,6 +388,7 @@ export default function SubscriptionPlansGrid({
                       userEmail={userEmail}
                       currentPlanPrice={currentPlan?.price || 0}
                       isCurrentPlan={isCurrentPlan}
+                      isExpired={isExpired}
                     />
                   </div>
                 </div>

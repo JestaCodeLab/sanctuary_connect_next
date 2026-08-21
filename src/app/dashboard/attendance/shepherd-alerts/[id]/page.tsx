@@ -53,7 +53,31 @@ interface AlertLog {
   smsSent: boolean;
   recipientsNotified: Array<{ memberId: string; phoneNumber: string; status: 'pending' | 'sent' | 'failed' }>;
   error?: string;
+  checkPeriodEnd: string;
   createdAt: string;
+}
+
+interface AlertRun {
+  key: string;
+  runAt: string;
+  logs: AlertLog[];
+}
+
+// One executeShepherdAlertCheck() call inserts a ShepherdAlertLog per member
+// checked, all sharing the same checkPeriodEnd — group by that so a single
+// digest SMS (one per shepherd, listing every triggered member) renders once
+// per run instead of once per member, which otherwise reads as if a
+// separate SMS went out per absentee.
+function groupLogsByRun(logs: AlertLog[]): AlertRun[] {
+  const map = new Map<string, AlertLog[]>();
+  for (const log of logs) {
+    const key = log.checkPeriodEnd;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(log);
+  }
+  return Array.from(map.entries())
+    .map(([key, runLogs]) => ({ key, runAt: runLogs[0].createdAt, logs: runLogs }))
+    .sort((a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime());
 }
 
 function DetailField({ label, value }: { label: string; value?: string | number | null }) {
@@ -85,10 +109,17 @@ export default function ShepherdAlertDetailPage() {
   const params = useParams();
   const alertId = params?.id as string;
 
+  const RUNS_PER_PAGE = 10;
+  const MEMBERS_PREVIEW_COUNT = 5;
+
   const [alert, setAlert] = useState<ShepherdAlertDetail | null>(null);
   const [logs, setLogs] = useState<AlertLog[]>([]);
+  const [totalRuns, setTotalRuns] = useState(0);
+  const [runLimit, setRunLimit] = useState(RUNS_PER_PAGE);
+  const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(true);
+  const [loadingMoreRuns, setLoadingMoreRuns] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -106,18 +137,30 @@ export default function ShepherdAlertDetailPage() {
     }
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (limit: number = RUNS_PER_PAGE, isLoadMore = false) => {
     try {
-      setLogsLoading(true);
+      isLoadMore ? setLoadingMoreRuns(true) : setLogsLoading(true);
       const res = await api.get('/api/shepherd-alerts/logs/list', {
-        params: { shepherdAlertId: alertId },
+        params: { shepherdAlertId: alertId, runLimit: limit },
       });
       setLogs(res.data.logs || []);
+      setTotalRuns(res.data.totalRuns ?? 0);
+      setRunLimit(limit);
     } catch (err) {
       console.error('Error fetching alert logs:', err);
     } finally {
-      setLogsLoading(false);
+      isLoadMore ? setLoadingMoreRuns(false) : setLogsLoading(false);
     }
+  };
+
+  const handleLoadMoreRuns = () => fetchLogs(runLimit + RUNS_PER_PAGE, true);
+
+  const toggleRunExpanded = (runKey: string) => {
+    setExpandedRuns((prev) => {
+      const next = new Set(prev);
+      next.has(runKey) ? next.delete(runKey) : next.add(runKey);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -340,67 +383,119 @@ export default function ShepherdAlertDetailPage() {
           <div className="p-8 text-center text-sm text-muted">No checks have run for this alert yet.</div>
         ) : (
           <div className="divide-y divide-border">
-            {logs.map((log) => (
-              <div key={log._id} className="p-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{log.memberName}</span>
-                      {log.triggerred ? (
-                        <Badge variant="warning">Triggered</Badge>
+            {groupLogsByRun(logs).map((run) => {
+              const triggered = run.logs.filter((l) => l.triggerred);
+              const notifiedLog = triggered.find((l) => l.recipientsNotified.length > 0);
+              const recipients = notifiedLog?.recipientsNotified || [];
+              const smsSentCount = recipients.filter((r) => r.status === 'sent').length;
+              const smsFailedCount = recipients.filter((r) => r.status === 'failed').length;
+
+              return (
+                <div key={run.key} className="p-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+                    <p className="text-sm font-medium text-foreground">
+                      Checked {run.logs.length} member{run.logs.length !== 1 ? 's' : ''}
+                      {' · '}
+                      {triggered.length} triggered
+                    </p>
+                    <span className="text-xs text-muted whitespace-nowrap">{formatDateTime(run.runAt)}</span>
+                  </div>
+
+                  {triggered.length === 0 ? (
+                    <p className="text-xs text-muted">No one exceeded the absence threshold this run.</p>
+                  ) : (
+                    <>
+                      {/* One consolidated SMS summary for the whole run — a single
+                          digest SMS goes to each shepherd listing every triggered
+                          member, not one SMS per member. */}
+                      {recipients.length > 0 ? (
+                        <div className="mb-3 p-3 bg-muted/20 rounded-lg">
+                          <p className="text-xs font-medium text-foreground flex items-center gap-1.5 mb-1.5">
+                            <MessageSquare className="w-3.5 h-3.5" />1 digest SMS sent to each shepherd, listing all {triggered.length}{' '}
+                            triggered member{triggered.length !== 1 ? 's' : ''} — {smsSentCount} delivered
+                            {smsFailedCount > 0 ? `, ${smsFailedCount} failed` : ''}
+                          </p>
+                          <div className="space-y-1">
+                            {recipients.map((r, i) => (
+                              <p key={i} className="text-xs text-muted flex items-center gap-1.5">
+                                {r.status === 'sent' ? (
+                                  <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                ) : r.status === 'failed' ? (
+                                  <XCircle className="w-3 h-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                ) : null}
+                                {r.phoneNumber} —{' '}
+                                <span
+                                  className={
+                                    r.status === 'sent'
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : r.status === 'failed'
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : ''
+                                  }
+                                >
+                                  {r.status}
+                                </span>
+                              </p>
+                            ))}
+                          </div>
+                        </div>
                       ) : (
-                        <Badge variant="muted">Below threshold</Badge>
+                        <p className="text-xs text-muted mb-3">
+                          No SMS sent — every triggered member was suppressed (already alerted within this lookback period).
+                        </p>
                       )}
-                    </div>
-                    <p className="text-xs text-muted mt-0.5">
-                      {log.absenceCount} absence{log.absenceCount !== 1 ? 's' : ''} of {log.absenceThreshold} threshold, over last{' '}
-                      {log.lookbackPeriodDays} days
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted whitespace-nowrap">{formatDateTime(log.createdAt)}</span>
+
+                      {/* Compact per-member list - status only, no repeated SMS block.
+                          Large runs (e.g. 90+ triggered members) collapse to a
+                          preview by default so one run doesn't dominate the page. */}
+                      {(() => {
+                        const isExpanded = expandedRuns.has(run.key);
+                        const visible = isExpanded ? triggered : triggered.slice(0, MEMBERS_PREVIEW_COUNT);
+                        const remaining = triggered.length - visible.length;
+                        return (
+                          <>
+                            <div className="space-y-1">
+                              {visible.map((log) => (
+                                <div key={log._id} className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="text-foreground truncate">{log.memberName}</span>
+                                  <span className="text-muted whitespace-nowrap">
+                                    {log.absenceCount} absence{log.absenceCount !== 1 ? 's' : ''}
+                                    {!log.smsAttempted && log.error ? ' · suppressed' : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            {triggered.length > MEMBERS_PREVIEW_COUNT && (
+                              <button
+                                type="button"
+                                onClick={() => toggleRunExpanded(run.key)}
+                                className="mt-2 text-xs font-medium text-primary hover:underline"
+                              >
+                                {isExpanded ? 'Show less' : `Show ${remaining} more member${remaining !== 1 ? 's' : ''}`}
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                {log.triggerred && (
-                  <div className="mt-2 flex items-center gap-2 text-xs">
-                    {log.smsSent ? (
-                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle className="w-3.5 h-3.5" /> SMS sent
-                      </span>
-                    ) : log.smsAttempted ? (
-                      <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                        <XCircle className="w-3.5 h-3.5" /> SMS failed
-                      </span>
-                    ) : (
-                      <span className="text-muted">Not sent{log.error ? ` — ${log.error}` : ''}</span>
-                    )}
-                  </div>
-                )}
-
-                {log.recipientsNotified.length > 0 && (
-                  <div className="mt-2 pl-4 border-l-2 border-border space-y-1">
-                    <p className="text-xs text-muted flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" /> Sent to:
-                    </p>
-                    {log.recipientsNotified.map((r, i) => (
-                      <p key={i} className="text-xs text-muted">
-                        {r.phoneNumber} —{' '}
-                        <span
-                          className={
-                            r.status === 'sent'
-                              ? 'text-green-600 dark:text-green-400'
-                              : r.status === 'failed'
-                              ? 'text-red-600 dark:text-red-400'
-                              : ''
-                          }
-                        >
-                          {r.status}
-                        </span>
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+        {!logsLoading && runLimit < totalRuns && (
+          <div className="p-4 border-t border-border text-center">
+            <Button variant="outline" size="sm" onClick={handleLoadMoreRuns} disabled={loadingMoreRuns}>
+              {loadingMoreRuns ? (
+                <span className="flex items-center gap-2">
+                  <Loader className="w-4 h-4 animate-spin" /> Loading...
+                </span>
+              ) : (
+                `Load older checks (${totalRuns - runLimit} more)`
+              )}
+            </Button>
           </div>
         )}
       </Card>

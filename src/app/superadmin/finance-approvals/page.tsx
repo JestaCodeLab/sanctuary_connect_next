@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui';
-import { Loader2, CheckCircle, XCircle, AlertCircle, FileText, Lock, Search, Filter, ChevronDown, X, Eye, Check, Ban } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertCircle, FileText, Lock, Search, Filter, ChevronDown, X, Eye, Check, Ban, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -75,6 +75,7 @@ interface AccountDetails extends FinanceAccount {
   bankAccountType: string;
   tier: 'primary' | 'subaccount';
   paystackKeysAddedAt?: string;
+  paystackPublicKey?: string;
   statusHistory: Array<{
     status: string;
     changedAt: string;
@@ -158,16 +159,28 @@ function ActionDropdown({ account, onAction }: { account: FinanceAccount; onActi
             )}
 
             {account.status === 'approved' && (
-              <button
-                onClick={() => {
-                  onAction('revoke');
-                  setIsOpen(false);
-                }}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-red-600 dark:text-red-400 border-t border-gray-200 dark:border-gray-700 rounded-b-lg"
-              >
-                <Lock className="h-4 w-4" />
-                Revoke Access
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    onAction('paystack');
+                    setIsOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 text-blue-600 dark:text-blue-400 border-t border-gray-200 dark:border-gray-700"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Set Paystack Keys
+                </button>
+                <button
+                  onClick={() => {
+                    onAction('revoke');
+                    setIsOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-red-600 dark:text-red-400 border-t border-gray-200 dark:border-gray-700 rounded-b-lg"
+                >
+                  <Lock className="h-4 w-4" />
+                  Revoke Access
+                </button>
+              </>
             )}
           </div>
         </>,
@@ -183,13 +196,15 @@ export default function FinanceApprovalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<AccountDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalView, setModalView] = useState<'details' | 'approve' | 'reject' | 'revoke'>('details');
+  const [modalView, setModalView] = useState<'details' | 'approve' | 'reject' | 'revoke' | 'paystack'>('details');
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [approveNotes, setApproveNotes] = useState('');
   const [revokeReason, setRevokeReason] = useState('');
+  const [paystackSecretKey, setPaystackSecretKey] = useState('');
+  const [paystackPublicKey, setPaystackPublicKey] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
@@ -382,6 +397,47 @@ export default function FinanceApprovalsPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to revoke account';
       console.error('❌ Revoke error:', msg);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSetPaystackKeys = async () => {
+    if (!selectedAccount || !paystackSecretKey.trim() || !paystackPublicKey.trim()) {
+      setError('Both the secret key and public key are required');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const payload = { paystackSecretKey: paystackSecretKey.trim(), paystackPublicKey: paystackPublicKey.trim() };
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/superadmin/finance-accounts/${selectedAccount._id}/paystack-keys`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.details || result.error || 'Failed to set Paystack keys');
+      }
+
+      toast.success(`Paystack keys saved for ${selectedAccount.businessName}`);
+      setModalView('details');
+      setPaystackSecretKey('');
+      setPaystackPublicKey('');
+      setIsModalOpen(false);
+      fetchAccounts(page, statusFilter);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to set Paystack keys';
+      console.error('❌ Set Paystack keys error:', msg);
       setError(msg);
       toast.error(msg);
     } finally {
@@ -627,9 +683,11 @@ export default function FinanceApprovalsPage() {
           setApproveNotes('');
           setRejectionReason('');
           setRevokeReason('');
+          setPaystackSecretKey('');
+          setPaystackPublicKey('');
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[95vh] p-0 flex flex-col">
+        <DialogContent className={`${modalView === 'details' ? 'max-w-6xl' : 'max-w-lg'} max-h-[95vh] p-0 flex flex-col transition-[max-width] duration-200`}>
           {selectedAccount && (
             <>
               {/* Header */}
@@ -648,6 +706,7 @@ export default function FinanceApprovalsPage() {
                           {modalView === 'approve' && 'Approve Account'}
                           {modalView === 'reject' && 'Reject Application'}
                           {modalView === 'revoke' && 'Revoke Access'}
+                          {modalView === 'paystack' && 'Set Paystack Keys'}
                         </h2>
                         {modalView === 'details' && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedAccount.organizationId?.churchName}</p>}
                       </div>
@@ -700,6 +759,33 @@ export default function FinanceApprovalsPage() {
                         <div><p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-1">Account Holder</p><p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedAccount.bankAccountName}</p></div>
                       </div>
                     </section>
+
+                    {selectedAccount.status === 'approved' && (
+                      <section>
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Paystack Configuration</h3>
+                        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 flex items-center justify-between gap-4">
+                          {selectedAccount.paystackKeysAddedAt ? (
+                            <div>
+                              <p className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4" /> Configured
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                Set on {formatDate(selectedAccount.paystackKeysAddedAt)}
+                                {selectedAccount.paystackPublicKey ? ` · ${selectedAccount.paystackPublicKey}` : ''}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                              <AlertCircle className="w-4 h-4" /> Not configured yet — payments won&apos;t process until keys are set
+                            </p>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => setModalView('paystack')} className="flex-shrink-0">
+                            <KeyRound className="h-4 w-4 mr-2" />
+                            {selectedAccount.paystackKeysAddedAt ? 'Update Keys' : 'Set Keys'}
+                          </Button>
+                        </div>
+                      </section>
+                    )}
 
                     <section>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Documents</h3>
@@ -754,6 +840,39 @@ export default function FinanceApprovalsPage() {
                     <div><Label>Revocation Reason *</Label><Textarea placeholder="Explain why approval is being revoked..." value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} className="mt-2" required /></div>
                   </div>
                 )}
+
+                {modalView === 'paystack' && (
+                  <div className="space-y-4">
+                    <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                      <KeyRound className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800 dark:text-blue-300 ml-2">
+                        Enter the Paystack subaccount keys after verifying them off-platform. The secret key is encrypted before storage
+                        and never shown again — you&apos;ll need to re-enter it to change it later.
+                      </AlertDescription>
+                    </Alert>
+                    <div>
+                      <Label>Paystack Secret Key *</Label>
+                      <Input
+                        type="password"
+                        placeholder="sk_live_..."
+                        value={paystackSecretKey}
+                        onChange={(e) => setPaystackSecretKey(e.target.value)}
+                        className="mt-2 font-mono"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <Label>Paystack Public Key *</Label>
+                      <Input
+                        placeholder="pk_live_..."
+                        value={paystackPublicKey}
+                        onChange={(e) => setPaystackPublicKey(e.target.value)}
+                        className="mt-2 font-mono"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
@@ -765,7 +884,13 @@ export default function FinanceApprovalsPage() {
                   </>
                 )}
                 {modalView === 'details' && selectedAccount.status === 'approved' && (
-                  <Button onClick={() => setModalView('revoke')} className="flex-1" variant="destructive"><Lock className="h-4 w-4 mr-2" />Revoke</Button>
+                  <>
+                    <Button onClick={() => setModalView('paystack')} className="flex-1" variant="outline">
+                      <KeyRound className="h-4 w-4 mr-2" />
+                      {selectedAccount.paystackKeysAddedAt ? 'Update Paystack Keys' : 'Set Paystack Keys'}
+                    </Button>
+                    <Button onClick={() => setModalView('revoke')} className="flex-1" variant="destructive"><Lock className="h-4 w-4 mr-2" />Revoke</Button>
+                  </>
                 )}
                 {modalView === 'approve' && (
                   <>
@@ -783,6 +908,18 @@ export default function FinanceApprovalsPage() {
                   <>
                     <Button variant="outline" onClick={() => setModalView('details')} className="flex-1">Back</Button>
                     <Button onClick={handleRevoke} disabled={isProcessing || !revokeReason.trim()} className="flex-1" variant="destructive">{isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Revoking...</> : 'Confirm Revocation'}</Button>
+                  </>
+                )}
+                {modalView === 'paystack' && (
+                  <>
+                    <Button variant="outline" onClick={() => setModalView('details')} className="flex-1">Back</Button>
+                    <Button
+                      onClick={handleSetPaystackKeys}
+                      disabled={isProcessing || !paystackSecretKey.trim() || !paystackPublicKey.trim()}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Save Paystack Keys'}
+                    </Button>
                   </>
                 )}
               </div>

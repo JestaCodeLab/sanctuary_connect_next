@@ -317,6 +317,7 @@ export default function SubscriptionPage() {
             <SubscriptionPlansGrid
               organization={organization}
               currentPlanId={limits?.planId}
+              currentPeriodEnd={sub?.currentPeriodEnd}
               userEmail={user?.email || ''}
             />
           )}

@@ -424,6 +424,11 @@ export const subscriptionApi = {
     return response.data;
   },
 
+  renew: async (organizationId: string): Promise<SubscriptionResponse> => {
+    const response = await api.post<SubscriptionResponse>(`/api/subscriptions/${organizationId}/renew`);
+    return response.data;
+  },
+
   getLimits: async (organizationId: string) => {
     const response = await api.get<{
       planId: string;
@@ -982,19 +987,6 @@ export const smsApi = {
     });
     return response.data;
   },
-  purchaseCredits: async (amount: number, transactionId?: string, paymentMethod?: string): Promise<{
-    success: boolean;
-    message: string;
-    balance: number;
-  }> => {
-    const response = await api.post('/api/sms/credits/purchase', {
-      amount,
-      transactionId,
-      paymentMethod,
-    });
-    return response.data;
-  },
-
   initializePayment: async (credits: number, priceInGhs: number): Promise<{
     success: boolean;
     reference: string;

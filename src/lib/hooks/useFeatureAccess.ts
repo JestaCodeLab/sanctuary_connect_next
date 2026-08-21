@@ -44,8 +44,8 @@ export function useFeatureAccess(): UseFeatureAccessReturn {
   const hasFeature = (featureKey: string): boolean => {
     if (isLoading || !plan) return false;
 
-    // Sanctuary plan with all_features key includes everything
-    const hasAllFeatures = features.some(f => f.key === 'all_features' && f.included);
+    // Sanctuary plan with all_growth_ascend_features key includes everything
+    const hasAllFeatures = features.some(f => f.key === 'all_growth_ascend_features' && f.included);
     if (hasAllFeatures) return true;
 
     const feature = features.find(f => f.key === featureKey);
