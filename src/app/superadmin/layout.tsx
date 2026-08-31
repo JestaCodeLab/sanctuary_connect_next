@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Shield,
+  Headphones,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -27,6 +28,7 @@ const navLinks = [
   { label: 'SMS Packages', href: '/superadmin/sms-packages', icon: Package },
   { label: 'Audit Log', href: '/superadmin/audit-log', icon: ScrollText },
   { label: 'Finance Approvals', href: '/superadmin/finance-approvals', icon: DollarSign },
+  { label: 'Support', href: '/superadmin/support', icon: Headphones },
 ];
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {

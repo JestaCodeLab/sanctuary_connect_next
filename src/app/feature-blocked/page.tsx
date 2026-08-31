@@ -253,7 +253,7 @@ function FeatureBlockedContent() {
 
         {/* CTA */}
         <div className="space-y-3">
-          <Link href="/dashboard/settings/subscription">
+          <Link href="/dashboard/settings?tab=subscription">
             <Button className="w-full" size="lg">
               <Zap className="w-4 h-4 mr-2" />
               Upgrade Your Plan

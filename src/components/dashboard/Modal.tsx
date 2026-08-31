@@ -14,14 +14,22 @@ interface ModalProps {
   overlayClassName?: string;
 }
 
+// Reference-counted so that stacking two Modals (e.g. one opened from inside
+// another, like creating a custom role mid-invite) doesn't have the inner
+// one's close re-enable body scroll while the outer one is still open.
+let openModalCount = 0;
+
 export default function Modal({ isOpen, onClose, title, description, children, size = 'md', overlayClassName = '' }: ModalProps) {
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
+    if (!isOpen) return;
+    openModalCount += 1;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      openModalCount = Math.max(0, openModalCount - 1);
+      if (openModalCount === 0) {
+        document.body.style.overflow = '';
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;

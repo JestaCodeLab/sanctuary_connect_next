@@ -67,7 +67,8 @@ export default function BranchSelector() {
     window.location.reload();
   };
 
-  if (branches.length === 0) return null;
+  // Nothing to switch between on a single-branch plan - hide the selector entirely.
+  if (branches.length <= 1) return null;
 
   const pendingBranch = pendingBranchId ? branches.find(b => b._id === pendingBranchId) : null;
   const pendingLabel = pendingBranchId === null ? 'All Branches' : pendingBranch?.name ?? '';

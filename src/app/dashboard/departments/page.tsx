@@ -29,7 +29,7 @@ function DepartmentsContent() {
 
   const { data: departments = [], isLoading } = useQuery({
     queryKey: ['departments'],
-    queryFn: departmentsApi.getAll,
+    queryFn: () => departmentsApi.getAll(),
     refetchOnMount: 'always',
     staleTime: 0,
   });

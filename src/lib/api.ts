@@ -71,6 +71,8 @@ import type {
   SmsCostCalculation,
   AvailableMembersResponse,
   Invitation,
+  Role,
+  SupportTicket,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -92,13 +94,17 @@ api.interceptors.request.use(
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-      // Add branch context header
+      // Add branch context header - unless the caller already set one
+      // explicitly (e.g. to force an org-wide, unscoped fetch), since that's
+      // a deliberate per-request override of the ambient selected branch.
       try {
-        const branchStorage = localStorage.getItem('branch-storage');
-        if (branchStorage) {
-          const { state } = JSON.parse(branchStorage);
-          if (state?.selectedBranchId) {
-            config.headers['X-Branch-Id'] = state.selectedBranchId;
+        if (config.headers['X-Branch-Id'] === undefined) {
+          const branchStorage = localStorage.getItem('branch-storage');
+          if (branchStorage) {
+            const { state } = JSON.parse(branchStorage);
+            if (state?.selectedBranchId) {
+              config.headers['X-Branch-Id'] = state.selectedBranchId;
+            }
           }
         }
       } catch {
@@ -190,13 +196,19 @@ api.interceptors.response.use(
         fullResponse: error.response?.data,
       });
       
-      // Finance-account gating codes (branch-scoped KYC/subaccount status) are
-      // handled in-context by FinanceAccessGuard on the finance pages — never
-      // a global app-wide block, since non-finance widgets (e.g. the dashboard
-      // overview's recent-donations card) can hit these same endpoints.
-      const financeGateCodes = ['NO_ORG_CONTEXT', 'NO_BRANCH_SELECTED', 'FINANCE_ACCOUNT_NOT_APPROVED'];
+      // Only these codes actually come from requireFeature/subscription
+      // gating (a plan/billing problem, which /feature-blocked exists to
+      // explain). A plain 403 with no code - or any other code, e.g. from
+      // authorizeRole/authorizeRoleOrPermission rejecting a custom role
+      // that lacks a given permission - is a role/permission check failing
+      // exactly as designed. That must fail only the one request; hard-
+      // redirecting the whole app to the "upgrade your plan" screen for it
+      // sends the user to a page with nothing to show (it reads org state
+      // from a store that a full-page redirect wipes, since it isn't
+      // populated outside the dashboard layout) - "No organization found".
+      const featureGateCodes = ['NO_ORGANIZATION', 'NO_SUB', 'SUBSCRIPTION_INACTIVE', 'FEATURE_NOT_INCLUDED', 'INSUFFICIENT_SMS_CREDITS'];
 
-      if (typeof window !== 'undefined' && !financeGateCodes.includes(code)) {
+      if (typeof window !== 'undefined' && featureGateCodes.includes(code)) {
         const isOnBlockedPage = window.location.pathname.startsWith('/feature-blocked');
         const isOnOnboarding = window.location.pathname.startsWith('/onboarding');
 
@@ -219,7 +231,7 @@ api.interceptors.response.use(
           sessionStorage.setItem('featureBlockedFeatureKey', 'sms_credits');
           window.location.href = '/feature-blocked';
         }
-        // Otherwise, redirect to feature-blocked page (for FEATURE_GATED or other 403s)
+        // Otherwise, redirect to feature-blocked page (NO_ORGANIZATION, SUBSCRIPTION_INACTIVE, FEATURE_NOT_INCLUDED)
         else if (!isOnBlockedPage && code !== 'NO_SUB') {
           // Store only the feature key in sessionStorage
           sessionStorage.setItem('featureBlockedFeatureKey', featureKey);
@@ -791,8 +803,13 @@ export const prayerRequestsApi = {
 
 // Departments API
 export const departmentsApi = {
-  getAll: async (): Promise<Department[]> => {
-    const response = await api.get<Department[]>('/api/departments');
+  // allBranches: bypass the ambient selected-branch header to fetch every
+  // branch's departments regardless of what the admin currently has active
+  // in the branch switcher - e.g. for a picker scoped to a *different*
+  // branch than the one the admin happens to be viewing.
+  getAll: async (options?: { allBranches?: boolean }): Promise<Department[]> => {
+    const config = options?.allBranches ? { headers: { 'X-Branch-Id': 'all' } } : undefined;
+    const response = await api.get<Department[]>('/api/departments', config);
     return response.data;
   },
   getById: async (id: string): Promise<Department> => {
@@ -962,6 +979,72 @@ export const userBranchApi = {
   },
   removeBranch: async (orgId: string, userId: string, branchId: string): Promise<{ message: string }> => {
     const response = await api.delete<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/branches/${branchId}`);
+    return response.data;
+  },
+  updateUserRole: async (orgId: string, userId: string, data: { role: string; customRoleId?: string; branchIds?: string[]; departmentIds?: string[] }): Promise<{ message: string }> => {
+    const response = await api.patch<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/role`, data);
+    return response.data;
+  },
+};
+
+export const userDepartmentApi = {
+  getMyDepartments: async (): Promise<Department[]> => {
+    const response = await api.get<Department[]>('/api/users/me/departments');
+    return response.data;
+  },
+  assignDepartments: async (orgId: string, userId: string, departmentIds: string[]): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/departments`, { departmentIds });
+    return response.data;
+  },
+  removeDepartment: async (orgId: string, userId: string, departmentId: string): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/api/organizations/${orgId}/users/${userId}/departments/${departmentId}`);
+    return response.data;
+  },
+};
+
+export const roleApi = {
+  getPermissionTaxonomy: async (): Promise<{ modules: { key: string; name: string; permissions: { key: string; name: string }[] }[] }> => {
+    const response = await api.get('/api/roles/permissions');
+    return response.data;
+  },
+  list: async (): Promise<{ roles: Role[] }> => {
+    const response = await api.get('/api/roles');
+    return response.data;
+  },
+  get: async (id: string): Promise<{ role: Role }> => {
+    const response = await api.get(`/api/roles/${id}`);
+    return response.data;
+  },
+  create: async (data: { name: string; description?: string; permissions: string[] }): Promise<{ message: string; role: Role }> => {
+    const response = await api.post('/api/roles', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<{ name: string; description: string; permissions: string[]; isActive: boolean }>): Promise<{ message: string; role: Role }> => {
+    const response = await api.put(`/api/roles/${id}`, data);
+    return response.data;
+  },
+  deactivate: async (id: string): Promise<{ message: string; role: Role; assigneeCount: number }> => {
+    const response = await api.delete(`/api/roles/${id}`);
+    return response.data;
+  },
+};
+
+// Support API (tickets & feature requests - org side)
+export const supportApi = {
+  list: async (): Promise<{ tickets: SupportTicket[] }> => {
+    const response = await api.get('/api/support');
+    return response.data;
+  },
+  get: async (id: string): Promise<{ ticket: SupportTicket }> => {
+    const response = await api.get(`/api/support/${id}`);
+    return response.data;
+  },
+  create: async (data: { type: 'support' | 'feature_request'; subject: string; description: string; priority?: 'low' | 'medium' | 'high' }): Promise<{ message: string; ticket: SupportTicket }> => {
+    const response = await api.post('/api/support', data);
+    return response.data;
+  },
+  reply: async (id: string, message: string): Promise<{ message: string; ticket: SupportTicket }> => {
+    const response = await api.post(`/api/support/${id}/replies`, { message });
     return response.data;
   },
 };
@@ -1288,8 +1371,8 @@ export const settingsApi = {
 };
 
 export const invitationApi = {
-  send: async (email: string): Promise<{ message: string; invitation: Invitation }> => {
-    const response = await api.post('/api/invitations', { email });
+  send: async (data: { email: string; role?: string; customRoleId?: string; branchIds?: string[]; departmentIds?: string[] }): Promise<{ message: string; invitation: Invitation }> => {
+    const response = await api.post('/api/invitations', data);
     return response.data;
   },
   list: async (): Promise<{ invitations: Invitation[] }> => {

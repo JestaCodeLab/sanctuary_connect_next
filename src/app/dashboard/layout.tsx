@@ -33,7 +33,6 @@ import {
   Mail,
   Phone,
   Badge,
-  Zap,
   ArrowLeftRight,
   Target,
   AlertCircle,
@@ -41,8 +40,8 @@ import {
   UserCheck,
   Clock,
   CreditCard,
-  SlidersHorizontal,
   List,
+  Headphones,
 } from 'lucide-react';
 import { Logo, ThemeToggle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -50,9 +49,9 @@ import { useBranchStore } from '@/store/branchStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { organizationApi, userBranchApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useSessionWarning } from '@/lib/hooks/useSessionWarning';
 import BranchSelector from '@/components/dashboard/BranchSelector';
-import SubscriptionUsage from '@/components/dashboard/SubscriptionUsage';
 import { SessionWarningModal } from '@/components/SessionWarningModal';
 
 interface SidebarChild {
@@ -60,6 +59,7 @@ interface SidebarChild {
   href: string;
   icon?: LucideIcon;
   featureKey?: string;
+  permissionKey?: string;
 }
 
 interface SidebarLink {
@@ -67,6 +67,7 @@ interface SidebarLink {
   href: string;
   icon: LucideIcon;
   featureKey?: string;
+  permissionKey?: string;
   children?: SidebarChild[];
   hideWhenBranchSelected?: boolean;
 }
@@ -74,12 +75,13 @@ interface SidebarLink {
 const sidebarLinks: SidebarLink[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Branches', href: '/dashboard/branches', icon: Building2, hideWhenBranchSelected: true, featureKey: 'branches' },
-  { label: 'Departments', href: '/dashboard/departments', icon: Network, featureKey: 'department_management' },
+  { label: 'Departments', href: '/dashboard/departments', icon: Network, featureKey: 'department_management', permissionKey: 'departments.view' },
   {
     label: 'Members',
     href: '/dashboard/members',
     icon: Users,
     featureKey: 'member_directory',
+    permissionKey: 'members.view',
     children: [
       { label: 'All Members', href: '/dashboard/members' },
       { label: 'Birthdays', href: '/dashboard/members/birthdays', icon: Cake, featureKey: 'birthday_notifications' },
@@ -90,6 +92,7 @@ const sidebarLinks: SidebarLink[] = [
     href: '/dashboard/events',
     icon: Calendar,
     featureKey: 'event_management',
+    permissionKey: 'events.view',
     children: [
       { label: 'All Events', href: '/dashboard/events', icon: List },
       { label: 'Planner', href: '/dashboard/events/planner', icon: CalendarDays },
@@ -101,6 +104,7 @@ const sidebarLinks: SidebarLink[] = [
     href: '/dashboard/attendance',
     icon: ClipboardCheck,
     featureKey: 'attendance_tracking',
+    permissionKey: 'attendance.view',
     children: [
       { label: 'Check-in', href: '/dashboard/attendance', icon: UserCheck },
       { label: 'Shepherd Alerts', href: '/dashboard/attendance/shepherd-alerts', icon: AlertCircle, featureKey: 'ai_shepherd_alerts' },
@@ -111,6 +115,7 @@ const sidebarLinks: SidebarLink[] = [
     href: '/dashboard/finance',
     icon: DollarSign,
     featureKey: 'financial_reporting',
+    permissionKey: 'finance.view',
     children: [
       { label: 'Offerings', href: '/dashboard/finance/offerings', icon: TrendingUp },
       { label: 'Tithes', href: '/dashboard/finance/tithes', icon: TrendingUp },
@@ -126,6 +131,7 @@ const sidebarLinks: SidebarLink[] = [
     href: '/dashboard/communication',
     icon: MessageSquare,
     featureKey: 'sms_credits',
+    permissionKey: 'communication.manage',
     children: [
       { label: 'Buy Credits', href: '/dashboard/communication/credits', icon: CreditCard },
       { label: 'Send SMS', href: '/dashboard/communication/send-sms', icon: Send },
@@ -134,16 +140,8 @@ const sidebarLinks: SidebarLink[] = [
       { label: 'Templates', href: '/dashboard/communication/templates', icon: Mail },
     ],
   },
-  {
-    label: 'Settings',
-    href: '/dashboard/settings',
-    icon: Settings,
-    children: [
-      { label: 'General', href: '/dashboard/settings', icon: SlidersHorizontal },
-      { label: 'Users & Branches', href: '/dashboard/settings/users', icon: Users },
-      { label: 'Subscription', href: '/dashboard/settings/subscription', icon: Zap },
-    ],
-  },
+  // Settings and Support live in the sidebar footer, not here - see the
+  // "Sidebar Footer" section below.
 ];
 
 const bottomNavItems: SidebarChild[] = [
@@ -166,6 +164,8 @@ function SidebarItem({
   pathname,
   hasFeature,
   featureLoading,
+  hasPermission,
+  isCustomRole,
   onNavigate,
   isExpanded,
   onToggleExpand,
@@ -174,6 +174,8 @@ function SidebarItem({
   pathname: string;
   hasFeature: (key: string) => boolean;
   featureLoading: boolean;
+  hasPermission: (key: string) => boolean;
+  isCustomRole: boolean;
   onNavigate: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -184,6 +186,12 @@ function SidebarItem({
 
   // If the item itself is feature-gated and the feature is not available, hide it
   if (link.featureKey && !featureLoading && !hasFeature(link.featureKey)) {
+    return null;
+  }
+
+  // Additive permission filter: only ever applies to role==='custom' users -
+  // admin/pastor/staff/member visibility is unaffected.
+  if (isCustomRole && link.permissionKey && !hasPermission(link.permissionKey)) {
     return null;
   }
 
@@ -274,6 +282,7 @@ export default function DashboardLayout({
   const { selectedBranchId, setBranches } = useBranchStore();
   const { setOrganization, logoUrl, organization } = useOrganizationStore();
   const { hasFeature, isLoading: featureLoading } = useFeatureAccess();
+  const { hasPermission, isCustomRole } = usePermissions();
   const { showWarning, timeRemaining, formattedTime, refreshSession, handleLogout: handleSessionLogout, isRefreshing } = useSessionWarning();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -552,6 +561,8 @@ export default function DashboardLayout({
               pathname={pathname}
               hasFeature={hasFeature}
               featureLoading={featureLoading}
+              hasPermission={hasPermission}
+              isCustomRole={isCustomRole}
               onNavigate={() => setSidebarOpen(false)}
               isExpanded={expandedLabel === link.label}
               onToggleExpand={() => setExpandedLabel((prev) => (prev === link.label ? null : link.label))}
@@ -559,21 +570,38 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-white/20 space-y-3">
-          <SubscriptionUsage />
-          <div className="pt-3"></div>
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-medium">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-xs text-sidebar-foreground/60 truncate">{user?.role}</p>
-            </div>
-          </div>
+        {/* Sidebar Footer - Settings/Support in place of the old user-info card;
+            identity is already shown in the topbar profile dropdown. */}
+        <div className="p-3 border-t border-white/20 space-y-1">
+          {/* Settings covers org-admin concerns (users/branches, custom roles,
+              subscription) - no permission could ever grant a custom role
+              access to those, so it's hidden outright rather than permission-checked. */}
+          {!isCustomRole && (
+            <Link
+              href="/dashboard/settings"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                pathname.startsWith('/dashboard/settings')
+                  ? 'bg-white text-primary'
+                  : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </Link>
+          )}
+          <Link
+            href="/dashboard/support"
+            onClick={() => setSidebarOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname.startsWith('/dashboard/support')
+                ? 'bg-white text-primary'
+                : 'text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground'
+            }`}
+          >
+            <Headphones className="w-4 h-4" />
+            Support
+          </Link>
         </div>
       </aside>
 
