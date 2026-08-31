@@ -5,10 +5,45 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'superadmin' | 'admin' | 'pastor' | 'staff' | 'member';
+  role: 'superadmin' | 'admin' | 'pastor' | 'staff' | 'member' | 'custom';
+  customRoleId?: string;
   status: 'active' | 'inactive' | 'suspended';
   verified: boolean;
   organizationId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Role {
+  _id: string;
+  organizationId: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportTicketReply {
+  authorId: string;
+  authorName: string;
+  authorRole: 'org' | 'superadmin';
+  message: string;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  _id: string;
+  organizationId: string | { _id: string; churchName: string };
+  createdBy: string | { _id: string; firstName: string; lastName: string; email: string };
+  type: 'support' | 'feature_request';
+  subject: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  replies: SupportTicketReply[];
   createdAt: string;
   updatedAt: string;
 }
@@ -806,8 +841,10 @@ export interface UserWithBranches {
   firstName: string;
   lastName: string;
   role: string;
+  customRole?: { _id: string; name: string; isActive: boolean } | null;
   status: string;
   branches: Branch[];
+  departments?: Department[];
 }
 
 // Onboarding state
@@ -998,7 +1035,10 @@ export interface AvailableMembersResponse {
 export interface Invitation {
   _id: string;
   email: string;
-  role: 'admin';
+  role: 'admin' | 'pastor' | 'staff' | 'member' | 'custom';
+  customRoleId?: string;
+  branchIds?: string[];
+  departmentIds?: string[];
   status: 'pending' | 'accepted' | 'revoked';
   expiresAt: string;
   invitedBy: { _id: string; firstName: string; lastName: string; email: string } | null;

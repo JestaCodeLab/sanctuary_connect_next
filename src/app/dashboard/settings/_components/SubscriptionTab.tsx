@@ -122,7 +122,7 @@ function UsageCard({ item }: { item: UsageLimitItem }) {
   );
 }
 
-export default function SubscriptionPage() {
+export default function SubscriptionTab() {
   const { organization } = useOrganizationStore();
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('plans');
@@ -199,12 +199,6 @@ export default function SubscriptionPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Subscription & Limits</h1>
-        <p className="text-muted mt-2">View all available plans and your current usage limits</p>
-      </div>
-
       {/* Current Plan Summary */}
       {limits && (
         <Card className="p-6 border-primary/20 bg-primary/5">

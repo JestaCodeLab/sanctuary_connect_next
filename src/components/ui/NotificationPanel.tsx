@@ -1,7 +1,21 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Trash2, Check, CheckCheck } from 'lucide-react';
+import {
+  Trash2,
+  CheckCheck,
+  Loader2,
+  Inbox,
+  ClipboardList,
+  CreditCard,
+  HandCoins,
+  AlertTriangle,
+  Landmark,
+  Calendar,
+  Lock,
+  Mail,
+  type LucideIcon,
+} from 'lucide-react';
 import { useNotificationStore } from '@/store/notificationStore';
 
 interface NotificationPanelProps {
@@ -36,15 +50,15 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    if (type.includes('subscription')) return '📋';
-    if (type.includes('payment') || type.includes('sms')) return '💳';
-    if (type.includes('donation')) return '💰';
-    if (type.includes('shepherd')) return '🚨';
-    if (type.includes('finance_account')) return '🏦';
-    if (type.includes('event')) return '📅';
-    if (type.includes('auth')) return '🔐';
-    return '📬';
+  const getTypeIcon = (type: string): LucideIcon => {
+    if (type.includes('subscription')) return ClipboardList;
+    if (type.includes('payment') || type.includes('sms')) return CreditCard;
+    if (type.includes('donation')) return HandCoins;
+    if (type.includes('shepherd')) return AlertTriangle;
+    if (type.includes('finance_account')) return Landmark;
+    if (type.includes('event')) return Calendar;
+    if (type.includes('auth')) return Lock;
+    return Mail;
   };
 
   return (
@@ -78,16 +92,18 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center p-8">
-            <div className="animate-spin">⏳</div>
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-            <div className="text-4xl mb-2">📭</div>
+            <Inbox className="w-10 h-10 mb-2" />
             <p className="text-sm">No notifications yet</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {notifications.map(notification => (
+            {notifications.map(notification => {
+              const TypeIcon = getTypeIcon(notification.type);
+              return (
               <div
                 key={notification._id}
                 className={`border-l-4 p-3 hover:bg-accent/50 transition-colors cursor-pointer ${getPriorityColor(
@@ -103,7 +119,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <span className="text-lg mt-0.5">{getTypeIcon(notification.type)}</span>
+                  <TypeIcon className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -135,7 +151,8 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
