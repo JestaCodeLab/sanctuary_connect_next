@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ClipboardCheck,
   TrendingUp,
@@ -12,6 +12,8 @@ import {
   Search,
   Users,
   UserPlus,
+  Repeat,
+  RefreshCw,
 } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard';
@@ -45,10 +47,21 @@ function formatDate(dateStr: string): string {
 
 export default function AttendancePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const { data: attendanceStats } = useQuery({
     queryKey: ['attendance', 'stats'],
@@ -104,7 +117,16 @@ export default function AttendancePage() {
         actionLabel="Manual Check-In"
         actionIcon={UserCheck}
         onAction={() => router.push('/dashboard/attendance/manual-check-in')}
-      />
+      >
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          isLoading={isRefreshing}
+          leftIcon={<RefreshCw className="w-4 h-4" />}
+        >
+          Refresh
+        </Button>
+      </PageHeader>
 
       <StatsGrid stats={stats} />
 
@@ -132,7 +154,10 @@ export default function AttendancePage() {
                       <Calendar className="w-4 h-4 text-green-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{event.eventTitle}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{event.eventTitle}</p>
+                        {event.isRecurring && <Repeat className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                      </div>
                       <p className="text-xs text-muted mt-0.5">Started {formatDate(event.eventDate)}</p>
                     </div>
                   </div>
@@ -248,12 +273,16 @@ export default function AttendancePage() {
                       </span>
                     )}
                     <h3 className="text-sm font-medium text-foreground truncate">{event.eventTitle}</h3>
+                    {event.isRecurring && <Repeat className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                   </div>
                   <Badge variant={statusBadgeVariant[event.eventStatus]} className="flex-shrink-0">
                     {event.eventStatus.charAt(0).toUpperCase() + event.eventStatus.slice(1)}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted mt-0.5">{formatDate(event.eventDate)}</p>
+                <p className="text-xs text-muted mt-0.5">
+                  {event.eventStatus === 'ongoing' && event.isRecurring ? 'Live now · started ' : ''}
+                  {formatDate(event.eventDate)}
+                </p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-muted">
                   <span className="flex items-center gap-1">
                     <Users className="w-3 h-3" /> {event.totalCheckIns} total
@@ -302,6 +331,7 @@ export default function AttendancePage() {
                           </span>
                         )}
                         <span className="text-sm font-medium text-foreground">{event.eventTitle}</span>
+                        {event.isRecurring && <Repeat className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted whitespace-nowrap">{formatDate(event.eventDate)}</td>

@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, Download, Trash2 } from 'lucide-react';
@@ -61,6 +61,20 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     queryFn: () => eventsApi.getOccurrences(id, 90),
     enabled: !!event?.isRecurring,
   });
+
+  // Default to the current-if-live-else-next occurrence (occurrences[0] within
+  // the bounded 90-day window above - not an unbounded full-history query)
+  // instead of leaving the selector on "All Occurrences", so an admin landing
+  // here during a live service is immediately scoped to it. Runs once per
+  // page load only, via the ref guard, so it doesn't fight a later explicit
+  // switch back to "All Occurrences" (which also sets selectedOccurrence to '').
+  const didAutoSelectOccurrence = useRef(false);
+  useEffect(() => {
+    if (event?.isRecurring && occurrences.length > 0 && !didAutoSelectOccurrence.current) {
+      didAutoSelectOccurrence.current = true;
+      setSelectedOccurrence(occurrences[0].startDate);
+    }
+  }, [event?.isRecurring, occurrences]);
 
   const { data: attendanceData, isLoading, refetch } = useQuery({
     queryKey: ['attendance', 'event', id, selectedOccurrence],
