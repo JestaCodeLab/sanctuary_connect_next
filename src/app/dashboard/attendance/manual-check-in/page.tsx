@@ -3,18 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, CheckCircle, XCircle, User, Mail, Phone, Calendar, Search } from 'lucide-react';
+import { UserCheck, CheckCircle, XCircle, User, Mail, Phone, Calendar, Search, Repeat } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, Button, Input, Select } from '@/components/ui';
+import { Badge } from '@/components/dashboard';
 import PageHeader from '@/components/dashboard/PageHeader';
 import { attendanceApi, eventsApi, membersApi } from '@/lib/api';
-import type { ChurchEvent, Member } from '@/types';
+import { getEffectiveEventStatus, getCurrentOccurrenceForEvent, getNextOccurrenceDate, formatEventDateTime } from '@/lib/eventOccurrences';
+import type { ChurchEvent, Member, EventOccurrence } from '@/types';
+
+// The date that should represent this event in the picker/date filters: the
+// current-or-next occurrence for a recurring event, not its original
+// (possibly long-past) anchor startDate.
+function relevantEventDate(event: ChurchEvent): Date | null {
+  if (!event.isRecurring) return new Date(event.startDate);
+  return getCurrentOccurrenceForEvent(event)?.startDate ?? getNextOccurrenceDate(event);
+}
 
 export default function ManualCheckInPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [selectedOccurrence, setSelectedOccurrence] = useState('');
   const [checkInType, setCheckInType] = useState<'member' | 'guest'>('member');
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,15 +52,29 @@ export default function ManualCheckInPage() {
     enabled: checkInType === 'member',
   });
 
-  // Auto-populate event date when event is selected
+  const selectedEvent = events.find((e) => e._id === selectedEventId);
+
+  // For a recurring event, let the admin see and, if needed, override which
+  // occurrence they're checking someone into instead of silently trusting
+  // the backend's current-or-next-occurrence fallback.
+  const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
+    queryKey: ['events', selectedEventId, 'occurrences'],
+    queryFn: () => eventsApi.getOccurrences(selectedEventId, 90),
+    enabled: !!selectedEvent?.isRecurring,
+  });
+
+  // Auto-populate event date when event is selected - for recurring events
+  // this resolves to the current (if live) or next occurrence, not the
+  // event's original anchor startDate.
   useEffect(() => {
-    if (selectedEventId) {
-      const event = events.find((e) => e._id === selectedEventId);
-      if (event?.startDate) {
-        const date = new Date(event.startDate).toISOString().split('T')[0];
-        setEventDate(date);
-      }
+    if (!selectedEvent) {
+      setEventDate('');
+      setSelectedOccurrence('');
+      return;
     }
+    const date = relevantEventDate(selectedEvent);
+    setEventDate(date ? date.toISOString().split('T')[0] : '');
+    setSelectedOccurrence(selectedEvent.isRecurring && date ? date.toISOString() : '');
   }, [selectedEventId, events]);
 
   const checkInMutation = useMutation({
@@ -75,10 +100,14 @@ export default function ManualCheckInPage() {
       return;
     }
 
-    const data: any = { 
+    const data: any = {
       eventId: selectedEventId,
       notes,
     };
+
+    if (selectedEvent?.isRecurring && selectedOccurrence) {
+      data.occurrenceDate = selectedOccurrence;
+    }
 
     if (checkInType === 'member') {
       if (!selectedMemberId) {
@@ -99,32 +128,46 @@ export default function ManualCheckInPage() {
     checkInMutation.mutate(data);
   };
 
-  // Filter events by search query and date range
+  // Filter events by search query and date range - for recurring events, the
+  // date range is matched against the current/next occurrence, not the
+  // event's original anchor startDate (which for a long-running weekly
+  // service could be months or years in the past).
   const filteredEvents = events.filter((event) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     let matchesDateRange = true;
     if (startDate || endDate) {
-      const eventDate = new Date(event.startDate);
-      if (startDate) {
-        const start = new Date(startDate);
-        if (eventDate < start) matchesDateRange = false;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        // Set end date to end of day
-        end.setHours(23, 59, 59, 999);
-        if (eventDate > end) matchesDateRange = false;
+      const compareDate = relevantEventDate(event);
+      if (!compareDate) {
+        // Recurring series has ended with no further occurrences - excluded
+        // by any date filter since there's no relevant date to match.
+        matchesDateRange = false;
+      } else {
+        if (startDate) {
+          const start = new Date(startDate);
+          if (compareDate < start) matchesDateRange = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (compareDate > end) matchesDateRange = false;
+        }
       }
     }
-    
+
     return matchesSearch && matchesDateRange;
   });
 
-  const eventOptions = filteredEvents.map((e) => ({
-    value: e._id,
-    label: `${e.title} - ${new Date(e.startDate).toLocaleDateString()}`,
-  }));
+  const eventOptions = filteredEvents.map((e) => {
+    const compareDate = relevantEventDate(e);
+    const status = getEffectiveEventStatus(e);
+    const dateLabel = compareDate ? compareDate.toLocaleDateString() : 'no upcoming date';
+    const suffix = e.isRecurring ? (status === 'ongoing' ? ' · Live now' : ` · next ${dateLabel}`) : ` - ${dateLabel}`;
+    return {
+      value: e._id,
+      label: `${e.title}${e.isRecurring ? ' (recurring)' : ''}${suffix}`,
+    };
+  });
 
   const memberOptions = members.map((m) => ({
     value: m._id,
@@ -219,21 +262,53 @@ export default function ManualCheckInPage() {
                 <p className="text-xs text-muted">{filteredEvents.length} event(s) available</p>
               </>
             )}
-            {eventDate && (
-              <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-lg border border-border">
-                <Calendar className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Event Date</p>
-                  <p className="text-sm text-muted">
-                    {new Date(eventDate).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+            {selectedEvent?.isRecurring ? (
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                  <Repeat className="w-4 h-4 text-blue-500" />
+                  Occurrence
+                  {getEffectiveEventStatus(selectedEvent) === 'ongoing' && (
+                    <Badge variant="success">Live now</Badge>
+                  )}
+                </label>
+                {occurrences.length === 0 ? (
+                  <p className="text-sm text-muted p-3 bg-muted/20 rounded-lg border border-border">
+                    No upcoming occurrences found for this event&apos;s series.
                   </p>
-                </div>
+                ) : (
+                  <select
+                    value={selectedOccurrence}
+                    onChange={(e) => {
+                      setSelectedOccurrence(e.target.value);
+                      setEventDate(e.target.value ? e.target.value.split('T')[0] : '');
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  >
+                    {occurrences.map((occ) => (
+                      <option key={occ.startDate} value={occ.startDate}>
+                        {formatEventDateTime(occ.startDate)} ({occ.attendeeCount} checked in)
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
+            ) : (
+              eventDate && (
+                <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-lg border border-border">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Event Date</p>
+                    <p className="text-sm text-muted">
+                      {new Date(eventDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )
             )}
           </div>
         </Card>

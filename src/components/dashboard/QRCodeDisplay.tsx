@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { QrCode, Download, RefreshCw, X, Share2, Lock, Calendar, Printer } from 'lucide-react';
+import { QrCode, Download, RefreshCw, X, Share2, Lock, Calendar, Printer, Copy, Check, CalendarX } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, Card } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
@@ -13,21 +13,24 @@ interface QRCodeDisplayProps {
   eventTitle: string;
   isRecurring?: boolean;
   showAsCard?: boolean; // true = show directly as card, false = show as button that opens modal
+  /** The event's actual (occurrence-aware) status is 'completed' or 'cancelled' - check-in is over, so skip fetching/generating a QR code and show a plain "ended" state instead of treating an expired code as an error. */
+  isEventEnded?: boolean;
 }
 
 interface ServiceCodeState {
   [occurrenceDateStr: string]: string; // occurrenceDate ISO string -> code
 }
 
-export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false, showAsCard = true }: QRCodeDisplayProps) {
+export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false, showAsCard = true, isEventEnded = false }: QRCodeDisplayProps) {
   const [isOpen, setIsOpen] = useState(showAsCard);
   const [serviceCodes, setServiceCodes] = useState<ServiceCodeState>({});
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: qrData, isLoading, isError, error } = useQuery({
     queryKey: ['qr-code', eventId],
     queryFn: () => eventsApi.getQRCode(eventId),
-    enabled: showAsCard || isOpen,
+    enabled: (showAsCard || isOpen) && !isEventEnded,
     retry: false,
   });
 
@@ -40,7 +43,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
     queryKey: ['events', eventId, 'occurrences'],
     queryFn: () => eventsApi.getOccurrences(eventId, 7),
-    enabled: (showAsCard || isOpen) && isRecurring,
+    enabled: (showAsCard || isOpen) && isRecurring && !isEventEnded,
   });
 
   // Get only the next upcoming occurrence
@@ -50,7 +53,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   const { data: existingServiceCode } = useQuery({
     queryKey: ['service-code', eventId, nextOccurrence?.startDate],
     queryFn: () => eventsApi.getServiceCode(eventId, nextOccurrence!.startDate),
-    enabled: (showAsCard || isOpen) && isRecurring && !!nextOccurrence,
+    enabled: (showAsCard || isOpen) && isRecurring && !!nextOccurrence && !isEventEnded,
     retry: false,
   });
 
@@ -86,11 +89,11 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
   // generate it quietly as soon as we detect it's absent.
   const autoGenerateAttempted = useRef(false);
   useEffect(() => {
-    if (isMissingQr && !autoGenerateAttempted.current) {
+    if (isMissingQr && !isEventEnded && !autoGenerateAttempted.current) {
       autoGenerateAttempted.current = true;
       generateMutation.mutate({ silent: true });
     }
-  }, [isMissingQr, generateMutation]);
+  }, [isMissingQr, isEventEnded, generateMutation]);
 
   // If the silent auto-generate attempt itself failed, stop treating this as
   // "still loading" and fall through to the real error state below so the
@@ -130,6 +133,14 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
 
   const handleGenerate = () => {
     generateMutation.mutate({});
+  };
+
+  const handleCopyUrl = () => {
+    if (!qrData?.checkInUrl) return;
+    navigator.clipboard.writeText(qrData.checkInUrl);
+    setCopiedUrl(true);
+    toast.success('Check-in URL copied to clipboard');
+    setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const handleShare = () => {
@@ -321,22 +332,22 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
       )}
 
       <div className="text-center">
-        <div className="flex items-center justify-center mb-4">
-          <QrCode className="w-6 h-6 text-primary mr-2" />
-          <h2 className="text-xl font-semibold text-foreground">
-            Attendance QR Code
-          </h2>
-        </div>
-        <p className="text-sm text-muted mb-4">
-          Scan this code to check in to {eventTitle}
-        </p>
 
+        {isEventEnded ? (
+          <div className="py-10">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted/30 flex items-center justify-center">
+              <CalendarX className="w-7 h-7 text-muted" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-1">This event has ended</h3>
+            <p className="text-sm text-muted max-w-xs mx-auto">
+              Check-in is no longer available{isRecurring ? ' — this series has ended' : ''}.
+            </p>
+          </div>
+        ) : (
+          <>
         {/* Service Code Section for Next Occurrence */}
         {isRecurring && nextOccurrence && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              Service Code for Next Occurrence
-            </h3>
             {(() => {
               const occDateStr = new Date(nextOccurrence.startDate).toISOString();
               const hasCode = serviceCodes[occDateStr];
@@ -435,20 +446,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
           </div>
         )}
 
-        {/* Security info for service codes */}
-        {isRecurring && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-start gap-2">
-              <Lock className="w-4 h-4 text-green-700 dark:text-green-400 mt-0.5 flex-shrink-0" />
-              <div className="text-left">
-                <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">Service Code Security</p>
-                <p className="text-xs text-green-600 dark:text-green-500">
-                  This recurring event uses service codes for enhanced security. Generate a unique 4-digit code for each occurrence above. Members have until the next day after each service to check in using the QR code and the service code.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {qrData?.occurrenceDate && (
           <p className="text-xs font-medium text-primary mb-4">
@@ -482,8 +480,14 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
         ) : qrData ? (
           <>
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-700 dark:text-blue-400">
-                ℹ️ This QR code links directly to a check-in page. When scanned, it opens the URL below.
+              <div className="flex items-center justify-center mb-4">
+                <QrCode className="w-6 h-6 text-primary mr-2" />
+                <h2 className="text-xl font-semibold text-foreground">
+                  Attendance QR Code
+                </h2>
+              </div>
+              <p className="text-sm text-muted mb-4">
+                Scan this code to check in to {eventTitle}
               </p>
             </div>
 
@@ -495,21 +499,19 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
               />
             </div>
 
-            {qrData.token && (
-              <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                <p className="text-xs font-medium text-foreground mb-1">Check-In Token:</p>
-                <p className="text-sm font-mono font-bold text-primary break-all">{qrData.token}</p>
-                <p className="text-xs text-muted mt-1">
-                  {isRecurring
-                    ? 'This token is reusable for all occurrences (service code changes per event)'
-                    : 'Use this token to manually check in'}
-                </p>
-              </div>
-            )}
-
             {qrData.checkInUrl && (
               <div className="mb-4 p-3 bg-muted/20 rounded-lg">
-                <p className="text-xs font-medium text-foreground mb-1">Check-In URL:</p>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-medium text-foreground">Check-In URL:</p>
+                  <button
+                    onClick={handleCopyUrl}
+                    className="text-muted hover:text-foreground flex-shrink-0"
+                    aria-label="Copy check-in URL"
+                    title="Copy check-in URL"
+                  >
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
                 <p className="text-xs text-muted break-all">{qrData.checkInUrl}</p>
               </div>
             )}
@@ -517,12 +519,6 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
             {!isRecurring && qrData.expiresAt && qrData.expiresAt !== null && (
               <p className="text-xs text-muted mb-6">
                 Valid until: {new Date(qrData.expiresAt).toLocaleString('en-US', { timeZone: 'UTC' })}
-              </p>
-            )}
-
-            {isRecurring && (
-              <p className="text-xs text-muted mb-6">
-                Recurring event - QR code is permanent, service codes rotate per occurrence
               </p>
             )}
 
@@ -565,6 +561,8 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
               Generate QR Code
             </Button>
           </div>
+        )}
+          </>
         )}
       </div>
     </>

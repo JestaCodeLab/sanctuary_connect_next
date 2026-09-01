@@ -11,6 +11,7 @@ import ShareButtons from '@/components/dashboard/ShareButtons';
 import QRCodeDisplay from '@/components/dashboard/QRCodeDisplay';
 import { eventsApi } from '@/lib/api';
 import { useFeatureAccess } from '@/lib/hooks/useFeatureAccess';
+import { getEffectiveEventStatus, getCurrentOccurrenceForEvent, getNextOccurrenceDate } from '@/lib/eventOccurrences';
 import type { ChurchEvent, EventOccurrence } from '@/types';
 
 const statusBadgeVariant: Record<ChurchEvent['status'], 'info' | 'success' | 'muted' | 'error'> = {
@@ -76,37 +77,7 @@ function DetailField({ label, value }: { label: string; value?: string | number 
   );
 }
 
-// Helper function to compute the correct event status based on current time
-function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
-  // Respect cancelled status
-  if (event.status === 'cancelled') {
-    return 'cancelled';
-  }
-
-  const now = new Date();
-  const startDate = new Date(event.startDate);
-  const endDate = new Date(event.endDate);
-
-  if (event.isRecurring) {
-    // For recurring events, check if the series has ended
-    if (event.recurrenceEndDate) {
-      const recurrenceEnd = new Date(event.recurrenceEndDate);
-      if (recurrenceEnd < now) {
-        return 'completed';
-      }
-    }
-    return event.status; // Keep current status for active recurring events
-  }
-
-  // For non-recurring events
-  if (endDate < now) {
-    return 'completed';
-  } else if (startDate <= now && endDate >= now) {
-    return 'ongoing';
-  } else {
-    return 'scheduled';
-  }
-}
+const getActualStatus = getEffectiveEventStatus;
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -174,14 +145,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </Badge>
             )}
           </div>
-          {event.description && (
-            <p className="text-muted mt-2 max-w-2xl">{event.description}</p>
+          {event.isRecurring && (
+            <p className="text-sm text-muted mt-2">
+              {getActualStatus(event) === 'ongoing'
+                ? `This occurrence is live now, started ${formatDateTime(getCurrentOccurrenceForEvent(event)!.startDate.toISOString())}.`
+                : getActualStatus(event) === 'scheduled' && getNextOccurrenceDate(event)
+                ? `Next occurrence: ${formatDateTime(getNextOccurrenceDate(event)!.toISOString())}.`
+                : null}
+            </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/dashboard/events/${event._id}/attendance`}>
-            <Button variant="outline" size="sm" leftIcon={<Users className="w-4 h-4" />}>
-              View Attendance
+            <Button
+              variant={getActualStatus(event) === 'ongoing' ? 'primary' : 'outline'}
+              size="sm"
+              leftIcon={<Users className="w-4 h-4" />}
+            >
+              {getActualStatus(event) === 'ongoing' ? 'Check In / Attendance' : 'View Attendance'}
             </Button>
           </Link>
           <ShareEventSection eventId={event._id} eventTitle={event.title} existingShareToken={event.shareToken} />
@@ -306,7 +287,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Right Column - QR Code (shown first on mobile — it's what an admin needs fastest at the door) */}
         <div className="order-1 lg:order-2 lg:sticky lg:top-24 h-fit space-y-6">
-          <QRCodeDisplay eventId={event._id} eventTitle={event.title} isRecurring={event.isRecurring} />
+          <QRCodeDisplay
+            eventId={event._id}
+            eventTitle={event.title}
+            isRecurring={event.isRecurring}
+            isEventEnded={getActualStatus(event) === 'completed' || getActualStatus(event) === 'cancelled'}
+          />
           {event.organizationId && (
             <GiveOnlineSection
               organizationId={event.organizationId}

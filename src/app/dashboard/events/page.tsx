@@ -24,7 +24,7 @@ import { Button, Input, Card, Select, Checkbox } from '@/components/ui';
 import { eventsApi } from '@/lib/api';
 import { eventSchema, type EventFormData } from '@/lib/validations';
 import { useBranchStore } from '@/store/branchStore';
-import { getCurrentOccurrenceForEvent, formatRecurrenceSummary, splitDateTimeLocal, combineDateAndTime, toEventISOString, formatEventDate, formatEventTime } from '@/lib/eventOccurrences';
+import { getEffectiveEventStatus, formatRecurrenceSummary, splitDateTimeLocal, combineDateAndTime, toEventISOString, formatEventDate, formatEventTime } from '@/lib/eventOccurrences';
 import type { ChurchEvent } from '@/types';
 
 type StatusFilter = 'all' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
@@ -62,43 +62,7 @@ const dayOfWeekOptions = [
   { value: '6', label: 'Saturday' },
 ];
 
-// Helper function to compute the correct event status based on current time
-function getActualStatus(event: ChurchEvent): ChurchEvent['status'] {
-  // Respect cancelled status
-  if (event.status === 'cancelled') {
-    return 'cancelled';
-  }
-
-  const now = new Date();
-  const startDate = new Date(event.startDate);
-  const endDate = new Date(event.endDate);
-
-  if (event.isRecurring) {
-    // For recurring events, check if the series has ended
-    if (event.recurrenceEndDate) {
-      const recurrenceEnd = new Date(event.recurrenceEndDate);
-      if (recurrenceEnd < now) {
-        return 'completed';
-      }
-    }
-    // Check if there's a current occurrence happening
-    const currentOccurrence = getCurrentOccurrenceForEvent(event, now);
-    if (currentOccurrence) {
-      return 'ongoing';
-    }
-    // If series hasn't ended and there are future occurrences, it's scheduled
-    return 'scheduled';
-  }
-
-  // For non-recurring events
-  if (endDate < now) {
-    return 'completed';
-  } else if (startDate <= now && endDate >= now) {
-    return 'ongoing';
-  } else {
-    return 'scheduled';
-  }
-}
+const getActualStatus = getEffectiveEventStatus;
 
 export default function EventsPage() {
   const router = useRouter();
