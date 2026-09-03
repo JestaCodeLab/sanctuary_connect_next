@@ -483,7 +483,7 @@ export default function QRCodeDisplay({ eventId, eventTitle, isRecurring = false
           <>
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-xs text-blue-700 dark:text-blue-400">
-                ℹ️ This QR code links directly to a check-in page. When scanned, it opens the URL below.
+                This QR code links directly to a check-in page. When scanned, it opens the URL below.
               </p>
             </div>
 

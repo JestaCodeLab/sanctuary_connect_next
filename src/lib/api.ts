@@ -613,8 +613,10 @@ export const eventsApi = {
     const response = await api.post<{ message: string }>(`/api/events/${id}/share/email`, data);
     return response.data;
   },
-  getOccurrences: async (id: string, rangeDays: number = 30): Promise<EventOccurrence[]> => {
-    const response = await api.get<EventOccurrence[]>(`/api/events/${id}/occurrences?range=${rangeDays}`);
+  getOccurrences: async (id: string, rangeDays: number = 30, includePast: boolean = false): Promise<EventOccurrence[]> => {
+    const response = await api.get<EventOccurrence[]>(
+      `/api/events/${id}/occurrences?range=${rangeDays}${includePast ? '&includePast=true' : ''}`
+    );
     return response.data;
   },
   generateQRCode: async (id: string): Promise<{ token: string; dataUrl: string; expiresAt: string | null; checkInUrl?: string; occurrenceDate?: string; usesServiceCodes?: boolean }> => {
@@ -688,6 +690,8 @@ export interface AttendanceEventSummary {
   eventType?: string;
   eventStatus: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   isRecurring: boolean;
+  /** Recurring events only: how many occurrences fall inside the filtered window. */
+  occurrencesInRange?: number;
   totalCheckIns: number;
   members: number;
   guests: number;

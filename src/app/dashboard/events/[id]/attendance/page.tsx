@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, Download, Trash2 } from 'lucide-react';
@@ -56,11 +56,23 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
     queryFn: () => eventsApi.getById(id),
   });
 
-  const { data: occurrences = [] } = useQuery<EventOccurrence[]>({
-    queryKey: ['events', id, 'occurrences'],
-    queryFn: () => eventsApi.getOccurrences(id, 90),
+  // includePast: true - unlike the "Upcoming Occurrences" panel on the event
+  // detail page, this selector is for reviewing/exporting attendance that
+  // already happened, so past occurrences (where the actual check-in data
+  // lives) must be included, not just the next 90 days.
+  const { data: rawOccurrences = [] } = useQuery<EventOccurrence[]>({
+    queryKey: ['events', id, 'occurrences', 'withPast'],
+    queryFn: () => eventsApi.getOccurrences(id, 90, true),
     enabled: !!event?.isRecurring,
   });
+
+  // Most recent first, so the occurrence an admin is most likely reviewing
+  // (last week's service) is at the top instead of buried under a year of
+  // future dates.
+  const occurrences = useMemo(
+    () => [...rawOccurrences].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
+    [rawOccurrences]
+  );
 
   const { data: attendanceData, isLoading, refetch } = useQuery({
     queryKey: ['attendance', 'event', id, selectedOccurrence],

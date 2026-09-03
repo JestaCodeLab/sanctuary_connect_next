@@ -22,11 +22,17 @@ export const useBranchStore = create<BranchState>()(
 
       setBranches: (branches) => {
         const current = get();
-        // Auto-select if only one branch and the user has never made an explicit
-        // choice yet (selectedBranchId === null is ambiguous on its own - it also
-        // means "explicitly chose All Branches" - hasUserSelected disambiguates).
-        if (branches.length === 1 && !current.hasUserSelected) {
-          set({ branches, selectedBranchId: branches[0]._id });
+        // Always land the user in a branch context rather than "All Branches"
+        // by default - auto-select whenever there's at least one branch and
+        // the user has never made an explicit choice yet (selectedBranchId
+        // === null is ambiguous on its own - it also means "explicitly chose
+        // All Branches" - hasUserSelected disambiguates). Prefer the head
+        // office branch as the default when there's more than one; the user
+        // can still explicitly switch to "All Branches" via the selector,
+        // which sets hasUserSelected and is then respected below.
+        if (branches.length > 0 && !current.hasUserSelected) {
+          const defaultBranch = branches.find((b) => b.isHeadOffice) ?? branches[0];
+          set({ branches, selectedBranchId: defaultBranch._id });
         } else {
           // Validate current selection still exists
           const stillValid = current.selectedBranchId &&
