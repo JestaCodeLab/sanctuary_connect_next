@@ -181,7 +181,7 @@ export default function NewShepherdAlertPage() {
         {/* Info Box */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>How it works:</strong> This alert monitors attendance for <strong>all members in the selected branch</strong>. When any member reaches the absence threshold, selected shepherds will be notified via SMS.
+            <strong>How it works:</strong> This alert monitors attendance for <strong>all members in the selected branch</strong>. When any member reaches the absence threshold, selected shepherds will be notified via SMS. Visitors and transferred members are not monitored.
           </p>
         </div>
 
