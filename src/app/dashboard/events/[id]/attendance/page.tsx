@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useMemo } from 'react';
+import { use, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Users, QrCode, UserCheck, UserPlus, CheckCircle, Download, Trash2 } from 'lucide-react';
@@ -67,12 +67,39 @@ export default function EventAttendancePage({ params }: { params: Promise<{ id: 
   });
 
   // Most recent first, so the occurrence an admin is most likely reviewing
-  // (last week's service) is at the top instead of buried under a year of
+  // (last week's service) is near the top instead of buried under a year of
   // future dates.
   const occurrences = useMemo(
     () => [...rawOccurrences].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
     [rawOccurrences]
   );
+
+  // The occurrence to land on by default: the one running right now, else the
+  // next upcoming one. This can't just be occurrences[0] - now that the list
+  // includes past occurrences (see includePast above) and is ordered
+  // newest-first, [0] is the furthest-future date rather than the relevant one.
+  const defaultOccurrence = useMemo(() => {
+    const now = Date.now();
+    // occurrences is newest-first, so scanning from the end finds the earliest
+    // occurrence that hasn't finished yet - i.e. live now, or next up.
+    for (let i = occurrences.length - 1; i >= 0; i--) {
+      if (new Date(occurrences[i].endDate).getTime() >= now) return occurrences[i];
+    }
+    return occurrences[0]; // series already over - fall back to the latest
+  }, [occurrences]);
+
+  // Default to that occurrence instead of leaving the selector on "All
+  // Occurrences", so an admin landing here during a live service is
+  // immediately scoped to it. Runs once per page load only, via the ref guard,
+  // so it doesn't fight a later explicit switch back to "All Occurrences"
+  // (which also sets selectedOccurrence to '').
+  const didAutoSelectOccurrence = useRef(false);
+  useEffect(() => {
+    if (event?.isRecurring && defaultOccurrence && !didAutoSelectOccurrence.current) {
+      didAutoSelectOccurrence.current = true;
+      setSelectedOccurrence(defaultOccurrence.startDate);
+    }
+  }, [event?.isRecurring, defaultOccurrence]);
 
   const { data: attendanceData, isLoading, refetch } = useQuery({
     queryKey: ['attendance', 'event', id, selectedOccurrence],

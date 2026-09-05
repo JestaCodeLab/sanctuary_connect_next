@@ -690,8 +690,6 @@ export interface AttendanceEventSummary {
   eventType?: string;
   eventStatus: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   isRecurring: boolean;
-  /** Recurring events only: how many occurrences fall inside the filtered window. */
-  occurrencesInRange?: number;
   totalCheckIns: number;
   members: number;
   guests: number;

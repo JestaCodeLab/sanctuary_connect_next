@@ -161,6 +161,23 @@ export function formatRecurrenceSummary(input: RecurrenceSummaryInput): string {
 }
 
 /**
+ * `recurrenceEndDate` is picked via a date-only field (the "Recurring End
+ * Date" input above), so it's stored as that calendar day's midnight UTC
+ * instant. Comparing it directly against an occurrence's actual start time
+ * (e.g. 11:00 AM) would treat the series as already over before that day's
+ * occurrence even happens - excluding the final, intended occurrence
+ * entirely. Normalize to the end of that calendar day instead, so "ends on
+ * the 8th" includes whatever time-of-day the series runs at on the 8th.
+ * Mirrors api/src/utils/occurrenceHelper.js's seriesEndBoundary - keep in sync.
+ */
+function seriesEndBoundary(recurrenceEndDate?: string): Date | null {
+  if (!recurrenceEndDate) return null;
+  const d = new Date(recurrenceEndDate);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
+
+/**
  * The next occurrence of `event` at or after `from` — for one-time events,
  * just its startDate; for recurring events, the next scheduled occurrence
  * (or the one currently in progress). Returns null once the series has
@@ -173,7 +190,7 @@ export function getNextOccurrenceDate(event: ChurchEvent, from: Date = new Date(
 
   const anchorStart = new Date(event.startDate);
   const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
-  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
+  const seriesEnd = seriesEndBoundary(event.recurrenceEndDate);
 
   const current = new Date(anchorStart);
   if (event.recurrenceDay !== undefined && event.recurrenceDay !== null) {
@@ -211,7 +228,7 @@ export function getCurrentOccurrenceForEvent(event: ChurchEvent, now: Date = new
 
   const anchorStart = new Date(event.startDate);
   const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
-  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
+  const seriesEnd = seriesEndBoundary(event.recurrenceEndDate);
 
   // Use UTC-based Date methods throughout: event.startDate is a UTC instant
   // representing the fixed event timezone's wall-clock time, and getDay()/
@@ -255,6 +272,33 @@ export function getCurrentOccurrenceForEvent(event: ChurchEvent, now: Date = new
 }
 
 /**
+ * The event's real-world status right now, independent of its stored
+ * `status` field. Recurring events never persist "ongoing" in the DB (an
+ * occurrence starts and ends every week, so nothing durable would need
+ * flipping back to "scheduled" afterwards) - this recomputes it live from
+ * the occurrence schedule, same as `getCurrentOccurrenceForEvent`. This is
+ * the one place that logic should live - mirrors
+ * api/src/utils/occurrenceHelper.js's getEffectiveEventStatus, keep in sync.
+ */
+export function getEffectiveEventStatus(event: ChurchEvent, now: Date = new Date()): ChurchEvent['status'] {
+  if (event.status === 'cancelled') return 'cancelled';
+
+  if (event.isRecurring) {
+    const seriesEnd = seriesEndBoundary(event.recurrenceEndDate);
+    if (seriesEnd && seriesEnd < now) {
+      return 'completed';
+    }
+    return getCurrentOccurrenceForEvent(event, now) ? 'ongoing' : 'scheduled';
+  }
+
+  const startDate = new Date(event.startDate);
+  const endDate = new Date(event.endDate);
+  if (endDate < now) return 'completed';
+  if (startDate <= now && endDate >= now) return 'ongoing';
+  return 'scheduled';
+}
+
+/**
  * Every occurrence of a (possibly recurring) event that falls within
  * [rangeStart, rangeEnd]. Used by the events Planner calendar to render each
  * day's cell without duplicating the recurrence math per page.
@@ -264,7 +308,7 @@ export function getOccurrencesInRange(event: ChurchEvent, rangeStart: Date, rang
 
   const anchorStart = new Date(event.startDate);
   const duration = new Date(event.endDate).getTime() - anchorStart.getTime();
-  const seriesEnd = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null;
+  const seriesEnd = seriesEndBoundary(event.recurrenceEndDate);
   const from = new Date(rangeStart);
   const to = new Date(rangeEnd);
 
