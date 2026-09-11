@@ -105,9 +105,15 @@ function FeatureBlockedContent() {
     const feature = subscriptionData.plan.features.find(f => f.key === featureKey);
     if (feature) {
       const featureName = feature.name || feature.text || featureKey;
+      // The plan's feature list does include this one - so what actually
+      // blocked access was the org's subscription status (inactive/no
+      // subscription), not this specific feature being excluded from the
+      // plan. Don't claim otherwise.
       return {
         name: featureName,
-        description: `${featureName} is not included in your current plan`,
+        description: feature.included
+          ? `${featureName} is included in your plan, but your subscription needs attention before you can use it`
+          : `${featureName} is not included in your current plan`,
       };
     }
 

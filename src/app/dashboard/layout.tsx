@@ -53,6 +53,7 @@ import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useSessionWarning } from '@/lib/hooks/useSessionWarning';
 import BranchSelector from '@/components/dashboard/BranchSelector';
 import { SessionWarningModal } from '@/components/SessionWarningModal';
+import { SubscriptionRenewalBanner } from '@/components/dashboard/SubscriptionRenewalBanner';
 
 interface SidebarChild {
   label: string;
@@ -689,6 +690,8 @@ export default function DashboardLayout({
             </div>
           </div>
         </header>
+
+        <SubscriptionRenewalBanner />
 
         {/* Page Content */}
         <main className="flex-1 min-h-0 px-4 pt-4 pb-24 lg:p-6 overflow-auto">

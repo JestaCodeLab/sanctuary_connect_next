@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle2, CreditCard, BarChart3, Info, Check, X } from 'lucide-react';
-import { Card } from '@/components/ui';
+import { AlertCircle, CheckCircle2, CreditCard, BarChart3, Info, Check, X, Zap } from 'lucide-react';
+import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { useAuthStore } from '@/store/authStore';
@@ -147,6 +147,7 @@ export default function SubscriptionTab() {
 
   const sub = subscriptionData?.subscription as any;
   const currentPlan = allPlans.find((p: SubscriptionPlanResponse) => p.id === sub?.planId);
+  const renewalWindow = subscriptionData?.renewalWindow;
 
   const usageItems: UsageLimitItem[] = limits
     ? [
@@ -209,17 +210,39 @@ export default function SubscriptionTab() {
             </div>
             <div className="flex items-center gap-2">
               {sub && (
-                <Badge variant={subscriptionStatusVariant[sub.status] || 'muted'}>
-                  {sub.status.charAt(0).toUpperCase() + sub.status.slice(1).replace('_', ' ')}
+                <Badge variant={renewalWindow ? (renewalWindow.inGracePeriod ? 'error' : 'warning') : (subscriptionStatusVariant[sub.status] || 'muted')}>
+                  {renewalWindow
+                    ? (renewalWindow.inGracePeriod ? 'Grace Period' : 'Expiring Soon')
+                    : sub.status.charAt(0).toUpperCase() + sub.status.slice(1).replace('_', ' ')}
                 </Badge>
               )}
-              {allGood ? (
+              {renewalWindow ? (
+                <AlertCircle className={`w-6 h-6 ${renewalWindow.inGracePeriod ? 'text-red-500' : 'text-amber-500'}`} />
+              ) : allGood ? (
                 <CheckCircle2 className="w-6 h-6 text-green-500" />
               ) : (
                 <AlertCircle className="w-6 h-6 text-amber-500" />
               )}
             </div>
           </div>
+
+          {renewalWindow && (
+            <div className={`mb-6 p-3 rounded-lg border flex items-center justify-between gap-4 ${
+              renewalWindow.inGracePeriod
+                ? 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30'
+                : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
+            }`}>
+              <p className={`text-sm ${renewalWindow.inGracePeriod ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                {renewalWindow.inGracePeriod
+                  ? `Your subscription has expired. You have ${renewalWindow.daysRemaining} day${renewalWindow.daysRemaining === 1 ? '' : 's'} left before your organization is switched to the free Seed plan.`
+                  : `Your subscription expires in ${renewalWindow.daysRemaining} day${renewalWindow.daysRemaining === 1 ? '' : 's'}.`}
+              </p>
+              <Button size="sm" onClick={() => setActiveTab('plans')} className="flex-shrink-0">
+                <Zap className="w-4 h-4 mr-1" />
+                Renew Now
+              </Button>
+            </div>
+          )}
 
           {sub && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

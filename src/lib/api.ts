@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import toast from 'react-hot-toast';
 import type {
   LoginRequest,
   LoginResponse,
@@ -196,19 +197,25 @@ api.interceptors.response.use(
         fullResponse: error.response?.data,
       });
       
-      // Only these codes actually come from requireFeature/subscription
-      // gating (a plan/billing problem, which /feature-blocked exists to
-      // explain). A plain 403 with no code - or any other code, e.g. from
-      // authorizeRole/authorizeRoleOrPermission rejecting a custom role
-      // that lacks a given permission - is a role/permission check failing
-      // exactly as designed. That must fail only the one request; hard-
-      // redirecting the whole app to the "upgrade your plan" screen for it
-      // sends the user to a page with nothing to show (it reads org state
-      // from a store that a full-page redirect wipes, since it isn't
-      // populated outside the dashboard layout) - "No organization found".
-      const featureGateCodes = ['NO_ORGANIZATION', 'NO_SUB', 'SUBSCRIPTION_INACTIVE', 'FEATURE_NOT_INCLUDED', 'INSUFFICIENT_SMS_CREDITS'];
+      // FEATURE_NOT_INCLUDED means exactly one gated feature/route isn't on
+      // the org's plan - it must fail only that one request. It must NEVER
+      // hard-navigate the whole app away from wherever the user currently
+      // is: that would lock them out of every other feature they DO have
+      // access to just because one background or incidental request hit a
+      // gated endpoint. Surface it as a toast and let the calling page's
+      // own empty/error state (or a FeatureGate wrapper) handle the rest.
+      if (code === 'FEATURE_NOT_INCLUDED') {
+        toast.error(errorMessage || 'This feature is not included in your current plan');
+      }
 
-      if (typeof window !== 'undefined' && featureGateCodes.includes(code)) {
+      // These remaining codes are genuinely account-wide states (no org
+      // context, no subscription record, subscription inactive/expired, or
+      // out of SMS credits for the action attempted) rather than a single
+      // locked feature, so a full-page redirect to explain/resolve them is
+      // appropriate.
+      const accountWideGateCodes = ['NO_ORGANIZATION', 'NO_SUB', 'SUBSCRIPTION_INACTIVE', 'INSUFFICIENT_SMS_CREDITS'];
+
+      if (typeof window !== 'undefined' && accountWideGateCodes.includes(code)) {
         const isOnBlockedPage = window.location.pathname.startsWith('/feature-blocked');
         const isOnOnboarding = window.location.pathname.startsWith('/onboarding');
 
@@ -231,7 +238,7 @@ api.interceptors.response.use(
           sessionStorage.setItem('featureBlockedFeatureKey', 'sms_credits');
           window.location.href = '/feature-blocked';
         }
-        // Otherwise, redirect to feature-blocked page (NO_ORGANIZATION, SUBSCRIPTION_INACTIVE, FEATURE_NOT_INCLUDED)
+        // Otherwise, redirect to feature-blocked page (NO_ORGANIZATION, SUBSCRIPTION_INACTIVE)
         else if (!isOnBlockedPage && code !== 'NO_SUB') {
           // Store only the feature key in sessionStorage
           sessionStorage.setItem('featureBlockedFeatureKey', featureKey);
@@ -392,6 +399,9 @@ export interface SubscriptionResponse {
     paymentMethod?: string;
   };
   plan: SubscriptionPlanResponse;
+  // Present on GET /api/subscriptions/:organizationId
+  isActive?: boolean;
+  renewalWindow?: { inGracePeriod: boolean; daysRemaining: number } | null;
 }
 
 // Subscription API
