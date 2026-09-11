@@ -13,6 +13,7 @@ import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, membersApi } from '@/lib/api';
 import { donationSchema, type DonationFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
+import { useOrganizationStore } from '@/store/organizationStore';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 import { type DatePreset, datePresetOptions, getPresetRange } from '@/lib/dateFilter';
 import type { Donation } from '@/types';
@@ -108,6 +109,7 @@ function TithesPageContent() {
   const limit = 20;
   const queryClient = useQueryClient();
   const { formatCurrency } = useCurrency();
+  const { organization } = useOrganizationStore();
 
   const dateRange = datePreset === 'custom' ? appliedCustomRange : getPresetRange(datePreset);
   const isRangeReady = datePreset !== 'custom' || !!appliedCustomRange;
@@ -911,7 +913,14 @@ function TithesPageContent() {
 
       {/* Print Receipt Modal */}
       <Modal isOpen={!!receiptTarget} onClose={() => setReceiptTarget(null)} title="Tithe Receipt">
-        {receiptTarget && <DonationReceipt donation={receiptTarget} onClose={() => setReceiptTarget(null)} />}
+        {receiptTarget && (
+          <DonationReceipt
+            donation={receiptTarget}
+            churchName={organization?.churchName}
+            logoUrl={organization?.logoUrl}
+            onClose={() => setReceiptTarget(null)}
+          />
+        )}
       </Modal>
 
       {/* SMS Receipt Prompt (shown right after recording a tithe) */}

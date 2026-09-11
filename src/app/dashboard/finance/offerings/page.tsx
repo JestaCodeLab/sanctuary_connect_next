@@ -13,6 +13,7 @@ import DonationReceipt from '@/components/dashboard/DonationReceipt';
 import { donationsApi, financeApi, membersApi, eventsApi } from '@/lib/api';
 import { donationSchema, offeringTypeSchema, type DonationFormData, type OfferingTypeFormData } from '@/lib/validations';
 import { useCurrency } from '@/lib/hooks/useCurrency';
+import { useOrganizationStore } from '@/store/organizationStore';
 import { FinanceAccessGuard } from '@/components/finance/FinanceAccessGuard';
 import { type DatePreset, datePresetOptions, getPresetRange } from '@/lib/dateFilter';
 import type { Donation, OfferingType } from '@/types';
@@ -241,6 +242,7 @@ function OfferingsPageContent() {
   const limit = 20;
   const queryClient = useQueryClient();
   const { formatCurrency } = useCurrency();
+  const { organization } = useOrganizationStore();
 
   const dateRange = datePreset === 'custom' ? appliedCustomRange : getPresetRange(datePreset);
   const isRangeReady = datePreset !== 'custom' || !!appliedCustomRange;
@@ -1142,7 +1144,14 @@ function OfferingsPageContent() {
 
       {/* Print Receipt Modal */}
       <Modal isOpen={!!receiptTarget} onClose={() => setReceiptTarget(null)} title="Offering Receipt">
-        {receiptTarget && <DonationReceipt donation={receiptTarget} onClose={() => setReceiptTarget(null)} />}
+        {receiptTarget && (
+          <DonationReceipt
+            donation={receiptTarget}
+            churchName={organization?.churchName}
+            logoUrl={organization?.logoUrl}
+            onClose={() => setReceiptTarget(null)}
+          />
+        )}
       </Modal>
 
       <ManageTypesModal

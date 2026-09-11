@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { UploadWidgetConfig, UploadWidgetOnUpdateEvent, UploadWidgetResult } from '@bytescale/upload-widget';
 import { UploadDropzone } from '@bytescale/upload-widget-react';
-import { FileText, Upload, X } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 
 interface AttachmentUploadProps {
   value?: string | null;
@@ -23,6 +23,21 @@ const options: UploadWidgetConfig = {
   styles: {
     colors: {
       primary: '#4F46E5',
+      active: '#4F46E5',
+      error: '#DC2626',
+      // The widget draws its own card (background, border, helper text) -
+      // it can't inherit the app's CSS variables, so it's given a fixed
+      // light, neutral palette that reads cleanly against either a light or
+      // dark app theme instead of the default near-white-on-white styling.
+      shade900: '#F9FAFB', // widget background
+      shade800: '#F3F4F6',
+      shade700: '#E5E7EB', // border
+      shade600: '#D1D5DB',
+      shade500: '#9CA3AF',
+      shade400: '#6B7280', // helper text
+      shade300: '#4B5563',
+      shade200: '#374151',
+      shade100: '#111827', // primary text
     },
     fontSizes: {
       base: 14,
@@ -91,11 +106,10 @@ export function AttachmentUpload({
   return (
     <div className={className}>
       {label && <label className="block text-sm font-medium text-foreground mb-2">{label}</label>}
-      <div className="border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors bg-muted/20 min-h-[100px] flex flex-col items-center justify-center gap-1 p-4">
-        <UploadDropzone options={options} onUpdate={handleUpdate} onComplete={handleComplete} height="100px" width="100%" />
-        <Upload className="w-5 h-5 text-muted" />
-        <p className="text-sm text-muted">Click or drag file (PDF, JPG, PNG — max 5MB)</p>
+      <div className="rounded-lg overflow-hidden border border-border">
+        <UploadDropzone options={options} onUpdate={handleUpdate} onComplete={handleComplete} height="140px" width="100%" />
       </div>
+      <p className="text-xs text-muted mt-1.5">PDF, JPG, PNG or WEBP — max 5MB</p>
     </div>
   );
 }
