@@ -931,7 +931,7 @@ function OfferingsPageContent() {
                 value={watch('paymentAttachmentUrl')}
                 fileName={watch('paymentAttachmentName')}
                 onChange={(url, name) => {
-                  setValue('paymentAttachmentUrl', url || '');
+                  setValue('paymentAttachmentUrl', url || '', { shouldValidate: true });
                   setValue('paymentAttachmentName', name || '');
                 }}
               />
@@ -1116,7 +1116,7 @@ function OfferingsPageContent() {
                       value={editForm.watch('paymentAttachmentUrl')}
                       fileName={editForm.watch('paymentAttachmentName')}
                       onChange={(url, name) => {
-                        editForm.setValue('paymentAttachmentUrl', url || '');
+                        editForm.setValue('paymentAttachmentUrl', url || '', { shouldValidate: true });
                         editForm.setValue('paymentAttachmentName', name || '');
                       }}
                     />

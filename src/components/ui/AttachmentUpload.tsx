@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { UploadWidgetConfig, UploadWidgetOnUpdateEvent } from '@bytescale/upload-widget';
+import { UploadWidgetConfig, UploadWidgetOnUpdateEvent, UploadWidgetResult } from '@bytescale/upload-widget';
 import { UploadDropzone } from '@bytescale/upload-widget-react';
 import { FileText, Upload, X } from 'lucide-react';
 
@@ -47,6 +47,20 @@ export function AttachmentUpload({
     [onChange]
   );
 
+  // With showFinishButton enabled, the widget waits for the user to click
+  // "Finished" before it considers the selection done - onComplete (not
+  // onUpdate) is what fires at that point. Leaving this as a no-op meant
+  // clicking "Finished" never actually recorded the uploaded file.
+  const handleComplete = useCallback(
+    (files: UploadWidgetResult[]) => {
+      if (files.length > 0) {
+        const file = files[0];
+        onChange(file.fileUrl, file.originalFile?.originalFileName || null);
+      }
+    },
+    [onChange]
+  );
+
   if (value) {
     return (
       <div className={className}>
@@ -78,7 +92,7 @@ export function AttachmentUpload({
     <div className={className}>
       {label && <label className="block text-sm font-medium text-foreground mb-2">{label}</label>}
       <div className="border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors bg-muted/20 min-h-[100px] flex flex-col items-center justify-center gap-1 p-4">
-        <UploadDropzone options={options} onUpdate={handleUpdate} onComplete={() => {}} height="100px" width="100%" />
+        <UploadDropzone options={options} onUpdate={handleUpdate} onComplete={handleComplete} height="100px" width="100%" />
         <Upload className="w-5 h-5 text-muted" />
         <p className="text-sm text-muted">Click or drag file (PDF, JPG, PNG — max 5MB)</p>
       </div>

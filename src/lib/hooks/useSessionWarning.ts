@@ -41,7 +41,7 @@ export const useSessionWarning = () => {
       // Use axios directly to bypass the main API interceptor's logout behavior
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       const response = await axios.post(
-        `${API_BASE_URL}/auth/refresh-token`,
+        `${API_BASE_URL}/api/auth/refresh-token`,
         {},
         {
           headers: {

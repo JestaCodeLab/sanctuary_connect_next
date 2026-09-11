@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import ThemeProvider from './ThemeProvider';
 import { useAuthStore } from '@/store/authStore';
 import { useBranchStore } from '@/store/branchStore';
+import { useOrganizationStore } from '@/store/organizationStore';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -23,6 +24,12 @@ function AuthInitializer() {
     // to null - silently undoing any branch switch on every page reload.
     useAuthStore.persist.rehydrate();
     useBranchStore.persist.rehydrate();
+    // Also rehydrate organizationStore - it also uses skipHydration, and
+    // pages outside /dashboard (e.g. /feature-blocked) read from it without
+    // ever mounting dashboard/layout.tsx's setOrganization() effect. Without
+    // this, a hard-redirect to those pages always sees a null organization
+    // even though a valid one is sitting in localStorage.
+    useOrganizationStore.persist.rehydrate();
     setHydrated(true);
   }, []);
 
