@@ -198,15 +198,16 @@ api.interceptors.response.use(
       });
       
       // FEATURE_NOT_INCLUDED means exactly one gated feature/route isn't on
-      // the org's plan - it must fail only that one request. It must NEVER
+      // the org's plan. It must fail only that one request, and must NEVER
       // hard-navigate the whole app away from wherever the user currently
-      // is: that would lock them out of every other feature they DO have
+      // is - that would lock them out of every other feature they DO have
       // access to just because one background or incidental request hit a
-      // gated endpoint. Surface it as a toast and let the calling page's
-      // own empty/error state (or a FeatureGate wrapper) handle the rest.
-      if (code === 'FEATURE_NOT_INCLUDED') {
-        toast.error(errorMessage || 'This feature is not included in your current plan');
-      }
+      // gated endpoint. It's also intentionally silent here (no toast): a
+      // downgraded org's dashboard fires several gated requests at once
+      // (one per widget), which used to mean a stack of near-identical
+      // toasts. DowngradedPlanBanner communicates the plan state once
+      // instead, and the calling page's own empty/error state (or a
+      // FeatureGate wrapper) handles the rest.
 
       // These remaining codes are genuinely account-wide states (no org
       // context, no subscription record, subscription inactive/expired, or
@@ -397,6 +398,8 @@ export interface SubscriptionResponse {
     currentPeriodStart: string;
     currentPeriodEnd: string;
     paymentMethod?: string;
+    autoDowngradedAt?: string;
+    paymentHistory?: { amount: number }[];
   };
   plan: SubscriptionPlanResponse;
   // Present on GET /api/subscriptions/:organizationId

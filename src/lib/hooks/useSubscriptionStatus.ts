@@ -23,12 +23,22 @@ export function useSubscriptionStatus() {
   const subscription = data?.subscription;
   const renewalWindow = data?.renewalWindow ?? null;
 
+  // True once an org that was ever on a paid plan (a completed paymentHistory
+  // entry, or the grace-period job's autoDowngradedAt) ends up back on Seed -
+  // as opposed to an org that simply signed up on Seed and never paid.
+  const wasDowngraded = subscription?.planId === 'seed' && (
+    !!subscription?.autoDowngradedAt ||
+    (subscription?.paymentHistory ?? []).some((p: { amount: number }) => p.amount > 0)
+  );
+
   return {
+    planId: subscription?.planId ?? null,
     planName: data?.plan?.name ?? null,
     currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
     showRenewalBanner: !!renewalWindow,
     inGracePeriod: renewalWindow?.inGracePeriod ?? false,
     daysRemaining: renewalWindow?.daysRemaining ?? 0,
+    wasDowngraded,
   };
 }
 
