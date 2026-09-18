@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   Building2,
   MapPin,
@@ -20,6 +21,7 @@ import { PageHeader, StatsGrid, Badge, EmptyState } from '@/components/dashboard
 import BranchFormModal from '@/components/dashboard/BranchFormModal';
 import { Button, Input, Card } from '@/components/ui';
 import { organizationApi, membersApi } from '@/lib/api';
+import { useBranchLimit } from '@/lib/hooks/useBranchLimit';
 import type { Branch, Member } from '@/types';
 
 export default function BranchesPage() {
@@ -37,6 +39,8 @@ export default function BranchesPage() {
     queryKey: ['members'],
     queryFn: () => membersApi.getAll(),
   });
+
+  const { atLimit, limit } = useBranchLimit();
 
   const branches = orgData?.branches ?? [];
   const organization = orgData?.organization;
@@ -61,6 +65,10 @@ export default function BranchesPage() {
   };
 
   const handleOpenModal = () => {
+    if (atLimit) {
+      toast.error(`Branch limit reached (${limit}). Upgrade your plan to add more branches.`);
+      return;
+    }
     setEditingBranch(null);
     setIsModalOpen(true);
   };

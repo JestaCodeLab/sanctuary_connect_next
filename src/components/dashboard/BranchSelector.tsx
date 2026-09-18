@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, Check, ArrowRightLeft, Plus } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useBranchStore } from '@/store/branchStore';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui';
+import { useBranchLimit } from '@/lib/hooks/useBranchLimit';
 import Modal from './Modal';
 import BranchFormModal from './BranchFormModal';
 
@@ -13,6 +15,7 @@ export default function BranchSelector() {
   const { branches, selectedBranchId, selectBranch } = useBranchStore();
   const { organization } = useOrganizationStore();
   const queryClient = useQueryClient();
+  const { atLimit, limit } = useBranchLimit();
   const [open, setOpen] = useState(false);
   const [pendingBranchId, setPendingBranchId] = useState<string | null | undefined>(undefined);
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
@@ -57,6 +60,10 @@ export default function BranchSelector() {
 
   const handleAddBranch = () => {
     setOpen(false);
+    if (atLimit) {
+      toast.error(`Branch limit reached (${limit}). Upgrade your plan to add more branches.`);
+      return;
+    }
     setIsAddBranchOpen(true);
   };
 

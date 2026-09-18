@@ -106,8 +106,9 @@ function PaystackUpgradeButton({
           queryClient.invalidateQueries({ queryKey: ['subscription'] });
           queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
           toast.success(`${plan.name} renewed!`);
-        } catch {
-          toast.error('Payment received but verification failed. Please contact support.');
+        } catch (err: any) {
+          const message = err?.response?.data?.error || 'Payment received but verification failed. Please contact support.';
+          toast.error(message);
         } finally {
           setIsProcessing(false);
         }
@@ -143,8 +144,9 @@ function PaystackUpgradeButton({
           queryClient.invalidateQueries({ queryKey: ['subscription'] });
           queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
           toast.success(`Upgraded to ${plan.name}!`);
-        } catch {
-          toast.error('Payment received but verification failed. Please contact support.');
+        } catch (err: any) {
+          const message = err?.response?.data?.error || 'Payment received but verification failed. Please contact support.';
+          toast.error(message);
         } finally {
           setIsProcessing(false);
         }
