@@ -32,7 +32,7 @@ const plans: PlanDetails[] = [
   {
     id: 'growth',
     name: 'Growth Plan',
-    price: 550,
+    price: 1000,
     currency: 'GHS',
     description: 'Ideal for established churches',
     features: [
@@ -52,7 +52,7 @@ const plans: PlanDetails[] = [
   {
     id: 'ascend',
     name: 'Ascend Plan',
-    price: 1000,
+    price: 1500,
     currency: 'GHS',
     description: 'Built for large and multi-branch ministries',
     features: [

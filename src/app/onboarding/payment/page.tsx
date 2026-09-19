@@ -20,8 +20,8 @@ import { subscriptionApi, organizationApi } from '@/lib/api';
 
 const planDetails = {
   seed: { name: 'Seed Plan', price: 0 },
-  growth: { name: 'Growth Plan', price: 550 },
-  ascend: { name: 'Ascend Plan', price: 1000 },
+  growth: { name: 'Growth Plan', price: 1000 },
+  ascend: { name: 'Ascend Plan', price: 1500 },
 };
 
 const TAX_RATE = 0.1; // 10% tax

@@ -20,8 +20,8 @@ import { organizationApi, subscriptionApi } from '@/lib/api';
 
 const planDetails = {
   seed: { name: 'Seed Plan', price: 'Free' },
-  growth: { name: 'Growth Plan', price: 'GHS 550/mo' },
-  ascend: { name: 'Ascend Plan', price: 'GHS 1,000/mo' },
+  growth: { name: 'Growth Plan', price: 'GHS 1,000/mo' },
+  ascend: { name: 'Ascend Plan', price: 'GHS 1,500/mo' },
 };
 
 export default function OnboardingReviewPage() {
@@ -248,7 +248,7 @@ export default function OnboardingReviewPage() {
                   {selectedPlan?.name || 'Growth Plan'}
                 </p>
                 <p className="text-xs text-[#4F46E5] font-medium">
-                  {selectedPlan?.price || 'GHS 550/mo'}
+                  {selectedPlan?.price || 'GHS 1,000/mo'}
                 </p>
               </div>
             </div>
