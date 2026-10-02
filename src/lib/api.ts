@@ -685,6 +685,15 @@ export const donationsApi = {
     const response = await api.put<Donation>(`/api/donations/${id}`, data);
     return response.data;
   },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/donations/${id}`);
+  },
+  uploadAttachment: async (file: File): Promise<{ url: string; fileName: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<{ url: string; fileName: string }>('/api/donations/attachment', formData);
+    return response.data;
+  },
   getStats: async (): Promise<DonationStats[]> => {
     const response = await api.get<DonationStats[]>('/api/donations/stats/summary');
     return response.data;

@@ -2,9 +2,9 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Download, Target, Wallet, Hash, Receipt } from 'lucide-react';
+import { ArrowLeft, Download, Target, Wallet, Hash, Receipt, Trash2 } from 'lucide-react';
 
 import { PageHeader, StatsGrid, Badge, EmptyState, Modal } from '@/components/dashboard';
 import { Button, Card, Input } from '@/components/ui';
@@ -51,6 +51,24 @@ function ProjectReportContent({ id }: { id: string }) {
   const [appliedCustomRange, setAppliedCustomRange] = useState<{ start: string; end: string } | null>(null);
   const limit = 20;
   const { formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
+
+  const deleteDonationMutation = useMutation({
+    mutationFn: (donationId: string) => donationsApi.delete(donationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['donations'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success('Donation deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to delete donation');
+    },
+  });
+
+  const handleDeleteDonation = (donation: Donation) => {
+    if (!window.confirm(`Delete this donation from ${donorLabel(donation)} (${formatCurrency(donation.amount)})? This cannot be undone.`)) return;
+    deleteDonationMutation.mutate(donation._id);
+  };
 
   const dateRange = datePreset === 'custom' ? appliedCustomRange : getPresetRange(datePreset);
 
@@ -306,6 +324,7 @@ function ProjectReportContent({ id }: { id: string }) {
                       <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Payment Method</th>
                       <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Date</th>
                       <th className="text-right text-xs font-medium text-muted uppercase tracking-wider px-6 py-3">Amount</th>
+                      <th className="px-6 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -319,6 +338,18 @@ function ProjectReportContent({ id }: { id: string }) {
                         <td className="px-6 py-4 text-sm text-foreground whitespace-nowrap">{formatDate(donation.donationDate)}</td>
                         <td className="px-6 py-4 text-sm font-medium text-foreground text-right whitespace-nowrap">
                           {formatCurrency(donation.amount)}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {donation.paymentMethod !== 'online' && (
+                            <button
+                              onClick={() => handleDeleteDonation(donation)}
+                              disabled={deleteDonationMutation.isPending}
+                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded disabled:opacity-50"
+                              title="Delete donation"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

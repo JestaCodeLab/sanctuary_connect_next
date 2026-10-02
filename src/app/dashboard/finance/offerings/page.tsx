@@ -26,15 +26,15 @@ const paymentMethodOptions = [
   { value: 'cheque', label: 'Cheque' },
 ];
 
-// Uses createdAt (the actual transaction timestamp) rather than donationDate,
-// which is a date-only, admin-editable field with no time-of-day component.
+// Shows donationDate (the date the gift was actually given, which can be
+// backdated) rather than createdAt (when it was keyed in). It's a date-only
+// value stored at UTC midnight, so format in UTC to avoid shifting a day.
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleString('en-US', {
+  return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    timeZone: 'UTC',
   });
 }
 
@@ -44,12 +44,13 @@ function donorLabel(donation: Donation): string {
   return 'Anonymous';
 }
 
-function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsReceipt }: {
+function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsReceipt, onDelete }: {
   donation: Donation;
   onView: () => void;
   onPrintReceipt: () => void;
   onEmailReceipt: () => void;
   onSmsReceipt: () => void;
+  onDelete?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,6 +87,11 @@ function ActionMenu({ donation, onView, onPrintReceipt, onEmailReceipt, onSmsRec
           <button onClick={() => { onSmsReceipt(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800">
             <MessageSquare className="w-4 h-4" /> SMS Receipt
           </button>
+          {onDelete && (
+            <button onClick={() => { onDelete(); setIsOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-border">
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -418,6 +424,24 @@ function OfferingsPageContent() {
     createMutation.mutate(data);
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => donationsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['donations'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success('Offering deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to delete offering');
+    },
+  });
+
+  const handleDelete = (donation: Donation) => {
+    const who = donation.donorId ? `${donation.donorId.firstName} ${donation.donorId.lastName}` : donation.donorName || 'this entry';
+    if (!window.confirm(`Delete this offering from ${who} (${formatCurrency(donation.amount)})? This cannot be undone.`)) return;
+    deleteMutation.mutate(donation._id);
+  };
+
   const handleView = (donation: Donation) => {
     setViewTarget(donation);
     setIsEditMode(false);
@@ -499,7 +523,7 @@ function OfferingsPageContent() {
         d.amount.toString(),
         d.paymentMethod || 'N/A',
         d.chequeNumber || '',
-        formatDate(d.createdAt),
+        formatDate(d.donationDate),
       ]),
     ];
 
@@ -644,7 +668,7 @@ function OfferingsPageContent() {
                         {donation.paymentMethod?.replace('_', ' ') || 'N/A'}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{formatDate(donation.createdAt)}</td>
+                    <td className="px-6 py-4 text-sm text-muted whitespace-nowrap">{formatDate(donation.donationDate)}</td>
                     <td className="px-6 py-4 text-right">
                       <ActionMenu
                         donation={donation}
@@ -652,6 +676,7 @@ function OfferingsPageContent() {
                         onPrintReceipt={() => setReceiptTarget(donation)}
                         onEmailReceipt={() => handleEmailReceipt(donation)}
                         onSmsReceipt={() => handleSmsReceipt(donation)}
+                        onDelete={donation.paymentMethod === 'online' ? undefined : () => handleDelete(donation)}
                       />
                     </td>
                   </tr>
@@ -1030,7 +1055,7 @@ function OfferingsPageContent() {
                   )}
                   <div>
                     <p className="text-sm text-muted">Date</p>
-                    <p className="font-medium">{formatDate(viewTarget.createdAt)}</p>
+                    <p className="font-medium">{formatDate(viewTarget.donationDate)}</p>
                   </div>
                 </div>
                 <div className="flex gap-3 pt-4 border-t border-border">
@@ -1081,6 +1106,17 @@ function OfferingsPageContent() {
                     placeholder="0.00"
                     {...editForm.register('amount', { valueAsNumber: true })}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Date</label>
+                  <Input
+                    type="date"
+                    {...editForm.register('donationDate')}
+                  />
+                  {editForm.formState.errors.donationDate && (
+                    <span className="text-sm text-red-600">{editForm.formState.errors.donationDate.message}</span>
+                  )}
                 </div>
 
                 <div>

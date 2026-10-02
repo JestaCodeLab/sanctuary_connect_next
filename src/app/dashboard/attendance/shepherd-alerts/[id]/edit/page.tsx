@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, AlertCircle, Loader, Plus, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import BranchField from '@/components/dashboard/BranchField';
+import ShepherdEventPicker from '@/components/dashboard/ShepherdEventPicker';
 import { api } from '@/lib/api';
 import { useBranchStore } from '@/store/branchStore';
 import toast from 'react-hot-toast';
@@ -23,6 +24,7 @@ interface FormData {
   shepherds: Array<{ memberId: string; phoneNumber: string }>;
   absenceThreshold: number;
   lookbackPeriodDays: number;
+  eventIds: string[];
 }
 
 export default function EditShepherdAlertPage() {
@@ -42,6 +44,7 @@ export default function EditShepherdAlertPage() {
     shepherds: [],
     absenceThreshold: 3,
     lookbackPeriodDays: 30,
+    eventIds: [],
   });
 
   const [selectedShepherd, setSelectedShepherd] = useState('');
@@ -83,6 +86,8 @@ export default function EditShepherdAlertPage() {
           })),
           absenceThreshold: alertData.absenceThreshold || 3,
           lookbackPeriodDays: alertData.lookbackPeriodDays || 30,
+          // Populated as {_id, title} objects - flatten back to ID strings
+          eventIds: (alertData.eventIds || []).map((e: any) => (typeof e === 'string' ? e : e._id)),
         });
 
         setMembers(Array.isArray(membersRes.data) ? membersRes.data : membersRes.data.members || []);
@@ -323,6 +328,14 @@ export default function EditShepherdAlertPage() {
               <option value={90}>Last 90 days</option>
             </select>
             <p className="text-xs text-muted-foreground mt-1">Count absences in this period</p>
+          </div>
+
+          {/* Services to Monitor - Full Width */}
+          <div className="md:col-span-2">
+            <ShepherdEventPicker
+              value={formData.eventIds}
+              onChange={(eventIds) => setFormData(prev => ({ ...prev, eventIds }))}
+            />
           </div>
 
           {/* Shepherds to Notify - Full Width */}

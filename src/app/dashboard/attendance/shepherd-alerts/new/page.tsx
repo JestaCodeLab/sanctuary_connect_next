@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, AlertCircle, Loader, Plus, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import BranchField from '@/components/dashboard/BranchField';
+import ShepherdEventPicker from '@/components/dashboard/ShepherdEventPicker';
 import { api } from '@/lib/api';
 import { useBranchStore } from '@/store/branchStore';
 import toast from 'react-hot-toast';
@@ -23,6 +24,7 @@ interface FormData {
   shepherds: Array<{ memberId: string; phoneNumber: string }>;
   absenceThreshold: number;
   lookbackPeriodDays: number;
+  eventIds: string[];
 }
 
 export default function NewShepherdAlertPage() {
@@ -39,6 +41,7 @@ export default function NewShepherdAlertPage() {
     shepherds: [],
     absenceThreshold: 3,
     lookbackPeriodDays: 30,
+    eventIds: [],
   });
 
   const [selectedShepherd, setSelectedShepherd] = useState('');
@@ -248,6 +251,12 @@ export default function NewShepherdAlertPage() {
             <p className="text-xs text-muted-foreground mt-1">Count absences in this period</p>
           </div>
         </div>
+
+        {/* Services to Monitor */}
+        <ShepherdEventPicker
+          value={formData.eventIds}
+          onChange={(eventIds) => setFormData(prev => ({ ...prev, eventIds }))}
+        />
 
         {/* Shepherds to Notify */}
         <div>
