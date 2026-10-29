@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Church,
@@ -18,10 +19,10 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { useAuthStore } from '@/store/authStore';
 import { organizationApi, subscriptionApi } from '@/lib/api';
 
-const planDetails = {
-  seed: { name: 'Seed Plan', price: 'Free' },
-  growth: { name: 'Growth Plan', price: 'GHS 1,000/mo' },
-  ascend: { name: 'Ascend Plan', price: 'GHS 1,500/mo' },
+const planNames = {
+  seed: 'Seed Plan',
+  growth: 'Growth Plan',
+  ascend: 'Ascend Plan',
 };
 
 export default function OnboardingReviewPage() {
@@ -29,6 +30,11 @@ export default function OnboardingReviewPage() {
   const { identity, branches, finances, subscription, organizationId, reset } = useOnboardingStore();
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
+
+  const { data: livePlans = [] } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: subscriptionApi.getPlans,
+  });
 
   useEffect(() => {
     if (!organizationId) {
@@ -108,7 +114,16 @@ export default function OnboardingReviewPage() {
     missions: 'Global Missions',
   };
 
-  const selectedPlan = subscription.plan ? planDetails[subscription.plan] : null;
+  const livePlan = livePlans.find((p) => p.id === subscription.plan);
+  const isAnnual = subscription.billingCycle === 'annual';
+  const planPrice = !subscription.plan || subscription.plan === 'seed'
+    ? 'Free'
+    : livePlan
+      ? `GHS ${((isAnnual ? livePlan.annualPrice : livePlan.effectiveMonthlyPrice) ?? livePlan.price).toLocaleString()}${isAnnual ? '/yr' : '/mo'}`
+      : '';
+  const selectedPlan = subscription.plan
+    ? { name: livePlan?.name || planNames[subscription.plan], price: planPrice }
+    : null;
 
   return (
     <div>
@@ -248,7 +263,7 @@ export default function OnboardingReviewPage() {
                   {selectedPlan?.name || 'Growth Plan'}
                 </p>
                 <p className="text-xs text-[#4F46E5] font-medium">
-                  {selectedPlan?.price || 'GHS 1,000/mo'}
+                  {selectedPlan?.price}
                 </p>
               </div>
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
@@ -18,13 +19,13 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { useAuthStore } from '@/store/authStore';
 import { subscriptionApi, organizationApi } from '@/lib/api';
 
-const planDetails = {
-  seed: { name: 'Seed Plan', price: 0 },
-  growth: { name: 'Growth Plan', price: 1000 },
-  ascend: { name: 'Ascend Plan', price: 1500 },
+const planNames = {
+  seed: 'Seed Plan',
+  growth: 'Growth Plan',
+  ascend: 'Ascend Plan',
 };
 
-const TAX_RATE = 0.1; // 10% tax
+const TAX_RATE = 0.1; // display only - the server quotes and charges the real amount
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -36,11 +37,26 @@ export default function PaymentPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const selectedPlan = subscription.plan || 'growth';
-  const plan = planDetails[selectedPlan];
-  const subscriptionFee = plan.price;
-  const tax = Math.round(subscriptionFee * TAX_RATE);
-  const total = subscriptionFee + tax;
   const billingCycle = subscription.billingCycle || 'monthly';
+
+  const { data: livePlans = [], isLoading: plansLoading } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: subscriptionApi.getPlans,
+  });
+  const livePlan = livePlans.find((p) => p.id === selectedPlan);
+  const plan = { name: livePlan?.name || planNames[selectedPlan] };
+  // Same numbers the server will charge (buildQuote); shown here for the summary only
+  const subscriptionFee = livePlan
+    ? (billingCycle === 'annual' ? livePlan.annualPrice : livePlan.effectiveMonthlyPrice) ?? 0
+    : 0;
+  const listFee = livePlan
+    ? (billingCycle === 'annual' ? livePlan.annualListPrice : livePlan.price) ?? subscriptionFee
+    : subscriptionFee;
+  const discount = livePlan
+    ? (billingCycle === 'annual' ? livePlan.annualDiscount : livePlan.monthlyDiscount)
+    : null;
+  const tax = Math.round(subscriptionFee * TAX_RATE * 100) / 100;
+  const total = Math.round((subscriptionFee + tax) * 100) / 100;
 
   // Handle redirect from Paystack
   useEffect(() => {
@@ -105,7 +121,6 @@ export default function PaymentPage() {
         planId: selectedPlan,
         billingCycle,
         paymentMethod,
-        amount: total,
       });
 
       if (response.authorizationUrl) {
@@ -177,9 +192,15 @@ export default function PaymentPage() {
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">Subscription</span>
               <span className="text-gray-900 dark:text-gray-100">
-                GHS {subscriptionFee.toFixed(2)}
+                GHS {listFee.toFixed(2)}
               </span>
             </div>
+            {discount && (
+              <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                <span>{discount.name}</span>
+                <span>−GHS {(listFee - subscriptionFee).toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">Platform Tax (10%)</span>
               <span className="text-gray-900 dark:text-gray-100">GHS {tax.toFixed(2)}</span>
@@ -193,7 +214,9 @@ export default function PaymentPage() {
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start gap-2">
             <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              Your next billing date will be 30 days from today.
+              {billingCycle === 'annual'
+                ? 'Your subscription covers a full year. Your next billing date will be one year from today.'
+                : 'Your next billing date will be 30 days from today.'}
             </p>
           </div>
         </Card>
@@ -280,7 +303,7 @@ export default function PaymentPage() {
             size="lg"
             className="w-full"
             isLoading={isLoading}
-            disabled={isProcessing}
+            disabled={isProcessing || plansLoading}
             onClick={handleInitializeCheckout}
             leftIcon={<Rocket className="w-5 h-5" />}
           >

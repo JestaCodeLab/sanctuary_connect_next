@@ -17,6 +17,7 @@ import {
   X,
   Shield,
   Headphones,
+  Percent,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -26,6 +27,7 @@ const navLinks = [
   { label: 'Subscriptions', href: '/superadmin/subscriptions', icon: CreditCard },
   { label: 'SMS Credits', href: '/superadmin/sms-credits', icon: MessageSquare },
   { label: 'SMS Packages', href: '/superadmin/sms-packages', icon: Package },
+  { label: 'Plan Discounts', href: '/superadmin/plan-discounts', icon: Percent },
   { label: 'Audit Log', href: '/superadmin/audit-log', icon: ScrollText },
   { label: 'Finance Approvals', href: '/superadmin/finance-approvals', icon: DollarSign },
   { label: 'Support', href: '/superadmin/support', icon: Headphones },

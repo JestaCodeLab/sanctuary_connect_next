@@ -3,71 +3,52 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { usePaystackPayment } from 'react-paystack';
 import { Users, Building, MessageSquare, Check, X as XIcon, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
 import { subscriptionApi } from '@/lib/api';
-import type { SubscriptionPlanResponse } from '@/lib/api';
+import type { SubscriptionPlanResponse, SubscriptionQuote } from '@/lib/api';
 
-const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxx';
-const TAX_RATE = 0.1;
+const money = (currency: string, n: number) =>
+  `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 function PaystackUpgradeButton({
   plan,
   billingCycle,
   organization,
-  userEmail,
   currentPlanPrice,
+  currentBillingCycle,
   isCurrentPlan,
   isExpired,
 }: {
   plan: SubscriptionPlanResponse;
   billingCycle: 'monthly' | 'annual';
   organization: any;
-  userEmail: string;
   currentPlanPrice: number;
+  currentBillingCycle?: 'monthly' | 'annual';
   isCurrentPlan: boolean;
   isExpired: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+  const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
 
   const isUpgrade = plan.price > currentPlanPrice;
   const isDowngrade = plan.price < currentPlanPrice;
-
-  const planPrice = billingCycle === 'annual' && plan.annualPrice ? plan.annualPrice : plan.price;
-  const totalWithTax = Math.round(planPrice * (1 + TAX_RATE));
-  const amountInPesewas = totalWithTax * 100;
-
-  const config = {
-    reference: `upgrade_${organization._id}_${plan.id}_${Date.now()}`,
-    email: userEmail,
-    amount: amountInPesewas,
-    currency: 'GHS',
-    publicKey: PAYSTACK_PUBLIC_KEY,
-    metadata: {
-      custom_fields: [
-        { display_name: 'Organization', variable_name: 'organization_id', value: organization._id },
-        { display_name: 'Plan', variable_name: 'plan_id', value: plan.id },
-        { display_name: 'Billing Cycle', variable_name: 'billing_cycle', value: billingCycle },
-      ],
-    },
-  };
-
-  const initializePayment = usePaystackPayment(config);
+  // Same plan, but the org is on monthly and is looking at the annual toggle (or vice versa)
+  const isCycleChange = isCurrentPlan && !isExpired && !!currentBillingCycle && currentBillingCycle !== billingCycle;
 
   const downgradeMutation = useMutation({
-    mutationFn: () =>
-      subscriptionApi.update(organization._id, { planId: plan.id, billingCycle }),
+    // Cycle is deliberately not sent: a downgrade keeps the paid period and cycle as-is.
+    mutationFn: () => subscriptionApi.update(organization._id, { planId: plan.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
-      toast.success(`Downgraded to ${plan.name}`);
+      toast.success(`Switched to ${plan.name}`);
       setShowDowngradeConfirm(false);
     },
-    onError: () => {
-      toast.error('Failed to change plan');
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to change plan');
     },
   });
 
@@ -85,95 +66,129 @@ function PaystackUpgradeButton({
     },
   });
 
+  // Step 1: ask the server what this purchase costs (discount + credit for unused time)
+  const requestQuote = async () => {
+    setIsProcessing(true);
+    try {
+      setQuote(await subscriptionApi.getQuote(organization._id, { planId: plan.id, billingCycle }));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not calculate price');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Step 2: server initializes Paystack with exactly the quoted amount; we redirect.
+  // /dashboard/subscription/callback verifies the payment when Paystack sends them back.
+  const confirmAndPay = async () => {
+    setIsProcessing(true);
+    try {
+      const init = await subscriptionApi.initializePayment(organization._id, { planId: plan.id, billingCycle });
+      window.location.href = init.authorization_url;
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to start payment');
+      setIsProcessing(false);
+    }
+  };
+
   const handleRenewClick = () => {
     if (plan.price === 0) {
       setIsProcessing(true);
       renewMutation.mutate();
       return;
     }
-
-    // Paid plan: same Paystack popup + verify flow used for upgrades - price
-    // is unchanged so verifyUpgrade labels this a 'renewal' server-side.
-    setIsProcessing(true);
-    initializePayment({
-      onSuccess: async (response: { reference: string }) => {
-        try {
-          await subscriptionApi.verifyUpgrade(organization._id, {
-            reference: response.reference,
-            planId: plan.id,
-            billingCycle,
-          });
-          queryClient.invalidateQueries({ queryKey: ['subscription'] });
-          queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
-          toast.success(`${plan.name} renewed!`);
-        } catch (err: any) {
-          const message = err?.response?.data?.error || 'Payment received but verification failed. Please contact support.';
-          toast.error(message);
-        } finally {
-          setIsProcessing(false);
-        }
-      },
-      onClose: () => {
-        setIsProcessing(false);
-      },
-    });
+    requestQuote();
   };
 
   const handleUpgradeClick = () => {
-    if (plan.price === 0) {
-      // Downgrade to free — show confirmation
+    if (plan.price === 0 || isDowngrade) {
       setShowDowngradeConfirm(true);
       return;
     }
-
-    if (isDowngrade) {
-      setShowDowngradeConfirm(true);
-      return;
-    }
-
-    // Upgrade — trigger Paystack payment
-    setIsProcessing(true);
-    initializePayment({
-      onSuccess: async (response: { reference: string }) => {
-        try {
-          await subscriptionApi.verifyUpgrade(organization._id, {
-            reference: response.reference,
-            planId: plan.id,
-            billingCycle,
-          });
-          queryClient.invalidateQueries({ queryKey: ['subscription'] });
-          queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
-          toast.success(`Upgraded to ${plan.name}!`);
-        } catch (err: any) {
-          const message = err?.response?.data?.error || 'Payment received but verification failed. Please contact support.';
-          toast.error(message);
-        } finally {
-          setIsProcessing(false);
-        }
-      },
-      onClose: () => {
-        setIsProcessing(false);
-      },
-    });
+    requestQuote();
   };
 
-  if (isCurrentPlan) {
+  const quoteModal = quote && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-1">
+          {isExpired && isCurrentPlan ? 'Renew' : isCycleChange ? 'Change billing cycle' : 'Confirm'} — {plan.name}
+        </h3>
+        <p className="text-sm text-muted mb-4 capitalize">{quote.billingCycle} billing</p>
+
+        <dl className="text-sm space-y-2 border-t border-border pt-4">
+          <div className="flex justify-between">
+            <dt className="text-muted">{plan.name} ({quote.billingCycle})</dt>
+            <dd className="text-foreground">{money(quote.currency, quote.listPrice ?? quote.price)}</dd>
+          </div>
+          {quote.discount && (
+            <div className="flex justify-between text-green-600 dark:text-green-400">
+              <dt>{quote.discount.name}</dt>
+              <dd>−{money(quote.currency, quote.discount.amountOff)}</dd>
+            </div>
+          )}
+          {quote.credit > 0 && (
+            <div className="flex justify-between text-green-600 dark:text-green-400">
+              <dt>Credit for unused time on current plan</dt>
+              <dd>−{money(quote.currency, quote.credit)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt className="text-muted">Tax ({Math.round(quote.taxRate * 100)}%)</dt>
+            <dd className="text-foreground">{money(quote.currency, quote.taxAmount)}</dd>
+          </div>
+          <div className="flex justify-between pt-2 border-t border-border font-semibold">
+            <dt className="text-foreground">Total due</dt>
+            <dd className="text-foreground">{money(quote.currency, quote.total)}</dd>
+          </div>
+        </dl>
+
+        <p className="text-xs text-muted mt-4">
+          Your {quote.billingCycle === 'annual' ? 'year' : 'month'} starts today and renews on{' '}
+          {new Date(quote.periodEnd).toLocaleDateString()}.
+        </p>
+
+        <div className="flex gap-3 justify-end mt-6">
+          <Button variant="outline" size="sm" onClick={() => setQuote(null)} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" isLoading={isProcessing} onClick={confirmAndPay}>
+            Pay {money(quote.currency, quote.total)}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isCurrentPlan && !isCycleChange) {
     if (isExpired) {
       return (
-        <Button
-          variant="primary"
-          size="sm"
-          className="w-full"
-          onClick={handleRenewClick}
-          isLoading={isProcessing || renewMutation.isPending}
-        >
-          Renew
-        </Button>
+        <>
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={handleRenewClick}
+            isLoading={isProcessing || renewMutation.isPending}
+          >
+            Renew
+          </Button>
+          {quoteModal}
+        </>
       );
     }
     return (
       <Button variant="outline" size="sm" className="w-full" disabled>
         Current Plan
+      </Button>
+    );
+  }
+
+  // Moving a paid plan from annual back to monthly takes effect at renewal; nothing to buy now.
+  if (isCycleChange && billingCycle === 'monthly') {
+    return (
+      <Button variant="outline" size="sm" className="w-full" disabled>
+        Current Plan (annual)
       </Button>
     );
   }
@@ -187,9 +202,11 @@ function PaystackUpgradeButton({
         onClick={handleUpgradeClick}
         isLoading={isProcessing || downgradeMutation.isPending}
       >
-        {isUpgrade ? 'Upgrade' : plan.price === 0 ? 'Downgrade' : 'Switch Plan'}
+        {isCycleChange ? 'Switch to Annual' : isUpgrade ? 'Upgrade' : plan.price === 0 ? 'Downgrade' : 'Switch Plan'}
         <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
+
+      {quoteModal}
 
       {/* Downgrade Confirmation Modal */}
       {showDowngradeConfirm && (
@@ -204,15 +221,10 @@ function PaystackUpgradeButton({
             <p className="text-sm text-muted mb-2">
               Are you sure you want to switch to <strong>{plan.name}</strong>?
             </p>
-            {plan.price === 0 ? (
-              <p className="text-sm text-muted mb-6">
-                Your plan will change immediately. You may lose access to premium features.
-              </p>
-            ) : (
-              <p className="text-sm text-muted mb-6">
-                Your plan will change at the end of your current billing period.
-              </p>
-            )}
+            <p className="text-sm text-muted mb-6">
+              Your plan will change immediately. You may lose access to premium features, and the
+              remaining time you've already paid for is not refunded.
+            </p>
             <div className="flex gap-3 justify-end">
               <Button variant="outline" size="sm" onClick={() => setShowDowngradeConfirm(false)}>
                 Cancel
@@ -236,13 +248,14 @@ function PaystackUpgradeButton({
 export default function SubscriptionPlansGrid({
   organization,
   currentPlanId,
+  currentBillingCycle,
   currentPeriodEnd,
-  userEmail,
 }: {
   organization: any;
   currentPlanId?: string;
+  currentBillingCycle?: 'monthly' | 'annual';
   currentPeriodEnd?: string | Date;
-  userEmail: string;
+  userEmail?: string;
 }) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const isExpired = currentPeriodEnd ? new Date(currentPeriodEnd) < new Date() : false;
@@ -253,6 +266,12 @@ export default function SubscriptionPlansGrid({
   });
 
   const currentPlan = allPlans.find((p: SubscriptionPlanResponse) => p.id === currentPlanId);
+
+  // Headline saving for the toggle, derived from real active discounts (none -> no badge)
+  const bestAnnualSavingPct = allPlans.reduce((best: number, p: SubscriptionPlanResponse) => {
+    if (!p.annualListPrice || p.annualPrice == null || p.annualListPrice <= 0) return best;
+    return Math.max(best, Math.round((1 - p.annualPrice / p.annualListPrice) * 100));
+  }, 0);
 
   if (plansLoading) {
     return (
@@ -297,7 +316,9 @@ export default function SubscriptionPlansGrid({
             }`}
           >
             Annual
-            <span className="ml-1 text-green-600 dark:text-green-400">Save 17%</span>
+            {bestAnnualSavingPct > 0 && (
+              <span className="ml-1 text-green-600 dark:text-green-400">Save up to {bestAnnualSavingPct}%</span>
+            )}
           </button>
         </div>
       </div>
@@ -307,9 +328,12 @@ export default function SubscriptionPlansGrid({
           .filter((plan: SubscriptionPlanResponse) => plan.price !== null)
           .map((plan: SubscriptionPlanResponse) => {
             const isCurrentPlan = plan.id === currentPlanId;
-            const displayPrice = billingCycle === 'annual' && plan.annualPrice
-              ? Math.round(plan.annualPrice / 12)
-              : plan.price;
+            const isAnnual = billingCycle === 'annual';
+            const perMonth = isAnnual
+              ? (plan.annualPrice ?? 0) / 12
+              : (plan.effectiveMonthlyPrice ?? plan.price);
+            const displayPrice = Math.round(perMonth * 100) / 100;
+            const discount = isAnnual ? plan.annualDiscount : plan.monthlyDiscount;
 
             return (
               <Card
@@ -338,10 +362,23 @@ export default function SubscriptionPlansGrid({
                         <span className="text-sm text-muted">/mo</span>
                       </div>
                     )}
-                    {billingCycle === 'annual' && plan.price > 0 && plan.annualPrice && (
+                    {isAnnual && plan.price > 0 && plan.annualPrice != null && (
                       <p className="text-xs text-muted mt-1">
+                        {discount && plan.annualListPrice != null && (
+                          <span className="line-through mr-1">{plan.currency} {plan.annualListPrice.toLocaleString()}</span>
+                        )}
                         {plan.currency} {plan.annualPrice.toLocaleString()}/year
                       </p>
+                    )}
+                    {!isAnnual && discount && plan.price > 0 && (
+                      <p className="text-xs text-muted mt-1">
+                        <span className="line-through mr-1">{plan.currency} {plan.price.toLocaleString()}</span>
+                      </p>
+                    )}
+                    {discount && (
+                      <span className="inline-block mt-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                        {discount.name}
+                      </span>
                     )}
                   </div>
 
@@ -387,8 +424,8 @@ export default function SubscriptionPlansGrid({
                       plan={plan}
                       billingCycle={billingCycle}
                       organization={organization}
-                      userEmail={userEmail}
                       currentPlanPrice={currentPlan?.price || 0}
+                      currentBillingCycle={currentBillingCycle}
                       isCurrentPlan={isCurrentPlan}
                       isExpired={isExpired}
                     />

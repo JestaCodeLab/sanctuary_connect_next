@@ -350,11 +350,45 @@ export const organizationApi = {
 };
 
 // Subscription types
+export interface PlanDiscountSummary {
+  id: string;
+  name: string;
+  type: 'percent' | 'fixed';
+  value: number;
+  amountOff: number;
+}
+
+/** Server-computed price for moving an org onto a plan/cycle. All amounts in GHS. */
+export interface SubscriptionQuote {
+  planId: string;
+  billingCycle: 'monthly' | 'annual';
+  currency: string;
+  listPrice: number | null;
+  discount: PlanDiscountSummary | null;
+  /** Price after discount, before credit and tax. */
+  price: number;
+  /** Credit for unused time already paid on the current period. */
+  credit: number;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  totalPesewas: number;
+  coveredByCredit: boolean;
+  periodEnd: string;
+}
+
 export interface SubscriptionPlanResponse {
   id: string;
   name: string;
   price: number;
+  /** Annual price after any active discount (list price is annualListPrice). */
   annualPrice: number;
+  annualListPrice: number | null;
+  annualDiscount: PlanDiscountSummary | null;
+  /** Monthly price after any active discount (list price is `price`). */
+  effectiveMonthlyPrice: number | null;
+  monthlyDiscount: PlanDiscountSummary | null;
   currency: string;
   description: string;
   features: { key: string; text: string; included: boolean }[];
@@ -400,6 +434,7 @@ export interface SubscriptionResponse {
     paymentMethod?: string;
     autoDowngradedAt?: string;
     paymentHistory?: { amount: number }[];
+    priceAtSubscription?: { amount: number; currency: string };
   };
   plan: SubscriptionPlanResponse;
   // Present on GET /api/subscriptions/:organizationId
@@ -434,17 +469,22 @@ export const subscriptionApi = {
     return response.data;
   },
 
-  initializeCheckout: async (data: { organizationId: string; planId: string; billingCycle: string; paymentMethod: string; amount: number }) => {
+  initializeCheckout: async (data: { organizationId: string; planId: string; billingCycle: string; paymentMethod: string }): Promise<{ reference: string; authorizationUrl: string; accessCode: string; quote: SubscriptionQuote }> => {
     const response = await api.post('/api/subscriptions/initialize-checkout', data);
     return response.data;
   },
 
-  initializePayment: async (organizationId: string, data: { planId: string; billingCycle: string }) => {
+  getQuote: async (organizationId: string, data: { planId: string; billingCycle: string }): Promise<SubscriptionQuote> => {
+    const response = await api.post<SubscriptionQuote>(`/api/subscriptions/${organizationId}/quote`, data);
+    return response.data;
+  },
+
+  initializePayment: async (organizationId: string, data: { planId: string; billingCycle: string }): Promise<{ authorization_url: string; access_code: string; reference: string; amount: number; currency: string; quote: SubscriptionQuote }> => {
     const response = await api.post(`/api/subscriptions/${organizationId}/initialize-payment`, data);
     return response.data;
   },
 
-  verifyUpgrade: async (organizationId: string, data: { reference: string; planId: string; billingCycle: string }) => {
+  verifyUpgrade: async (organizationId: string, data: { reference: string }) => {
     const response = await api.post(`/api/subscriptions/${organizationId}/verify-payment`, data);
     return response.data;
   },

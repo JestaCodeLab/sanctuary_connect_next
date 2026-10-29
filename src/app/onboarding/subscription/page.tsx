@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ArrowLeft, ArrowRight, Check, X, Sparkles } from 'lucide-react';
@@ -77,10 +78,31 @@ export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(subscription.plan);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Live prices (with superadmin discounts) come from the API; the hardcoded
+  // list above only supplies copy/features and is the fallback while loading.
+  const { data: livePlans = [] } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: subscriptionApi.getPlans,
+  });
+  const livePlan = (id: string) => livePlans.find((p) => p.id === id);
+
   const getPrice = (plan: PlanDetails) => {
     if (plan.price === 0) return 'Free';
-    const price = billingCycle === 'annual' ? Math.round(plan.price * 10) : plan.price;
+    const live = livePlan(plan.id);
+    const price = billingCycle === 'annual'
+      ? (live?.annualPrice ?? plan.price * 12)
+      : (live?.effectiveMonthlyPrice ?? plan.price);
     return `${plan.currency} ${price.toLocaleString()}`;
+  };
+
+  const getDiscount = (plan: PlanDetails) => {
+    const live = livePlan(plan.id);
+    return billingCycle === 'annual' ? live?.annualDiscount : live?.monthlyDiscount;
+  };
+
+  const getListPrice = (plan: PlanDetails) => {
+    const live = livePlan(plan.id);
+    return billingCycle === 'annual' ? live?.annualListPrice : live?.price;
   };
 
   const getPriceSuffix = (plan: PlanDetails) => {
@@ -176,9 +198,15 @@ export default function SubscriptionPage() {
         >
           Annual
         </button>
-        {billingCycle === 'annual' && (
-          <span className="ml-2 text-xs text-green-500 font-medium">Save ~17%</span>
-        )}
+        {(() => {
+          const pct = livePlans.reduce((best, p) => {
+            if (!p.annualListPrice || p.annualPrice == null) return best;
+            return Math.max(best, Math.round((1 - p.annualPrice / p.annualListPrice) * 100));
+          }, 0);
+          return pct > 0 ? (
+            <span className="ml-2 text-xs text-green-500 font-medium">Save up to {pct}%</span>
+          ) : null;
+        })()}
       </div>
 
       {/* Pricing Cards */}
@@ -218,6 +246,16 @@ export default function SubscriptionPage() {
                   {getPriceSuffix(plan)}
                 </span>
               </div>
+              {plan.price > 0 && getDiscount(plan) && (
+                <p className="text-xs mt-1">
+                  <span className="text-gray-400 line-through mr-1">
+                    {plan.currency} {(getListPrice(plan) ?? 0).toLocaleString()}
+                  </span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    {getDiscount(plan)!.name}
+                  </span>
+                </p>
+              )}
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 {plan.description}
               </p>

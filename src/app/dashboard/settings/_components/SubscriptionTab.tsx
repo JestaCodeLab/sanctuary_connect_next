@@ -6,7 +6,6 @@ import { AlertCircle, CheckCircle2, CreditCard, BarChart3, Info, Check, X, Zap }
 import { Card, Button } from '@/components/ui';
 import { Badge } from '@/components/dashboard';
 import { useOrganizationStore } from '@/store/organizationStore';
-import { useAuthStore } from '@/store/authStore';
 import { subscriptionApi } from '@/lib/api';
 import type { SubscriptionPlanResponse } from '@/lib/api';
 import SubscriptionPlansGrid from '@/components/dashboard/SubscriptionPlansGrid';
@@ -124,7 +123,6 @@ function UsageCard({ item }: { item: UsageLimitItem }) {
 
 export default function SubscriptionTab() {
   const { organization } = useOrganizationStore();
-  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('plans');
 
   const { data: limits, isLoading, error } = useQuery({
@@ -257,7 +255,9 @@ export default function SubscriptionTab() {
                 <p className="text-lg font-bold text-foreground mt-1">
                   {currentPlan ? (
                     currentPlan.price === 0 ? 'Free' : formatCurrency(
-                      sub.billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price,
+                      // What this org actually pays for the current period (discounts included)
+                      sub.priceAtSubscription?.amount
+                        ?? (sub.billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price),
                       currentPlan.currency
                     ) + (sub.billingCycle === 'annual' ? '/yr' : '/mo')
                   ) : '—'}
@@ -334,8 +334,8 @@ export default function SubscriptionTab() {
             <SubscriptionPlansGrid
               organization={organization}
               currentPlanId={limits?.planId}
+              currentBillingCycle={sub?.billingCycle}
               currentPeriodEnd={sub?.currentPeriodEnd}
-              userEmail={user?.email || ''}
             />
           )}
 
